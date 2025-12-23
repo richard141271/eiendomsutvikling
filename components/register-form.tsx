@@ -18,6 +18,8 @@ import {
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { createClient } from "@/lib/supabase"
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
+import { CheckCircle2 } from "lucide-react"
 
 const formSchema = z.object({
   name: z.string().min(2, "Navn må være minst 2 tegn"),
@@ -29,6 +31,7 @@ export function RegisterForm() {
   const router = useRouter()
   const [isLoading, setIsLoading] = React.useState(false)
   const [error, setError] = React.useState<string | null>(null)
+  const [isSuccess, setIsSuccess] = React.useState(false)
 
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
@@ -58,6 +61,7 @@ export function RegisterForm() {
 
       if (authError) {
         setError(`Kunne ikke opprette bruker: ${authError.message}`)
+        setIsLoading(false)
         return
       }
 
@@ -90,17 +94,47 @@ export function RegisterForm() {
              errorMsg = text || res.statusText;
            }
            setError(`Kunne ikke opprette brukerprofil: ${errorMsg} (Status: ${res.status})`)
+           setIsLoading(false)
            return
         }
-      }
 
-      router.push("/dashboard")
-      router.refresh()
+        // Success!
+        setIsSuccess(true)
+        setIsLoading(false)
+      }
     } catch (err) {
       setError("En uventet feil oppstod")
-    } finally {
       setIsLoading(false)
     }
+  }
+
+  if (isSuccess) {
+    return (
+      <Card className="w-[350px]">
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <CheckCircle2 className="h-6 w-6 text-green-500" />
+            Konto opprettet
+          </CardTitle>
+          <CardDescription>
+            Registreringen var vellykket.
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <Alert className="bg-green-50 border-green-200">
+            <AlertTitle className="text-green-800">Sjekk e-posten din</AlertTitle>
+            <AlertDescription className="text-green-700">
+              Vi har sendt en bekreftelseslenke til din e-postadresse. Du må klikke på denne for å aktivere kontoen før du kan logge inn.
+            </AlertDescription>
+          </Alert>
+        </CardContent>
+        <CardFooter className="flex justify-center">
+          <Button className="w-full" onClick={() => router.push("/login")}>
+            Gå til innlogging
+          </Button>
+        </CardFooter>
+      </Card>
+    )
   }
 
   return (
@@ -141,10 +175,11 @@ export function RegisterForm() {
               )}
             </div>
             <div className="flex flex-col space-y-1.5">
-              <Label htmlFor="password">Passord</Label>
+              <Label htmlFor="password">Passord (eller PIN)</Label>
               <Input
                 id="password"
                 type="password"
+                placeholder="Minst 4 tegn"
                 {...form.register("password")}
               />
               {form.formState.errors.password && (

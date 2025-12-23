@@ -9,10 +9,10 @@ export function MobileNav() {
   const [isOpen, setIsOpen] = useState(false)
 
   return (
-    <div className="lg:hidden mr-2">
-      <Button variant="ghost" size="icon" onClick={() => setIsOpen(true)}>
-        <Menu className="h-6 w-6" />
-        <span className="sr-only">Åpne meny</span>
+    <div className="lg:hidden">
+      <Button variant="outline" size="sm" onClick={() => setIsOpen(true)} className="gap-2">
+        <Menu className="h-5 w-5" />
+        <span className="sr-only sm:not-sr-only sm:inline-block">Meny</span>
       </Button>
 
       {isOpen && (
