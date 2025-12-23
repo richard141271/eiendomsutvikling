@@ -1,0 +1,6 @@
+node_modules/
+.next/
+node-v20.11.1-darwin-x64/
+*.tar.gz
+.env
+.DS_Store

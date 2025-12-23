@@ -1,0 +1,170 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
+}
+
+enum UserRole {
+  OWNER
+  ADMIN
+  MANAGER
+  TENANT
+}
+
+enum PropertyStatus {
+  ACTIVE
+  SOLD
+  INACTIVE
+}
+
+enum UnitStatus {
+  AVAILABLE
+  RESERVED
+  RENTED
+}
+
+enum ContractStatus {
+  DRAFT
+  SENT
+  SIGNED
+  TERMINATED
+}
+
+enum MaintenanceStatus {
+  REPORTED
+  IN_PROGRESS
+  COMPLETED
+}
+
+enum InspectionType {
+  MOVE_IN
+  MOVE_OUT
+}
+
+model User {
+  id        String   @id @default(uuid())
+  name      String
+  email     String   @unique
+  phone     String?
+  role      UserRole @default(TENANT)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Relations
+  properties          Property[]            @relation("OwnerProperties")
+  leaseContracts      LeaseContract[]
+  maintenanceRequests MaintenanceRequest[]
+  messages            Message[]
+  
+  // For Fiken integration (only for owners)
+  fikenCompanySlug    String?
+  fikenApiToken       String?
+}
+
+model Property {
+  id        String         @id @default(uuid())
+  name      String
+  address   String
+  gnr       String?
+  bnr       String?
+  ownerId   String
+  status    PropertyStatus @default(ACTIVE)
+  notes     String?
+  createdAt DateTime       @default(now())
+  updatedAt DateTime       @updatedAt
+
+  owner     User           @relation("OwnerProperties", fields: [ownerId], references: [id])
+  units     Unit[]
+}
+
+model Unit {
+  id             String      @id @default(uuid())
+  propertyId     String
+  name           String      // e.g. "Apt 101"
+  sizeSqm        Float
+  rooms          Int
+  rentAmount     Float
+  depositAmount  Float
+  status         UnitStatus  @default(AVAILABLE)
+  createdAt      DateTime    @default(now())
+  updatedAt      DateTime    @updatedAt
+
+  property       Property    @relation(fields: [propertyId], references: [id], onDelete: Cascade)
+  leaseContracts LeaseContract[]
+  maintenanceRequests MaintenanceRequest[]
+}
+
+model LeaseContract {
+  id             String         @id @default(uuid())
+  unitId         String
+  tenantId       String
+  startDate      DateTime
+  endDate        DateTime?
+  rentAmount     Float
+  depositAmount  Float
+  status         ContractStatus @default(DRAFT)
+  signedAt       DateTime?
+  signedIp       String?
+  pdfUrl         String?        // URL to stored PDF
+  createdAt      DateTime       @default(now())
+  updatedAt      DateTime       @updatedAt
+
+  // Fiken integration
+  fikenCustomerId String?
+  fikenInvoiceId  String?
+
+  unit           Unit           @relation(fields: [unitId], references: [id])
+  tenant         User           @relation(fields: [tenantId], references: [id])
+  messageThread  MessageThread?
+  inspectionProtocols InspectionProtocol[]
+}
+
+model MessageThread {
+  id         String    @id @default(uuid())
+  contractId String    @unique
+  createdAt  DateTime  @default(now())
+
+  contract   LeaseContract @relation(fields: [contractId], references: [id])
+  messages   Message[]
+}
+
+model Message {
+  id        String   @id @default(uuid())
+  threadId  String
+  senderId  String
+  content   String
+  timestamp DateTime @default(now())
+
+  thread    MessageThread @relation(fields: [threadId], references: [id])
+  sender    User          @relation(fields: [senderId], references: [id])
+}
+
+model MaintenanceRequest {
+  id          String            @id @default(uuid())
+  unitId      String
+  tenantId    String
+  title       String
+  description String
+  status      MaintenanceStatus @default(REPORTED)
+  createdAt   DateTime          @default(now())
+  updatedAt   DateTime          @updatedAt
+
+  unit        Unit              @relation(fields: [unitId], references: [id])
+  tenant      User              @relation(fields: [tenantId], references: [id])
+}
+
+model InspectionProtocol {
+  id             String         @id @default(uuid())
+  contractId     String
+  type           InspectionType
+  notes          String
+  createdAt      DateTime       @default(now())
+  signedByTenant Boolean        @default(false)
+  signedByOwner  Boolean        @default(false)
+
+  contract       LeaseContract  @relation(fields: [contractId], references: [id])
+}
