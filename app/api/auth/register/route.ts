@@ -2,8 +2,10 @@ import { prisma } from "@/lib/prisma";
 import { NextResponse } from "next/server";
 
 export async function POST(request: Request) {
+  console.log("Register API called");
   try {
     const body = await request.json();
+    console.log("Register API body:", body);
     const { id, email, name, role } = body;
 
     if (!id || !email || !name) {
@@ -13,8 +15,13 @@ export async function POST(request: Request) {
       );
     }
 
-    const user = await prisma.user.create({
-      data: {
+    const user = await prisma.user.upsert({
+      where: { email },
+      update: {
+        name,
+        role: role || "OWNER",
+      },
+      create: {
         id,
         email,
         name,
@@ -26,7 +33,7 @@ export async function POST(request: Request) {
   } catch (error) {
     console.error("Registration error:", error);
     return NextResponse.json(
-      { error: "Intern serverfeil" },
+      { error: `Feil ved opprettelse av bruker: ${(error as Error).message}` },
       { status: 500 }
     );
   }

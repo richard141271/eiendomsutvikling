@@ -57,11 +57,12 @@ export function RegisterForm() {
       })
 
       if (authError) {
-        setError("Kunne ikke opprette bruker")
+        setError(`Kunne ikke opprette bruker: ${authError.message}`)
         return
       }
 
       if (data.user) {
+        console.log("User created in Auth, registering in DB...", data.user.id);
         // Call API to create user in database
         const res = await fetch('/api/auth/register', {
           method: 'POST',
@@ -76,8 +77,19 @@ export function RegisterForm() {
           }),
         })
 
+        console.log("API response status:", res.status, res.statusText);
+
         if (!res.ok) {
-           setError("Kunne ikke opprette brukerprofil")
+           const text = await res.text();
+           console.log("API error body:", text);
+           let errorMsg = "Ukjent feil";
+           try {
+             const json = JSON.parse(text);
+             errorMsg = json.error || res.statusText;
+           } catch (e) {
+             errorMsg = text || res.statusText;
+           }
+           setError(`Kunne ikke opprette brukerprofil: ${errorMsg} (Status: ${res.status})`)
            return
         }
       }
