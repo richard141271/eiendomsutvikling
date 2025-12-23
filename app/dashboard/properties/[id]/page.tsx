@@ -59,7 +59,9 @@ export default async function PropertyDetailsPage({
           <p className="text-muted-foreground">{property.address}</p>
         </div>
         <div className="flex gap-2">
-          <Button variant="outline">Rediger eiendom</Button>
+          <Link href={`/dashboard/properties/${property.id}/edit`}>
+            <Button variant="outline">Rediger eiendom</Button>
+          </Link>
           <Link href={`/dashboard/properties/${property.id}/units/new`}>
             <Button>Legg til enhet</Button>
           </Link>

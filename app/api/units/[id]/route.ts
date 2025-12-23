@@ -1,0 +1,61 @@
+import { prisma } from "@/lib/prisma";
+import { NextResponse } from "next/server";
+
+export async function GET(
+  request: Request,
+  { params }: { params: { id: string } }
+) {
+  try {
+    const unit = await prisma.unit.findUnique({
+      where: { id: params.id },
+      include: {
+        property: true,
+      }
+    });
+
+    if (!unit) {
+      return NextResponse.json(
+        { error: "Enhet ikke funnet" },
+        { status: 404 }
+      );
+    }
+
+    return NextResponse.json(unit);
+  } catch (error) {
+    console.error("Error fetching unit:", error);
+    return NextResponse.json(
+      { error: "Intern serverfeil" },
+      { status: 500 }
+    );
+  }
+}
+
+export async function PATCH(
+  request: Request,
+  { params }: { params: { id: string } }
+) {
+  try {
+    const body = await request.json();
+    const { name, sizeSqm, rooms, rentAmount, depositAmount, status } = body;
+
+    const updatedUnit = await prisma.unit.update({
+      where: { id: params.id },
+      data: {
+        name,
+        sizeSqm: sizeSqm ? parseFloat(sizeSqm) : undefined,
+        rooms: rooms ? parseInt(rooms) : undefined,
+        rentAmount: rentAmount ? parseFloat(rentAmount) : undefined,
+        depositAmount: depositAmount ? parseFloat(depositAmount) : undefined,
+        status,
+      },
+    });
+
+    return NextResponse.json(updatedUnit);
+  } catch (error) {
+    console.error("Error updating unit:", error);
+    return NextResponse.json(
+      { error: "Intern serverfeil" },
+      { status: 500 }
+    );
+  }
+}

@@ -46,7 +46,9 @@ export default async function UnitDetailsPage({ params }: UnitDetailsPageProps) 
           </p>
         </div>
         <div className="flex gap-2">
-          <Button variant="outline">Rediger enhet</Button>
+          <Link href={`/dashboard/units/${unit.id}/edit`}>
+            <Button variant="outline">Rediger enhet</Button>
+          </Link>
           {!activeContract && (
             <Link href={`/dashboard/units/${unit.id}/invite`}>
                <Button>Inviter leietaker</Button>

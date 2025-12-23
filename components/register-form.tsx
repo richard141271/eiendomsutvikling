@@ -47,10 +47,13 @@ export function RegisterForm() {
     setError(null)
 
     try {
+      // Pad 4-digit PIN with "00" to satisfy Supabase 6-char requirement
+      const passwordToUse = values.password.length === 4 ? values.password + "00" : values.password;
+
       const supabase = createClient()
       const { data, error: authError } = await supabase.auth.signUp({
         email: values.email,
-        password: values.password,
+        password: passwordToUse,
         options: {
           data: {
             name: values.name,
