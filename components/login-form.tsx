@@ -21,7 +21,7 @@ import { createClient } from "@/lib/supabase"
 
 const formSchema = z.object({
   email: z.string().email("Ugyldig e-postadresse"),
-  password: z.string().min(6, "Passordet må være minst 6 tegn"),
+  password: z.string().min(4, "Passordet må være minst 4 tegn"),
 })
 
 export function LoginForm() {
@@ -49,7 +49,15 @@ export function LoginForm() {
       })
 
       if (error) {
-        setError("Feil e-post eller passord")
+        console.error("Login error:", error);
+        // Translate common errors
+        if (error.message === "Invalid login credentials") {
+           setError("Feil e-post eller passord");
+        } else if (error.message.includes("Email not confirmed")) {
+           setError("Du må bekrefte e-postadressen din før du logger inn.");
+        } else {
+           setError(`Feil ved innlogging: ${error.message}`);
+        }
         return
       }
 

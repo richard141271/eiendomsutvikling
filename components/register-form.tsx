@@ -22,7 +22,7 @@ import { createClient } from "@/lib/supabase"
 const formSchema = z.object({
   name: z.string().min(2, "Navn må være minst 2 tegn"),
   email: z.string().email("Ugyldig e-postadresse"),
-  password: z.string().min(6, "Passordet må være minst 6 tegn"),
+  password: z.string().min(4, "Passordet må være minst 4 tegn"),
 })
 
 export function RegisterForm() {

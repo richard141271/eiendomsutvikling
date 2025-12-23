@@ -1,5 +1,6 @@
 import Link from "next/link"
-import { Button } from "@/components/ui/button"
+import { MobileNav } from "./components/mobile-nav"
+import { UserNav } from "./components/user-nav"
 
 export default function DashboardLayout({
   children,
@@ -40,7 +41,7 @@ export default function DashboardLayout({
             >
               Vedlikehold
             </Link>
-             <Link
+            <Link
               href="/dashboard/messages"
               className="flex items-center gap-3 rounded-lg px-3 py-2 text-gray-500 transition-all hover:text-gray-900 dark:text-gray-400 dark:hover:text-gray-50"
             >
@@ -52,7 +53,7 @@ export default function DashboardLayout({
             >
               Overtakelse
             </Link>
-             <Link
+            <Link
               href="/dashboard/settings"
               className="flex items-center gap-3 rounded-lg px-3 py-2 text-gray-500 transition-all hover:text-gray-900 dark:text-gray-400 dark:hover:text-gray-50"
             >
@@ -63,10 +64,11 @@ export default function DashboardLayout({
       </div>
       <div className="flex flex-col w-full">
         <header className="flex h-14 items-center gap-4 border-b bg-gray-100/40 px-6 dark:bg-gray-800/40">
+          <MobileNav />
           <div className="w-full flex-1">
              {/* Breadcrumb or Search */}
           </div>
-           <Button variant="ghost" size="sm">Logg ut</Button>
+           <UserNav />
         </header>
         <main className="flex flex-1 flex-col gap-4 p-4 md:gap-8 md:p-6 overflow-auto">
           {children}

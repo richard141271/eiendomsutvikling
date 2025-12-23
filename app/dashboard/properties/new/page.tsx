@@ -52,7 +52,8 @@ export default function NewPropertyPage() {
       const { data: { user } } = await supabase.auth.getUser()
 
       if (!user) {
-        setError("Du må være logget inn for å opprette en eiendom")
+        // Redirect to login if session is missing
+        router.push("/login?next=/dashboard/properties/new");
         return
       }
 

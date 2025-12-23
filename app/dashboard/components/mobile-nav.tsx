@@ -1,0 +1,56 @@
+"use client"
+
+import { useState } from "react"
+import Link from "next/link"
+import { Menu, X } from "lucide-react"
+import { Button } from "@/components/ui/button"
+
+export function MobileNav() {
+  const [isOpen, setIsOpen] = useState(false)
+
+  return (
+    <div className="lg:hidden mr-2">
+      <Button variant="ghost" size="icon" onClick={() => setIsOpen(true)}>
+        <Menu className="h-6 w-6" />
+        <span className="sr-only">Åpne meny</span>
+      </Button>
+
+      {isOpen && (
+        <div className="fixed inset-0 z-50 bg-background/80 backdrop-blur-sm">
+          <div className="fixed inset-y-0 left-0 w-3/4 bg-background border-r p-6 shadow-lg sm:max-w-sm">
+            <div className="flex items-center justify-between mb-6">
+              <span className="text-lg font-semibold">Meny</span>
+              <Button variant="ghost" size="icon" onClick={() => setIsOpen(false)}>
+                <X className="h-6 w-6" />
+                <span className="sr-only">Lukk meny</span>
+              </Button>
+            </div>
+            <nav className="flex flex-col space-y-4">
+              <Link href="/dashboard" onClick={() => setIsOpen(false)} className="text-lg font-medium hover:text-primary">
+                Dashboard
+              </Link>
+              <Link href="/dashboard/properties" onClick={() => setIsOpen(false)} className="text-lg font-medium hover:text-primary">
+                Eiendommer
+              </Link>
+              <Link href="/dashboard/contracts" onClick={() => setIsOpen(false)} className="text-lg font-medium hover:text-primary">
+                Kontrakter
+              </Link>
+              <Link href="/dashboard/maintenance" onClick={() => setIsOpen(false)} className="text-lg font-medium hover:text-primary">
+                Vedlikehold
+              </Link>
+              <Link href="/dashboard/messages" onClick={() => setIsOpen(false)} className="text-lg font-medium hover:text-primary">
+                Meldinger
+              </Link>
+              <Link href="/dashboard/inspections" onClick={() => setIsOpen(false)} className="text-lg font-medium hover:text-primary">
+                Overtakelse
+              </Link>
+              <Link href="/dashboard/settings" onClick={() => setIsOpen(false)} className="text-lg font-medium hover:text-primary">
+                Innstillinger
+              </Link>
+            </nav>
+          </div>
+        </div>
+      )}
+    </div>
+  )
+}
