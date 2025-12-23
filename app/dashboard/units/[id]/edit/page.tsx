@@ -30,7 +30,7 @@ const formSchema = z.object({
   rooms: z.string().min(1, "Antall rom er påkrevd"),
   rentAmount: z.string().min(1, "Leie er påkrevd"),
   depositAmount: z.string().min(1, "Depositum er påkrevd"),
-  status: z.enum(["AVAILABLE", "RESERVED", "RENTED"]),
+  status: z.enum(["AVAILABLE", "RESERVED", "RENTED", "SOLD"]),
 })
 
 export default function EditUnitPage({ params }: { params: { id: string } }) {
@@ -102,12 +102,46 @@ export default function EditUnitPage({ params }: { params: { id: string } }) {
     }
   }
 
+  async function handleAction(value: string) {
+    if (value === "DELETE") {
+      if (confirm("Er du sikker på at du vil slette denne enheten? Dette kan ikke angres.")) {
+        try {
+          const res = await fetch(`/api/units/${params.id}`, { method: "DELETE" });
+          if (res.ok) {
+            router.push("/dashboard/properties");
+            router.refresh();
+          } else {
+            alert("Kunne ikke slette enhet");
+          }
+        } catch (e) {
+          alert("Feil ved sletting");
+        }
+      }
+    } else if (value === "SOLD") {
+       try {
+        const res = await fetch(`/api/units/${params.id}`, {
+            method: "PATCH",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ status: "SOLD" })
+        });
+        if (res.ok) {
+            router.refresh();
+            alert("Enhet markert som solgt");
+        } else {
+             alert("Kunne ikke oppdatere status");
+        }
+      } catch (e) {
+        alert("Kunne ikke oppdatere status");
+      }
+    }
+  }
+
   if (isFetching) {
     return <div className="p-8 text-center">Laster enhet...</div>
   }
 
   return (
-    <div className="flex justify-center p-4">
+    <div className="flex flex-col items-center gap-6 p-4">
       <Card className="w-full max-w-2xl">
         <CardHeader>
           <CardTitle>Rediger Enhet</CardTitle>

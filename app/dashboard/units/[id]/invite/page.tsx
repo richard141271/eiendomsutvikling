@@ -10,6 +10,7 @@ import { Label } from "@/components/ui/label";
 export default function InviteTenantPage({ params }: { params: { id: string } }) {
   const router = useRouter();
   const [loading, setLoading] = useState(false);
+  const [inviteSuccess, setInviteSuccess] = useState(false);
   const [unit, setUnit] = useState<any>(null);
   
   // Form states
@@ -62,7 +63,7 @@ export default function InviteTenantPage({ params }: { params: { id: string } })
 
       if (!res.ok) throw new Error("Kunne ikke sende invitasjon");
 
-      router.push(`/dashboard/units/${params.id}`);
+      setInviteSuccess(true);
       router.refresh();
     } catch (error) {
       alert("Noe gikk galt. Prøv igjen.");
@@ -70,6 +71,35 @@ export default function InviteTenantPage({ params }: { params: { id: string } })
       setLoading(false);
     }
   };
+
+  if (inviteSuccess) {
+    return (
+      <div className="max-w-2xl mx-auto py-8">
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-green-600">Invitasjon opprettet!</CardTitle>
+            <CardDescription>
+              Kontrakt er opprettet og ligger klar.
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div className="bg-muted p-4 rounded-lg">
+              <p className="font-medium">Viktig informasjon:</p>
+              <p className="text-sm text-muted-foreground mt-1">
+                Siden e-posttjeneste ikke er satt opp i dette miljøet, ble det ikke sendt en faktisk e-post.
+              </p>
+              <p className="text-sm mt-2">
+                Be leietaker (<strong>{email}</strong>) om å logge inn på appen for å se og signere kontrakten.
+              </p>
+            </div>
+            <Button onClick={() => router.push(`/dashboard/units/${params.id}`)} className="w-full">
+              Tilbake til enhet
+            </Button>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
 
   return (
     <div className="max-w-2xl mx-auto py-8">

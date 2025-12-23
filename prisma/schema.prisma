@@ -25,6 +25,7 @@ enum UnitStatus {
   AVAILABLE
   RESERVED
   RENTED
+  SOLD
 }
 
 enum ContractStatus {

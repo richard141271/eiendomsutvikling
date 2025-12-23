@@ -59,3 +59,22 @@ export async function PATCH(
     );
   }
 }
+
+export async function DELETE(
+  request: Request,
+  { params }: { params: { id: string } }
+) {
+  try {
+    await prisma.unit.delete({
+      where: { id: params.id },
+    });
+
+    return NextResponse.json({ message: "Enhet slettet" });
+  } catch (error) {
+    console.error("Error deleting unit:", error);
+    return NextResponse.json(
+      { error: "Kunne ikke slette enhet" },
+      { status: 500 }
+    );
+  }
+}

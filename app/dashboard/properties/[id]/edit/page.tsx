@@ -17,6 +17,13 @@ import {
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select"
 
 const formSchema = z.object({
   name: z.string().min(2, "Navn må være minst 2 tegn"),
@@ -93,12 +100,46 @@ export default function EditPropertyPage({ params }: { params: { id: string } })
     }
   }
 
+  async function handleAction(value: string) {
+    if (value === "DELETE") {
+      if (confirm("Er du sikker på at du vil slette denne eiendommen? Dette kan ikke angres.")) {
+        try {
+          const res = await fetch(`/api/properties/${params.id}`, { method: "DELETE" });
+          if (res.ok) {
+            router.push("/dashboard/properties");
+            router.refresh();
+          } else {
+            alert("Kunne ikke slette eiendom");
+          }
+        } catch (e) {
+          alert("Feil ved sletting");
+        }
+      }
+    } else if (value === "SOLD") {
+      try {
+        const res = await fetch(`/api/properties/${params.id}`, {
+            method: "PATCH",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ status: "SOLD" })
+        });
+        if (res.ok) {
+            router.refresh();
+            alert("Eiendom markert som solgt");
+        } else {
+            alert("Kunne ikke oppdatere status");
+        }
+      } catch (e) {
+        alert("Kunne ikke oppdatere status");
+      }
+    }
+  }
+
   if (isFetching) {
     return <div className="p-8 text-center">Laster eiendom...</div>
   }
 
   return (
-    <div className="flex justify-center p-4">
+    <div className="flex flex-col items-center gap-6 p-4">
       <Card className="w-full max-w-2xl">
         <CardHeader>
           <CardTitle>Rediger Eiendom</CardTitle>
@@ -172,6 +213,27 @@ export default function EditPropertyPage({ params }: { params: { id: string } })
               </Button>
             </div>
           </form>
+        </CardContent>
+      </Card>
+
+      <Card className="w-full max-w-2xl border-destructive/50">
+        <CardHeader>
+          <CardTitle className="text-destructive">Handlinger</CardTitle>
+          <CardDescription>Slett eller selg eiendommen</CardDescription>
+        </CardHeader>
+        <CardContent>
+          <div className="space-y-2">
+             <Label>Velg handling</Label>
+             <Select onValueChange={handleAction}>
+                <SelectTrigger className="w-full">
+                   <SelectValue placeholder="Velg handling..." />
+                </SelectTrigger>
+                <SelectContent>
+                   <SelectItem value="SOLD">Marker som solgt</SelectItem>
+                   <SelectItem value="DELETE">Slett eiendom</SelectItem>
+                </SelectContent>
+             </Select>
+          </div>
         </CardContent>
       </Card>
     </div>

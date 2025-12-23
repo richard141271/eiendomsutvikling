@@ -59,3 +59,22 @@ export async function PATCH(
     );
   }
 }
+
+export async function DELETE(
+  request: Request,
+  { params }: { params: { id: string } }
+) {
+  try {
+    await prisma.property.delete({
+      where: { id: params.id },
+    });
+
+    return NextResponse.json({ message: "Eiendom slettet" });
+  } catch (error) {
+    console.error("Error deleting property:", error);
+    return NextResponse.json(
+      { error: "Kunne ikke slette eiendom" },
+      { status: 500 }
+    );
+  }
+}
