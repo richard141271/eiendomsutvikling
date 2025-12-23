@@ -95,10 +95,11 @@ export function LoginForm() {
               )}
             </div>
             <div className="flex flex-col space-y-1.5">
-              <Label htmlFor="password">Passord</Label>
+              <Label htmlFor="password">Passord (PIN)</Label>
               <Input
                 id="password"
                 type="password"
+                placeholder="Minst 4 tegn"
                 {...form.register("password")}
               />
               {form.formState.errors.password && (

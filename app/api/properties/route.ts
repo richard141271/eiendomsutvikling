@@ -27,6 +27,19 @@ export async function POST(request: Request) {
       );
     }
 
+    // Check if user exists in database
+    const userExists = await prisma.user.findUnique({
+      where: { id: ownerId },
+    });
+
+    if (!userExists) {
+      console.error("User not found in database:", ownerId);
+      return NextResponse.json(
+        { error: "Brukerprofil mangler i databasen. Prøv å logge ut og inn igjen." },
+        { status: 400 }
+      );
+    }
+
     const property = await prisma.property.create({
       data: {
         name,
