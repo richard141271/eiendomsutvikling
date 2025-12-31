@@ -118,7 +118,7 @@ model LeaseContract {
   fikenCustomerId String?
   fikenInvoiceId  String?
 
-  unit           Unit           @relation(fields: [unitId], references: [id])
+  unit           Unit           @relation(fields: [unitId], references: [id], onDelete: Cascade)
   tenant         User           @relation(fields: [tenantId], references: [id])
   messageThread  MessageThread?
   inspectionProtocols InspectionProtocol[]
@@ -129,7 +129,7 @@ model MessageThread {
   contractId String    @unique
   createdAt  DateTime  @default(now())
 
-  contract   LeaseContract @relation(fields: [contractId], references: [id])
+  contract   LeaseContract @relation(fields: [contractId], references: [id], onDelete: Cascade)
   messages   Message[]
 }
 
@@ -140,7 +140,7 @@ model Message {
   content   String
   timestamp DateTime @default(now())
 
-  thread    MessageThread @relation(fields: [threadId], references: [id])
+  thread    MessageThread @relation(fields: [threadId], references: [id], onDelete: Cascade)
   sender    User          @relation(fields: [senderId], references: [id])
 }
 
@@ -154,7 +154,7 @@ model MaintenanceRequest {
   createdAt   DateTime          @default(now())
   updatedAt   DateTime          @updatedAt
 
-  unit        Unit              @relation(fields: [unitId], references: [id])
+  unit        Unit              @relation(fields: [unitId], references: [id], onDelete: Cascade)
   tenant      User              @relation(fields: [tenantId], references: [id])
 }
 
@@ -167,5 +167,5 @@ model InspectionProtocol {
   signedByTenant Boolean        @default(false)
   signedByOwner  Boolean        @default(false)
 
-  contract       LeaseContract  @relation(fields: [contractId], references: [id])
+  contract       LeaseContract  @relation(fields: [contractId], references: [id], onDelete: Cascade)
 }

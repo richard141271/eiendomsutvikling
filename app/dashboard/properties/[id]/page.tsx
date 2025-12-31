@@ -2,7 +2,8 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { prisma } from "@/lib/prisma";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
 import {
   Table,
   TableBody,
@@ -100,7 +101,7 @@ export default async function PropertyDetailsPage({
 
       <div className="space-y-4">
         <h2 className="text-xl font-semibold">Enheter</h2>
-        <div className="rounded-md border">
+        <div className="hidden md:block rounded-md border">
           <Table>
             <TableHeader>
               <TableRow>
@@ -145,6 +146,45 @@ export default async function PropertyDetailsPage({
               )}
             </TableBody>
           </Table>
+        </div>
+
+        {/* Mobile View */}
+        <div className="grid gap-4 md:hidden">
+          {property.units.length === 0 ? (
+             <p className="text-center text-muted-foreground">Ingen enheter lagt til ennå.</p>
+          ) : (
+            property.units.map((unit) => {
+              const activeContract = unit.leaseContracts[0];
+              const tenantName = activeContract?.tenant?.name || "-";
+              
+              return (
+                <Card key={unit.id}>
+                  <CardHeader className="pb-2">
+                    <div className="flex justify-between items-start">
+                      <CardTitle>{unit.name}</CardTitle>
+                      <Badge variant={unit.status === 'AVAILABLE' ? 'default' : 'secondary'}>
+                        {unitStatusMap[unit.status] || unit.status}
+                      </Badge>
+                    </div>
+                    <CardDescription>{unit.sizeSqm} kvm • {unit.rooms} rom</CardDescription>
+                  </CardHeader>
+                  <CardContent className="space-y-4">
+                    <div className="grid grid-cols-2 gap-2 text-sm">
+                      <div className="text-muted-foreground">Leie:</div>
+                      <div className="font-medium">{unit.rentAmount} NOK</div>
+                      <div className="text-muted-foreground">Leietaker:</div>
+                      <div className="font-medium">{tenantName}</div>
+                    </div>
+                    <Link href={`/dashboard/units/${unit.id}`} className="block">
+                      <Button className="w-full" variant="outline">
+                        Administrer
+                      </Button>
+                    </Link>
+                  </CardContent>
+                </Card>
+              );
+            })
+          )}
         </div>
       </div>
     </div>

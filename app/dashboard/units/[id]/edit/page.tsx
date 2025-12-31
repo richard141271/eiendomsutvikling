@@ -108,8 +108,8 @@ export default function EditUnitPage({ params }: { params: { id: string } }) {
         try {
           const res = await fetch(`/api/units/${params.id}`, { method: "DELETE" });
           if (res.ok) {
-            router.push("/dashboard/properties");
             router.refresh();
+            router.push("/dashboard/properties");
           } else {
             alert("Kunne ikke slette enhet");
           }

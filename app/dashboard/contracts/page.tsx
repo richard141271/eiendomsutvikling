@@ -56,7 +56,7 @@ export default async function ContractsPage() {
           contracts.map((contract) => (
             <Card key={contract.id}>
               <CardContent className="p-6">
-                <div className="flex items-center justify-between">
+                <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
                   <div className="space-y-1">
                     <h3 className="font-semibold text-lg">
                       {contract.unit.property.name} - {contract.unit.name}
@@ -69,14 +69,19 @@ export default async function ContractsPage() {
                       {contract.endDate ? contract.endDate.toLocaleDateString() : "Løpende"}
                     </div>
                   </div>
-                  <div className="flex flex-col items-end gap-2">
-                    <Badge variant={contract.status === "SIGNED" ? "default" : "secondary"}>
-                      {statusMap[contract.status] || contract.status}
-                    </Badge>
-                    <div className="font-medium">
+                  <div className="flex flex-row md:flex-col items-center md:items-end justify-between md:justify-start gap-4 md:gap-2 w-full md:w-auto mt-2 md:mt-0">
+                    <div className="flex items-center gap-2">
+                      <Badge variant={contract.status === "SIGNED" ? "default" : "secondary"}>
+                        {statusMap[contract.status] || contract.status}
+                      </Badge>
+                      <div className="font-medium md:hidden">
+                        {contract.rentAmount} NOK / mnd
+                      </div>
+                    </div>
+                    <div className="font-medium hidden md:block">
                       {contract.rentAmount} NOK / mnd
                     </div>
-                    <Button variant="outline" size="sm" asChild>
+                    <Button variant="outline" size="sm" asChild className="w-full md:w-auto">
                       <Link href={`/dashboard/contracts/${contract.id}`}>
                         Se detaljer
                       </Link>

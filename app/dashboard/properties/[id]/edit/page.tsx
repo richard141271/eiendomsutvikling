@@ -106,8 +106,8 @@ export default function EditPropertyPage({ params }: { params: { id: string } })
         try {
           const res = await fetch(`/api/properties/${params.id}`, { method: "DELETE" });
           if (res.ok) {
-            router.push("/dashboard/properties");
             router.refresh();
+            router.push("/dashboard/properties");
           } else {
             alert("Kunne ikke slette eiendom");
           }
