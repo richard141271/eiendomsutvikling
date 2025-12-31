@@ -9,14 +9,14 @@ interface InviteEmailProps {
   startDate: string;
 }
 
-export const InviteEmail: React.FC<InviteEmailProps> = ({
+export const InviteEmail = ({
   tenantName,
   propertyName,
   unitName,
   loginUrl,
   rentAmount,
   startDate,
-}) => (
+}: InviteEmailProps) => (
   <div style={{ fontFamily: 'sans-serif', lineHeight: '1.5', color: '#333' }}>
     <h1 style={{ color: '#0f172a' }}>Hei {tenantName},</h1>
     <p>
