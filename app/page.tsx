@@ -1,8 +1,21 @@
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { Building2, Key, ShieldCheck, Home as HomeIcon, ArrowRight, Phone, Mail, MapPin } from "lucide-react";
+import { prisma } from "@/lib/prisma";
 
-export default function Home() {
+export const dynamic = 'force-dynamic';
+
+export default async function Home() {
+  const availableUnits = await prisma.unit.findMany({
+    where: {
+      status: 'AVAILABLE'
+    },
+    include: {
+      property: true
+    },
+    take: 6 // Limit to 6 for the landing page
+  });
+
   return (
     <div className="flex flex-col min-h-screen font-sans">
       <header className="px-6 lg:px-10 h-20 flex items-center border-b bg-white dark:bg-slate-950 sticky top-0 z-50 shadow-sm">
@@ -167,25 +180,34 @@ export default function Home() {
             </div>
             
             <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-8">
-              {/* Placeholder Property Cards */}
-              {[1, 2, 3].map((i) => (
-                <div key={i} className="group bg-white rounded-xl overflow-hidden border border-slate-200 shadow-sm hover:shadow-xl transition-all duration-300">
-                  <div className="h-48 bg-slate-200 relative overflow-hidden">
-                     {/* Placeholder for image */}
-                     <div className="absolute inset-0 bg-slate-300 flex items-center justify-center text-slate-500">
-                       <HomeIcon className="h-12 w-12 opacity-50" />
-                     </div>
-                  </div>
-                  <div className="p-6">
-                    <h3 className="font-bold text-xl mb-2 text-slate-900">Storgata {10 + i}, Halden</h3>
-                    <p className="text-slate-500 mb-4 text-sm">Sentrumsnær leilighet med høy standard.</p>
-                    <div className="flex justify-between items-center border-t pt-4 mt-4">
-                      <span className="font-semibold text-blue-600">Fra 12 000 kr/mnd</span>
-                      <span className="text-xs font-medium bg-green-100 text-green-700 px-2 py-1 rounded-full">Ledig nå</span>
+              {availableUnits.length > 0 ? (
+                availableUnits.map((unit) => (
+                  <div key={unit.id} className="group bg-white rounded-xl overflow-hidden border border-slate-200 shadow-sm hover:shadow-xl transition-all duration-300">
+                    <div className="h-48 bg-slate-200 relative overflow-hidden">
+                       {/* Placeholder for image - could be dynamic if we add images to units/properties later */}
+                       <div className="absolute inset-0 bg-slate-300 flex items-center justify-center text-slate-500">
+                         <HomeIcon className="h-12 w-12 opacity-50" />
+                       </div>
+                    </div>
+                    <div className="p-6">
+                      <h3 className="font-bold text-xl mb-2 text-slate-900">{unit.property.address}</h3>
+                      <p className="text-slate-500 mb-4 text-sm">
+                        {unit.name ? `${unit.name} - ` : ''} 
+                        {unit.rooms} rom • {unit.sizeSqm} m²
+                      </p>
+                      <div className="flex justify-between items-center border-t pt-4 mt-4">
+                        <span className="font-semibold text-blue-600">{unit.rentAmount.toLocaleString('no-NO')} kr/mnd</span>
+                        <span className="text-xs font-medium bg-green-100 text-green-700 px-2 py-1 rounded-full">Ledig nå</span>
+                      </div>
                     </div>
                   </div>
+                ))
+              ) : (
+                <div className="col-span-full text-center py-12 bg-slate-100 rounded-xl">
+                  <p className="text-slate-600 mb-4">Ingen boliger ligger ute for øyeblikket.</p>
+                  <p className="text-sm text-slate-500">Ta kontakt med oss for å høre om kommende prosjekter.</p>
                 </div>
-              ))}
+              )}
             </div>
           </div>
         </section>
@@ -203,7 +225,7 @@ export default function Home() {
                   Registrer deg nå
                 </Button>
               </Link>
-              <Link href="mailto:post@halden-eiendom.no">
+              <Link href="mailto:post@kias.no">
                 <Button size="lg" variant="outline" className="h-14 px-8 bg-transparent border-slate-600 text-white hover:bg-slate-800 text-lg">
                   Kontakt oss
                 </Button>
@@ -219,12 +241,12 @@ export default function Home() {
               <div className="flex flex-col items-center">
                 <Mail className="h-6 w-6 text-blue-400 mb-4" />
                 <h4 className="font-semibold mb-2">E-post</h4>
-                <p className="text-slate-400">post@halden-eiendom.no</p>
+                <p className="text-slate-400">post@kias.no</p>
               </div>
               <div className="flex flex-col items-center">
                 <MapPin className="h-6 w-6 text-blue-400 mb-4" />
                 <h4 className="font-semibold mb-2">Besøksadresse</h4>
-                <p className="text-slate-400">Storgata 1, 1771 Halden</p>
+                <p className="text-slate-400">Fredriksfrydveien 2, 1792 Tistedal</p>
               </div>
             </div>
           </div>
