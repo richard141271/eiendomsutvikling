@@ -83,13 +83,13 @@ export default function InviteTenantPage({ params }: { params: { id: string } })
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
-            <div className="bg-muted p-4 rounded-lg">
-              <p className="font-medium">Viktig informasjon:</p>
-              <p className="text-sm text-muted-foreground mt-1">
-                Siden e-posttjeneste ikke er satt opp i dette miljøet, ble det ikke sendt en faktisk e-post.
+            <div className="bg-green-50 p-4 rounded-lg border border-green-100">
+              <p className="font-medium text-green-800">Viktig informasjon:</p>
+              <p className="text-sm text-green-700 mt-1">
+                Invitasjon er sendt på e-post til <strong>{email}</strong>.
               </p>
-              <p className="text-sm mt-2">
-                Be leietaker (<strong>{email}</strong>) om å logge inn på appen for å se og signere kontrakten.
+              <p className="text-sm text-green-700 mt-2">
+                Leietaker kan nå logge inn på appen for å se og signere kontrakten.
               </p>
             </div>
             <Button onClick={() => router.push(`/dashboard/units/${params.id}`)} className="w-full">

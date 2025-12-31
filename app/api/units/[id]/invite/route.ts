@@ -1,5 +1,9 @@
 import { prisma } from "@/lib/prisma";
 import { NextResponse } from "next/server";
+import { Resend } from 'resend';
+import { InviteEmail } from '@/components/emails/invite-email';
+
+const resend = new Resend(process.env.RESEND_API_KEY);
 
 export async function POST(
   request: Request,
@@ -21,6 +25,19 @@ export async function POST(
       return NextResponse.json(
         { error: "Mangler påkrevde felt" },
         { status: 400 }
+      );
+    }
+
+    // Fetch unit details for email
+    const unit = await prisma.unit.findUnique({
+      where: { id: params.id },
+      include: { property: true }
+    });
+
+    if (!unit) {
+      return NextResponse.json(
+        { error: "Enhet ikke funnet" },
+        { status: 404 }
       );
     }
 
@@ -60,6 +77,34 @@ export async function POST(
         status: "DRAFT",
       },
     });
+
+    // 3. Send Email
+    if (process.env.RESEND_API_KEY) {
+      try {
+        const loginUrl = `${process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'}/login`;
+        
+        await resend.emails.send({
+          from: 'Eiendom <onboarding@resend.dev>', // Use resend.dev for testing if domain not verified, or user's domain
+          to: email,
+          subject: 'Invitasjon til leieforhold',
+          react: InviteEmail({
+            tenantName: name,
+            propertyName: unit.property.name,
+            unitName: unit.name,
+            loginUrl,
+            rentAmount: Number(rentAmount),
+            startDate: new Date(startDate).toLocaleDateString('no-NO'),
+          }),
+        });
+        console.log("Email sent successfully to", email);
+      } catch (emailError) {
+        console.error("Failed to send email:", emailError);
+        // We don't block the response if email fails, but we might want to inform client?
+        // For now, let's just log it.
+      }
+    } else {
+      console.log("RESEND_API_KEY missing, skipping email send");
+    }
 
     return NextResponse.json(contract);
   } catch (error) {

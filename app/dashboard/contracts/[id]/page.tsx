@@ -61,12 +61,17 @@ export default async function ContractDetailsPage({ params }: ContractDetailsPag
              <Link href="/dashboard/contracts">Tilbake</Link>
           </Button>
           {contract.status === "DRAFT" && (
-            <Button>Send til signering</Button>
+            <>
+              <Button variant="outline" asChild>
+                <Link href={`/dashboard/contracts/${contract.id}/edit`}>Rediger</Link>
+              </Button>
+              <Button>Send til signering</Button>
+            </>
           )}
           {contract.status === "SENT" && (
              <Button variant="secondary">Marker som signert</Button>
           )}
-          <Button variant="outline" onClick={() => window.print()}>Last ned PDF / Print</Button>
+          <PrintButton />
         </div>
       </div>
 

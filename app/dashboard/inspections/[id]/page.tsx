@@ -16,6 +16,7 @@ export default async function InspectionPage({ params }: InspectionPageProps) {
   const inspection = await prisma.inspectionProtocol.findUnique({
     where: { id: params.id },
     include: {
+      checkpoints: true,
       contract: {
         include: {
           unit: {
@@ -113,11 +114,35 @@ export default async function InspectionPage({ params }: InspectionPageProps) {
         <CardContent>
           <div className="prose max-w-none text-sm">
              <h3 className="text-base font-semibold">Generelle merknader</h3>
-             <p className="whitespace-pre-wrap bg-muted/50 p-4 rounded-md">
+             <p className="whitespace-pre-wrap bg-muted/50 p-4 rounded-md mb-6">
                {inspection.notes || "Ingen merknader registrert."}
              </p>
              
-             {/* Future: Add structured checklist here */}
+             <h3 className="text-base font-semibold mb-4">Sjekkpunkter</h3>
+             {inspection.checkpoints.length > 0 ? (
+               <div className="border rounded-md">
+                 <div className="grid grid-cols-12 gap-4 p-3 font-medium border-b bg-muted/50 text-xs sm:text-sm">
+                   <div className="col-span-3">Rom</div>
+                   <div className="col-span-3">Element</div>
+                   <div className="col-span-2">Status</div>
+                   <div className="col-span-4">Merknad</div>
+                 </div>
+                 {inspection.checkpoints.map((cp) => (
+                   <div key={cp.id} className="grid grid-cols-12 gap-4 p-3 border-b last:border-0 text-sm items-center">
+                     <div className="col-span-3 font-medium">{cp.room}</div>
+                     <div className="col-span-3">{cp.element}</div>
+                     <div className="col-span-2">
+                        <Badge variant={cp.status === 'OK' ? 'outline' : 'destructive'} className="whitespace-nowrap">
+                          {cp.status}
+                        </Badge>
+                     </div>
+                     <div className="col-span-4 text-muted-foreground">{cp.notes || "-"}</div>
+                   </div>
+                 ))}
+               </div>
+             ) : (
+               <p className="text-muted-foreground italic">Ingen sjekkpunkter registrert.</p>
+             )}
           </div>
         </CardContent>
       </Card>

@@ -15,19 +15,38 @@ export async function POST(request: Request) {
       );
     }
 
-    const user = await prisma.user.upsert({
+    // Check if user exists by email (e.g. invited tenant)
+    const existingUser = await prisma.user.findUnique({
       where: { email },
-      update: {
-        name,
-        role: role || "OWNER",
-      },
-      create: {
-        id,
-        email,
-        name,
-        role: role || "OWNER",
-      },
     });
+
+    let user;
+
+    if (existingUser) {
+      // If user exists, update with authId and ensure name is set
+      user = await prisma.user.update({
+        where: { email },
+        data: {
+          authId: id, // Link Supabase ID
+          name: name, // Update name if changed
+          // We don't change role if it's already set (e.g. TENANT)
+          // unless it's explicitly OWNER registration?
+          // For now, assume if they exist, they are tenants.
+        },
+      });
+    } else {
+      // Create new user
+      user = await prisma.user.create({
+        data: {
+          authId: id,
+          email,
+          name,
+          role: role || "OWNER", // Default to OWNER if self-registering without invite? 
+          // Actually, if self-registering, they might be OWNER. 
+          // If invited, they exist.
+        },
+      });
+    }
 
     return NextResponse.json(user);
   } catch (error) {

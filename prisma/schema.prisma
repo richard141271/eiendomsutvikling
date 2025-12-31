@@ -48,6 +48,7 @@ enum InspectionType {
 
 model User {
   id        String   @id @default(uuid())
+  authId    String?  @unique // Link to Supabase Auth ID
   name      String
   email     String   @unique
   phone     String?
@@ -162,10 +163,22 @@ model InspectionProtocol {
   id             String         @id @default(uuid())
   contractId     String
   type           InspectionType
-  notes          String
+  notes          String?
   createdAt      DateTime       @default(now())
   signedByTenant Boolean        @default(false)
   signedByOwner  Boolean        @default(false)
 
+  checkpoints    InspectionCheckpoint[]
   contract       LeaseContract  @relation(fields: [contractId], references: [id], onDelete: Cascade)
+}
+
+model InspectionCheckpoint {
+  id              String             @id @default(uuid())
+  protocolId      String
+  room            String
+  element         String
+  status          String             // e.g. "OK", "Mangel", "Ikke vurdert"
+  notes           String?
+  
+  protocol        InspectionProtocol @relation(fields: [protocolId], references: [id], onDelete: Cascade)
 }
