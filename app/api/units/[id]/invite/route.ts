@@ -3,7 +3,7 @@ import { NextResponse } from "next/server";
 import { Resend } from 'resend';
 import { InviteEmail } from '@/components/emails/invite-email';
 
-const resend = new Resend(process.env.RESEND_API_KEY);
+export const dynamic = 'force-dynamic';
 
 export async function POST(
   request: Request,
@@ -80,6 +80,7 @@ export async function POST(
 
     // 3. Send Email
     if (process.env.RESEND_API_KEY) {
+      const resend = new Resend(process.env.RESEND_API_KEY);
       try {
         const loginUrl = `${process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'}/login`;
         
