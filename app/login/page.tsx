@@ -16,9 +16,11 @@ export default function LoginPage() {
       </div>
       <div className="flex flex-1 flex-col items-center justify-center px-4 -mt-20">
         <div className="flex flex-col items-center space-y-4 mb-8">
-          <div className="bg-slate-900 text-white p-3 rounded-xl shadow-lg">
-            <Building2 className="h-8 w-8" />
-          </div>
+          <img 
+            src="/logo.png" 
+            alt="Halden Eiendomsutvikling Logo" 
+            className="h-16 w-auto rounded-xl shadow-lg"
+          />
           <h1 className="text-2xl font-bold text-slate-900 dark:text-white tracking-tight">
             Halden Eiendomsutvikling
           </h1>

@@ -19,7 +19,10 @@ export function MobileNav() {
         <div className="fixed inset-0 z-50 bg-background/80 backdrop-blur-sm">
           <div className="fixed inset-y-0 left-0 w-3/4 bg-background border-r p-6 shadow-lg sm:max-w-sm">
             <div className="flex items-center justify-between mb-6">
-              <span className="text-lg font-semibold">Meny</span>
+              <div className="flex items-center gap-2">
+                 <img src="/logo.png" alt="Logo" className="h-6 w-6 rounded-md" />
+                 <span className="text-lg font-semibold">Halden Eiendom</span>
+              </div>
               <Button variant="ghost" size="icon" onClick={() => setIsOpen(false)}>
                 <X className="h-6 w-6" />
                 <span className="sr-only">Lukk meny</span>

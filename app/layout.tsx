@@ -6,8 +6,8 @@ import { cn } from "@/lib/utils";
 const inter = Inter({ subsets: ["latin"], variable: "--font-sans" });
 
 export const metadata: Metadata = {
-  title: "Eiendomsforvaltning",
-  description: "Enkelt system for eiendomsforvaltning",
+  title: "Halden Eiendomsutvikling",
+  description: "Kvalitetsboliger i Halden - Utleie og forvaltning",
 };
 
 export default function RootLayout({

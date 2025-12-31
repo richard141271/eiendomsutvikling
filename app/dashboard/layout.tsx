@@ -12,6 +12,11 @@ export default function DashboardLayout({
       <div className="hidden w-64 flex-col border-r bg-gray-100/40 lg:flex dark:bg-gray-800/40">
         <div className="flex h-14 items-center border-b px-6">
           <Link href="/dashboard" className="flex items-center gap-2 font-semibold">
+            <img 
+              src="/logo.png" 
+              alt="Logo" 
+              className="h-8 w-8 rounded-lg"
+            />
             <span>Eiendomssystem</span>
           </Link>
         </div>

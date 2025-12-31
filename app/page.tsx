@@ -7,9 +7,11 @@ export default function Home() {
     <div className="flex flex-col min-h-screen font-sans">
       <header className="px-6 lg:px-10 h-20 flex items-center border-b bg-white dark:bg-slate-950 sticky top-0 z-50 shadow-sm">
         <Link className="flex items-center justify-center gap-2" href="#">
-          <div className="bg-slate-900 text-white p-2 rounded-lg">
-            <Building2 className="h-6 w-6" />
-          </div>
+          <img 
+            src="/logo.png" 
+            alt="Halden Eiendomsutvikling Logo" 
+            className="h-10 w-auto rounded-lg"
+          />
           <span className="font-bold text-xl tracking-tight text-slate-900 dark:text-white">
             Halden Eiendomsutvikling
           </span>
@@ -42,20 +44,28 @@ export default function Home() {
       <main className="flex-1">
         {/* Hero Section */}
         <section className="w-full py-20 md:py-32 lg:py-40 bg-slate-900 text-white overflow-hidden relative">
-          <div className="absolute inset-0 bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 opacity-90"></div>
-          <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_top_right,_var(--tw-gradient-stops))] from-blue-900/40 via-transparent to-transparent"></div>
+          <div className="absolute inset-0">
+            <img 
+              src="/images/Gemini_Generated_Image_4k34by4k34by4k34.png" 
+              alt="Halden Eiendomsutvikling Hero" 
+              className="w-full h-full object-cover opacity-30"
+            />
+          </div>
+          <div className="absolute inset-0 bg-gradient-to-b from-slate-900/50 via-slate-900/20 to-slate-900/90"></div>
           <div className="container px-4 md:px-6 mx-auto relative z-10">
             <div className="flex flex-col items-center space-y-8 text-center max-w-4xl mx-auto">
               <div className="space-y-4">
                 <h1 className="text-4xl font-extrabold tracking-tight sm:text-5xl md:text-6xl lg:text-7xl leading-tight">
                   Kvalitetsboliger i <span className="text-blue-400">Halden</span>
                 </h1>
-                <p className="mx-auto max-w-[700px] text-slate-300 md:text-xl font-light leading-relaxed">
-                  Vi utvikler, forvalter og leier ut moderne hjem med fokus på trivsel, trygghet og sentral beliggenhet. 
-                  Din nye bolig venter på deg.
+                <p className="mx-auto max-w-[800px] text-slate-300 md:text-xl font-light leading-relaxed">
+                  Eiendomsinvest arbeider med kjøp, utleie og flipping av boliger med fokus på kvalitet og verdiskapning. Vi prioriterer ryddige prosesser, solide løsninger og profesjonelle avtaler fra start til slutt.
+                </p>
+                <p className="mx-auto max-w-[700px] text-slate-400 md:text-lg font-light italic">
+                  "Vårt mål er å skape gode eiendomsinvesteringer som gir trygghet og verdi både for kjøpere og leietakere."
                 </p>
               </div>
-              <div className="flex flex-col sm:flex-row gap-4 w-full justify-center">
+              <div className="flex flex-col sm:flex-row gap-4 w-full justify-center pt-4">
                 <Link href="#properties">
                   <Button size="lg" className="h-12 px-8 bg-blue-600 hover:bg-blue-500 text-white w-full sm:w-auto text-lg font-semibold shadow-lg">
                     Se ledige boliger <ArrowRight className="ml-2 h-5 w-5" />
@@ -79,32 +89,61 @@ export default function Home() {
               <p className="text-lg text-slate-600 max-w-2xl mx-auto">Vi legger stolthet i å tilby mer enn bare tak over hodet.</p>
             </div>
             <div className="grid gap-12 sm:grid-cols-2 lg:grid-cols-3">
-              <div className="flex flex-col items-center text-center p-6 rounded-2xl bg-slate-50 border border-slate-100 shadow-sm hover:shadow-md transition-shadow">
-                <div className="p-4 bg-blue-100 text-blue-600 rounded-full mb-6">
-                  <MapPin className="h-8 w-8" />
+              <div className="flex flex-col rounded-2xl bg-slate-50 border border-slate-100 shadow-sm hover:shadow-md transition-shadow overflow-hidden group">
+                <div className="h-48 overflow-hidden">
+                  <img 
+                    src="/images/Gemini_Generated_Image_cd8f0gcd8f0gcd8f.png" 
+                    alt="Kjøp og Salg" 
+                    className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
+                  />
                 </div>
-                <h3 className="text-xl font-bold mb-3 text-slate-900">Sentral beliggenhet</h3>
-                <p className="text-slate-600 leading-relaxed">
-                  Våre eiendommer ligger i hjertet av Halden, med kort vei til skoler, butikker og kollektivtransport.
-                </p>
+                <div className="p-6 flex flex-col items-center text-center flex-1">
+                  <div className="p-3 bg-blue-100 text-blue-600 rounded-full mb-4 -mt-12 relative z-10 border-4 border-slate-50">
+                    <MapPin className="h-6 w-6" />
+                  </div>
+                  <h3 className="text-xl font-bold mb-3 text-slate-900">Kjøp og Salg</h3>
+                  <p className="text-slate-600 leading-relaxed">
+                    Vi er aktive i markedet og søker alltid etter nye investeringsmuligheter. Vi sørger for ryddige prosesser og oppgjør.
+                  </p>
+                </div>
               </div>
-              <div className="flex flex-col items-center text-center p-6 rounded-2xl bg-slate-50 border border-slate-100 shadow-sm hover:shadow-md transition-shadow">
-                <div className="p-4 bg-blue-100 text-blue-600 rounded-full mb-6">
-                  <ShieldCheck className="h-8 w-8" />
+
+              <div className="flex flex-col rounded-2xl bg-slate-50 border border-slate-100 shadow-sm hover:shadow-md transition-shadow overflow-hidden group">
+                <div className="h-48 overflow-hidden">
+                  <img 
+                    src="/images/Gemini_Generated_Image_gblhghgblhghgblh (1).png" 
+                    alt="Utvikling" 
+                    className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
+                  />
                 </div>
-                <h3 className="text-xl font-bold mb-3 text-slate-900">Trygghet i fokus</h3>
-                <p className="text-slate-600 leading-relaxed">
-                  Profesjonell forvaltning, ryddige kontrakter og rask oppfølging av vedlikehold gir deg en bekymringsfri hverdag.
-                </p>
+                <div className="p-6 flex flex-col items-center text-center flex-1">
+                  <div className="p-3 bg-blue-100 text-blue-600 rounded-full mb-4 -mt-12 relative z-10 border-4 border-slate-50">
+                    <ShieldCheck className="h-6 w-6" />
+                  </div>
+                  <h3 className="text-xl font-bold mb-3 text-slate-900">Utvikling og Flipping</h3>
+                  <p className="text-slate-600 leading-relaxed">
+                    Vi oppgraderer boliger til moderne standard med fokus på kvalitet, varige løsninger og estetikk.
+                  </p>
+                </div>
               </div>
-              <div className="flex flex-col items-center text-center p-6 rounded-2xl bg-slate-50 border border-slate-100 shadow-sm hover:shadow-md transition-shadow">
-                <div className="p-4 bg-blue-100 text-blue-600 rounded-full mb-6">
-                  <Key className="h-8 w-8" />
+
+              <div className="flex flex-col rounded-2xl bg-slate-50 border border-slate-100 shadow-sm hover:shadow-md transition-shadow overflow-hidden group">
+                <div className="h-48 overflow-hidden">
+                  <img 
+                    src="/images/Gemini_Generated_Image_i8znbi8znbi8znbi.png" 
+                    alt="Utleie" 
+                    className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
+                  />
                 </div>
-                <h3 className="text-xl font-bold mb-3 text-slate-900">Enkel digital hverdag</h3>
-                <p className="text-slate-600 leading-relaxed">
-                  Alt fra kontraktsignering til husleiebetaling og feilmelding skjer digitalt via vår leietakerportal.
-                </p>
+                <div className="p-6 flex flex-col items-center text-center flex-1">
+                  <div className="p-3 bg-blue-100 text-blue-600 rounded-full mb-4 -mt-12 relative z-10 border-4 border-slate-50">
+                    <Key className="h-6 w-6" />
+                  </div>
+                  <h3 className="text-xl font-bold mb-3 text-slate-900">Profesjonell Utleie</h3>
+                  <p className="text-slate-600 leading-relaxed">
+                    Som leietaker hos oss får du ryddige forhold, digitale løsninger og en profesjonell motpart.
+                  </p>
+                </div>
               </div>
             </div>
           </div>
