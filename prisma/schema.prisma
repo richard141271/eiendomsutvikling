@@ -52,6 +52,10 @@ model User {
   name      String
   email     String   @unique
   phone     String?
+  address   String?
+  postalCode String?
+  city      String?
+  hasTenantCertificate Boolean @default(false)
   role      UserRole @default(TENANT)
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -62,9 +66,31 @@ model User {
   maintenanceRequests MaintenanceRequest[]
   messages            Message[]
   
+  // Tenant Certificate relations
+  receivedCertificates TenantCertificate[] @relation("ReceivedCertificates")
+  issuedCertificates   TenantCertificate[] @relation("IssuedCertificates")
+  
   // For Fiken integration (only for owners)
   fikenCompanySlug    String?
   fikenApiToken       String?
+}
+
+model TenantCertificate {
+  id            String   @id @default(uuid())
+  tenantId      String
+  issuerId      String
+  
+  totalScore    Int      // 1-10
+  behaviorScore Int      // Oppførsel
+  noiseScore    Int      // Lydnivå
+  paymentScore  Int      // Leie betalt som avtalt
+  cleaningScore Int      // Utvask og tilbakelevering
+  
+  comment       String?
+  createdAt     DateTime @default(now())
+  
+  tenant        User     @relation("ReceivedCertificates", fields: [tenantId], references: [id])
+  issuer        User     @relation("IssuedCertificates", fields: [issuerId], references: [id])
 }
 
 model Property {

@@ -20,11 +20,24 @@ import { Label } from "@/components/ui/label"
 import { createClient } from "@/lib/supabase"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import { CheckCircle2 } from "lucide-react"
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select"
 
 const formSchema = z.object({
   name: z.string().min(2, "Navn må være minst 2 tegn"),
   email: z.string().email("Ugyldig e-postadresse"),
   password: z.string().min(4, "Passordet må være minst 4 tegn"),
+  role: z.enum(["OWNER", "TENANT"]),
+  address: z.string().min(1, "Adresse er påkrevd"),
+  postalCode: z.string().min(4, "Postnummer må være 4 siffer"),
+  city: z.string().min(1, "Sted er påkrevd"),
+  phone: z.string().min(8, "Telefonnummer må være minst 8 siffer"),
+  hasTenantCertificate: z.boolean().optional(),
 })
 
 export function RegisterForm() {
@@ -39,8 +52,16 @@ export function RegisterForm() {
       name: "",
       email: "",
       password: "",
+      role: "OWNER",
+      address: "",
+      postalCode: "",
+      city: "",
+      phone: "",
+      hasTenantCertificate: false,
     },
   })
+  
+  const role = form.watch("role");
 
   async function onSubmit(values: z.infer<typeof formSchema>) {
     setIsLoading(true)
@@ -57,7 +78,7 @@ export function RegisterForm() {
         options: {
           data: {
             name: values.name,
-            role: 'OWNER', // Default to Owner for public registration
+            role: values.role,
           },
         },
       })
@@ -80,7 +101,12 @@ export function RegisterForm() {
             id: data.user.id,
             email: values.email,
             name: values.name,
-            role: 'OWNER',
+            role: values.role,
+            address: values.address,
+            postalCode: values.postalCode,
+            city: values.city,
+            phone: values.phone,
+            hasTenantCertificate: values.role === 'TENANT' ? values.hasTenantCertificate : false,
           }),
         })
 
@@ -141,18 +167,36 @@ export function RegisterForm() {
   }
 
   return (
-    <Card className="w-[350px]">
+    <Card className="w-[450px]">
       <CardHeader>
-        <CardTitle>Registrer</CardTitle>
+        <CardTitle>Registrer bruker</CardTitle>
         <CardDescription>
-          Opprett en konto for å administrere dine eiendommer.
+          Opprett en konto som utleier eller boligsøker.
         </CardDescription>
       </CardHeader>
       <CardContent>
         <form onSubmit={form.handleSubmit(onSubmit)}>
           <div className="grid w-full items-center gap-4">
+            
+            {/* Role Selection */}
             <div className="flex flex-col space-y-1.5">
-              <Label htmlFor="name">Navn</Label>
+              <Label htmlFor="role">Jeg er:</Label>
+              <Select 
+                onValueChange={(value: "OWNER" | "TENANT") => form.setValue("role", value)} 
+                defaultValue={form.getValues("role")}
+              >
+                <SelectTrigger id="role">
+                  <SelectValue placeholder="Velg rolle" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="OWNER">Utleier / Admin</SelectItem>
+                  <SelectItem value="TENANT">Boligsøker / Leietaker</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div className="flex flex-col space-y-1.5">
+              <Label htmlFor="name">Fullt navn</Label>
               <Input
                 id="name"
                 placeholder="Ola Nordmann"
@@ -164,6 +208,64 @@ export function RegisterForm() {
                 </span>
               )}
             </div>
+            
+            <div className="flex flex-col space-y-1.5">
+              <Label htmlFor="address">Adresse</Label>
+              <Input
+                id="address"
+                placeholder="Storgata 1"
+                {...form.register("address")}
+              />
+              {form.formState.errors.address && (
+                <span className="text-sm text-red-500">
+                  {form.formState.errors.address.message}
+                </span>
+              )}
+            </div>
+
+            <div className="grid grid-cols-2 gap-4">
+              <div className="flex flex-col space-y-1.5">
+                <Label htmlFor="postalCode">Postnummer</Label>
+                <Input
+                  id="postalCode"
+                  placeholder="1771"
+                  {...form.register("postalCode")}
+                />
+                {form.formState.errors.postalCode && (
+                  <span className="text-sm text-red-500">
+                    {form.formState.errors.postalCode.message}
+                  </span>
+                )}
+              </div>
+              <div className="flex flex-col space-y-1.5">
+                <Label htmlFor="city">Sted</Label>
+                <Input
+                  id="city"
+                  placeholder="Halden"
+                  {...form.register("city")}
+                />
+                {form.formState.errors.city && (
+                  <span className="text-sm text-red-500">
+                    {form.formState.errors.city.message}
+                  </span>
+                )}
+              </div>
+            </div>
+
+            <div className="flex flex-col space-y-1.5">
+              <Label htmlFor="phone">Telefonnummer</Label>
+              <Input
+                id="phone"
+                placeholder="12345678"
+                {...form.register("phone")}
+              />
+              {form.formState.errors.phone && (
+                <span className="text-sm text-red-500">
+                  {form.formState.errors.phone.message}
+                </span>
+              )}
+            </div>
+
             <div className="flex flex-col space-y-1.5">
               <Label htmlFor="email">E-post</Label>
               <Input
@@ -177,6 +279,7 @@ export function RegisterForm() {
                 </span>
               )}
             </div>
+
             <div className="flex flex-col space-y-1.5">
               <Label htmlFor="password">Passord (eller PIN)</Label>
               <Input
@@ -191,9 +294,25 @@ export function RegisterForm() {
                 </span>
               )}
             </div>
+
+            {/* Tenant Certificate Checkbox */}
+            {role === 'TENANT' && (
+              <div className="flex items-center space-x-2 border p-4 rounded-md bg-slate-50">
+                 <input
+                    type="checkbox"
+                    id="hasTenantCertificate"
+                    className="h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                    {...form.register("hasTenantCertificate")}
+                 />
+                 <Label htmlFor="hasTenantCertificate" className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70 cursor-pointer">
+                   Jeg har leieboerbevis
+                 </Label>
+              </div>
+            )}
+            
           </div>
           {error && <div className="mt-4 text-sm text-red-500">{error}</div>}
-          <div className="mt-4 flex justify-between">
+          <div className="mt-6 flex justify-between">
              <Button type="submit" className="w-full" disabled={isLoading}>
                 {isLoading ? "Oppretter konto..." : "Registrer"}
              </Button>

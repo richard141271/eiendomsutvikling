@@ -6,7 +6,17 @@ export async function POST(request: Request) {
   try {
     const body = await request.json();
     console.log("Register API body:", body);
-    const { id, email, name, role } = body;
+    const { 
+      id, 
+      email, 
+      name, 
+      role, 
+      phone, 
+      address, 
+      postalCode, 
+      city, 
+      hasTenantCertificate 
+    } = body;
 
     if (!id || !email || !name) {
       return NextResponse.json(
@@ -29,9 +39,12 @@ export async function POST(request: Request) {
         data: {
           authId: id, // Link Supabase ID
           name: name, // Update name if changed
-          // We don't change role if it's already set (e.g. TENANT)
-          // unless it's explicitly OWNER registration?
-          // For now, assume if they exist, they are tenants.
+          phone,
+          address,
+          postalCode,
+          city,
+          hasTenantCertificate: hasTenantCertificate || false,
+          role: role || existingUser.role, // Update role if provided, else keep existing
         },
       });
     } else {
@@ -41,9 +54,12 @@ export async function POST(request: Request) {
           authId: id,
           email,
           name,
-          role: role || "OWNER", // Default to OWNER if self-registering without invite? 
-          // Actually, if self-registering, they might be OWNER. 
-          // If invited, they exist.
+          phone,
+          address,
+          postalCode,
+          city,
+          hasTenantCertificate: hasTenantCertificate || false,
+          role: role || "OWNER", 
         },
       });
     }
