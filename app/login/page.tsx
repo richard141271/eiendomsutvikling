@@ -5,7 +5,7 @@ import { ArrowLeft, Building2 } from "lucide-react"
 export default function LoginPage() {
   return (
     <div className="flex min-h-screen w-full flex-col bg-slate-50 dark:bg-slate-900">
-      <div className="p-4 md:p-8">
+      <div className="p-4 md:p-8 relative z-10">
         <Link 
           href="/" 
           className="inline-flex items-center text-sm font-medium text-slate-600 hover:text-slate-900 dark:text-slate-400 dark:hover:text-slate-100 transition-colors"
