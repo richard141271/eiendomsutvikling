@@ -69,13 +69,21 @@ export default function NewPropertyPage() {
       })
 
       if (!res.ok) {
-        throw new Error("Kunne ikke opprette eiendom")
+        const text = await res.text();
+        let errorMsg = "Kunne ikke opprette eiendom";
+        try {
+          const json = JSON.parse(text);
+          errorMsg = json.error || errorMsg;
+        } catch (e) {
+          // ignore json parse error
+        }
+        throw new Error(errorMsg)
       }
 
       router.push("/dashboard/properties")
       router.refresh()
-    } catch (err) {
-      setError("En uventet feil oppstod")
+    } catch (err: any) {
+      setError(err.message || "En uventet feil oppstod")
       console.error(err)
     } finally {
       setIsLoading(false)

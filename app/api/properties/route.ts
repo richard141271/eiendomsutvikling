@@ -18,7 +18,7 @@ export async function POST(request: Request) {
     // but in production we MUST verify it against the session.
     
     const body = await request.json();
-    const { name, address, gnr, bnr, ownerId } = body;
+    const { name, address, gnr, bnr, notes, ownerId } = body;
 
     if (!name || !address || !ownerId) {
       return NextResponse.json(
@@ -27,12 +27,20 @@ export async function POST(request: Request) {
       );
     }
 
-    // Check if user exists in database
-    const userExists = await prisma.user.findUnique({
-      where: { id: ownerId },
+    // Check if user exists in database (by authId or id)
+    // The client sends the Supabase User ID as 'ownerId'
+    let user = await prisma.user.findUnique({
+      where: { authId: ownerId },
     });
 
-    if (!userExists) {
+    if (!user) {
+      // Fallback: check if it matches the PK directly
+      user = await prisma.user.findUnique({
+        where: { id: ownerId },
+      });
+    }
+
+    if (!user) {
       console.error("User not found in database:", ownerId);
       return NextResponse.json(
         { error: "Brukerprofil mangler i databasen. Prøv å logge ut og inn igjen." },
@@ -46,7 +54,8 @@ export async function POST(request: Request) {
         address,
         gnr,
         bnr,
-        ownerId,
+        notes,
+        ownerId: user.id, // Use the database PK
         status: "ACTIVE",
       },
     });
