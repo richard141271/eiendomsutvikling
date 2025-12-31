@@ -297,16 +297,38 @@ export function RegisterForm() {
 
             {/* Tenant Certificate Checkbox */}
             {role === 'TENANT' && (
-              <div className="flex items-center space-x-2 border p-4 rounded-md bg-slate-50">
-                 <input
-                    type="checkbox"
-                    id="hasTenantCertificate"
-                    className="h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
-                    {...form.register("hasTenantCertificate")}
-                 />
-                 <Label htmlFor="hasTenantCertificate" className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70 cursor-pointer">
-                   Jeg har leieboerbevis
-                 </Label>
+              <div className="space-y-4">
+                <div className="flex items-center space-x-2 border p-4 rounded-md bg-slate-50">
+                  <input
+                      type="checkbox"
+                      id="hasTenantCertificate"
+                      className="h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                      {...form.register("hasTenantCertificate")}
+                  />
+                  <Label htmlFor="hasTenantCertificate" className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70 cursor-pointer">
+                    Jeg har leieboerbevis
+                  </Label>
+                </div>
+
+                {form.watch("hasTenantCertificate") && (
+                   <div className="border border-dashed border-slate-300 rounded-md p-6 flex flex-col items-center text-center bg-slate-50/50">
+                     <div className="mb-2">
+                       <CheckCircle2 className="h-8 w-8 text-slate-300 mx-auto" />
+                     </div>
+                     <p className="text-sm font-medium text-slate-900 mb-1">Last opp leieboerbevis</p>
+                     <p className="text-xs text-slate-500 mb-4">Last opp PDF eller bilde av ditt bevis</p>
+                     <Input 
+                       type="file" 
+                       accept=".pdf,image/*" 
+                       className="max-w-xs"
+                       onChange={(e) => {
+                         // In a real app, handle file upload to Supabase Storage here
+                         // For now we just log it
+                         console.log("File selected:", e.target.files?.[0]);
+                       }}
+                     />
+                   </div>
+                )}
               </div>
             )}
             
