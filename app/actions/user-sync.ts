@@ -55,3 +55,22 @@ export async function syncUser() {
     return { success: false, error: error.message };
   }
 }
+
+export async function getCurrentUser() {
+    try {
+        const supabase = createClient();
+        const { data: { user } } = await supabase.auth.getUser();
+
+        if (!user) return null;
+
+        const dbUser = await prisma.user.findUnique({
+            where: { authId: user.id },
+            select: { name: true, role: true, email: true }
+        });
+
+        return dbUser;
+    } catch (error) {
+        console.error("Failed to get current user:", error);
+        return null;
+    }
+}

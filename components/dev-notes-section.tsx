@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { createDevNote, getDevNotes, deleteDevNote, toggleDevNoteResolved } from "@/app/actions/dev-notes";
+import { getCurrentUser } from "@/app/actions/user-sync";
 import { Trash2, CheckCircle2, Circle, Loader2, Copy, Check } from "lucide-react";
 import { format } from "date-fns";
 import { nb } from "date-fns/locale";
@@ -28,9 +29,23 @@ export function DevNotesSection() {
 
   useEffect(() => {
     loadNotes();
-    // Load saved author
-    const savedAuthor = localStorage.getItem("devNoteAuthor");
-    if (savedAuthor) setAuthor(savedAuthor);
+    // Load current user or saved author
+    const initAuthor = async () => {
+        try {
+            const user = await getCurrentUser();
+            if (user && user.name) {
+                setAuthor(user.name);
+            } else {
+                const savedAuthor = localStorage.getItem("devNoteAuthor");
+                if (savedAuthor) setAuthor(savedAuthor);
+            }
+        } catch (error) {
+            console.error("Failed to fetch user:", error);
+            const savedAuthor = localStorage.getItem("devNoteAuthor");
+            if (savedAuthor) setAuthor(savedAuthor);
+        }
+    };
+    initAuthor();
   }, []);
 
   const loadNotes = async () => {
