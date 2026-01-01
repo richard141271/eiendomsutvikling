@@ -1,18 +1,20 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import Image from "next/image";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { MapPin, Home, Ruler, DollarSign } from "lucide-react";
+import { MapPin, Home, Ruler } from "lucide-react";
 
 interface Unit {
   id: string;
   name: string;
   sizeSqm: number;
-  rooms: number;
+  roomCount: number;
   rentAmount: number;
   status: string;
+  imageUrl?: string | null;
   property: {
     name: string;
     address: string;
@@ -81,8 +83,7 @@ export default function AvailableUnitsPage() {
                     <span>{unit.roomCount} rom</span>
                   </div>
                   <div className="flex items-center font-bold">
-                    <DollarSign className="h-4 w-4 mr-1 text-muted-foreground" />
-                    <span>{unit.rentAmount.toLocaleString()} kr/mnd</span>
+                    <span>{unit.rentAmount.toLocaleString("no-NO")} NOK/mnd</span>
                   </div>
                 </div>
               </CardContent>

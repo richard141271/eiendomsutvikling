@@ -239,8 +239,8 @@ export default function EditUnitPage({ params }: { params: { id: string } }) {
               <Button variant="outline" type="button" onClick={() => router.back()}>
                 Avbryt
               </Button>
-              <Button type="submit" disabled={isLoading}>
-                {isLoading ? "Lagrer..." : "Lagre Endringer"}
+              <Button type="submit" disabled={isLoading || isUploading}>
+                {isUploading ? "Laster opp bilde..." : isLoading ? "Lagrer..." : "Lagre Endringer"}
               </Button>
             </div>
           </form>

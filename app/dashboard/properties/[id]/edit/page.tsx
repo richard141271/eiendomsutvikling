@@ -201,6 +201,7 @@ export default function EditPropertyPage({ params }: { params: { id: string } })
               <ImageUpload
                 value={form.watch("imageUrl")}
                 onChange={(url) => form.setValue("imageUrl", url)}
+                onUploadStatusChange={setIsUploading}
                 label="Bilde av eiendommen"
               />
             </div>
@@ -220,8 +221,8 @@ export default function EditPropertyPage({ params }: { params: { id: string } })
               <Button variant="outline" type="button" onClick={() => router.back()}>
                 Avbryt
               </Button>
-              <Button type="submit" disabled={isLoading}>
-                {isLoading ? "Lagrer..." : "Lagre Endringer"}
+              <Button type="submit" disabled={isLoading || isUploading}>
+                {isUploading ? "Laster opp bilde..." : isLoading ? "Lagrer..." : "Lagre Endringer"}
               </Button>
             </div>
           </form>

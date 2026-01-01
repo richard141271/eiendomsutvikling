@@ -1,4 +1,5 @@
 import Link from "next/link";
+import Image from "next/image";
 import { Button } from "@/components/ui/button";
 import { Building2, Key, ShieldCheck, Home as HomeIcon, ArrowRight, Phone, Mail, MapPin } from "lucide-react";
 import { prisma } from "@/lib/prisma";
@@ -184,11 +185,19 @@ export default async function Home() {
                 availableUnits.map((unit) => (
                   <div key={unit.id} className="group bg-white rounded-xl overflow-hidden border border-slate-200 shadow-sm hover:shadow-xl transition-all duration-300">
                     <div className="h-48 bg-slate-200 relative overflow-hidden">
-                       {/* Placeholder for image - could be dynamic if we add images to units/properties later */}
-                       <div className="absolute inset-0 bg-slate-300 flex items-center justify-center text-slate-500">
-                         <HomeIcon className="h-12 w-12 opacity-50" />
-                       </div>
-                    </div>
+                    {unit.imageUrl ? (
+                      <Image
+                        src={unit.imageUrl}
+                        alt={unit.name || unit.property.name}
+                        fill
+                        className="object-cover transition-transform duration-300 group-hover:scale-105"
+                      />
+                    ) : (
+                      <div className="absolute inset-0 bg-slate-300 flex items-center justify-center text-slate-500">
+                        <HomeIcon className="h-12 w-12 opacity-50" />
+                      </div>
+                    )}
+                  </div>
                     <div className="p-6">
                       <h3 className="font-bold text-xl mb-2 text-slate-900">{unit.property.address}</h3>
                       <p className="text-slate-500 mb-4 text-sm">

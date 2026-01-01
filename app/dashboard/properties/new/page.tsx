@@ -33,6 +33,7 @@ const formSchema = z.object({
 export default function NewPropertyPage() {
   const router = useRouter()
   const [isLoading, setIsLoading] = React.useState(false)
+  const [isUploading, setIsUploading] = React.useState(false)
   const [error, setError] = React.useState<string | null>(null)
 
   const form = useForm<z.infer<typeof formSchema>>({
@@ -161,6 +162,7 @@ export default function NewPropertyPage() {
               <ImageUpload
                 value={form.watch("imageUrl")}
                 onChange={(url) => form.setValue("imageUrl", url)}
+                onUploadStatusChange={setIsUploading}
                 label="Bilde av eiendommen"
               />
             </div>
@@ -180,8 +182,8 @@ export default function NewPropertyPage() {
               <Button variant="outline" type="button" onClick={() => router.back()}>
                 Avbryt
               </Button>
-              <Button type="submit" disabled={isLoading}>
-                {isLoading ? "Oppretter..." : "Opprett Eiendom"}
+              <Button type="submit" disabled={isLoading || isUploading}>
+                {isUploading ? "Laster opp bilde..." : isLoading ? "Oppretter..." : "Opprett Eiendom"}
               </Button>
             </div>
           </form>

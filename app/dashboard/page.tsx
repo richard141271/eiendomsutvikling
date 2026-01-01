@@ -19,6 +19,12 @@ export default async function DashboardPage() {
     }
   });
 
+  const recentProperties = await prisma.property.findMany({
+    take: 5,
+    orderBy: { createdAt: 'desc' },
+    select: { id: true, name: true, createdAt: true, address: true }
+  });
+
   return (
     <div className="flex flex-col gap-4">
       <h1 className="text-2xl font-bold">Dashboard</h1>
@@ -60,10 +66,26 @@ export default async function DashboardPage() {
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-7">
         <Card className="col-span-4">
           <CardHeader>
-            <CardTitle>Siste Aktivitet</CardTitle>
+            <CardTitle>Siste Eiendommer</CardTitle>
           </CardHeader>
           <CardContent>
-            <p className="text-sm text-muted-foreground">Ingen aktivitet registrert.</p>
+            {recentProperties.length > 0 ? (
+              <div className="space-y-4">
+                {recentProperties.map((property) => (
+                  <div key={property.id} className="flex items-center justify-between border-b pb-2 last:border-0 last:pb-0">
+                    <div>
+                      <p className="font-medium">{property.name}</p>
+                      <p className="text-sm text-muted-foreground">{property.address}</p>
+                    </div>
+                    <div className="text-sm text-muted-foreground">
+                      {new Date(property.createdAt).toLocaleDateString("no-NO")}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <p className="text-sm text-muted-foreground">Ingen eiendommer registrert.</p>
+            )}
           </CardContent>
         </Card>
         <Card className="col-span-3">

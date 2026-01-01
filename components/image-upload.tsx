@@ -9,9 +9,10 @@ interface ImageUploadProps {
   value?: string | null;
   onChange: (url: string) => void;
   label?: string;
+  onUploadStatusChange?: (isUploading: boolean) => void;
 }
 
-export function ImageUpload({ value, onChange, label = "Bilde" }: ImageUploadProps) {
+export function ImageUpload({ value, onChange, label = "Bilde", onUploadStatusChange }: ImageUploadProps) {
   const [uploading, setUploading] = useState(false);
   const [preview, setPreview] = useState<string | null>(value || null);
 
@@ -22,7 +23,9 @@ export function ImageUpload({ value, onChange, label = "Bilde" }: ImageUploadPro
     // Show local preview immediately
     const objectUrl = URL.createObjectURL(file);
     setPreview(objectUrl);
+    
     setUploading(true);
+    if (onUploadStatusChange) onUploadStatusChange(true);
 
     try {
       const formData = new FormData();
@@ -33,16 +36,20 @@ export function ImageUpload({ value, onChange, label = "Bilde" }: ImageUploadPro
         body: formData,
       });
 
-      if (!res.ok) throw new Error("Upload failed");
+      if (!res.ok) {
+        const errorData = await res.json().catch(() => ({}));
+        throw new Error(errorData.error || "Upload failed");
+      }
 
       const data = await res.json();
       onChange(data.imageUrl);
     } catch (error) {
       console.error("Error uploading image:", error);
-      alert("Kunne ikke laste opp bilde");
+      alert(`Kunne ikke laste opp bilde: ${error instanceof Error ? error.message : "Ukjent feil"}`);
       setPreview(value || null); // Revert preview
     } finally {
       setUploading(false);
+      if (onUploadStatusChange) onUploadStatusChange(false);
     }
   };
 

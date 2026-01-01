@@ -204,8 +204,8 @@ export default function NewUnitPage({ params }: NewUnitPageProps) {
               <Button variant="outline" type="button" onClick={() => router.back()}>
                 Avbryt
               </Button>
-              <Button type="submit" disabled={isLoading}>
-                {isLoading ? "Oppretter..." : "Opprett enhet"}
+              <Button type="submit" disabled={isLoading || isUploading}>
+                {isUploading ? "Laster opp bilde..." : isLoading ? "Oppretter..." : "Opprett enhet"}
               </Button>
             </div>
           </form>
