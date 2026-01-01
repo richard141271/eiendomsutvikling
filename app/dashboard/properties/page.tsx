@@ -1,4 +1,5 @@
 import Link from "next/link";
+import Image from "next/image";
 import { Button } from "@/components/ui/button";
 import {
   Card,
@@ -83,6 +84,16 @@ export default async function PropertiesPage() {
             
             return (
               <Card key={property.id} className="overflow-hidden bg-white shadow-sm border-slate-200">
+                {property.imageUrl && (
+                  <div className="relative w-full h-48 bg-gray-100">
+                    <Image
+                      src={property.imageUrl}
+                      alt={property.name}
+                      fill
+                      className="object-cover"
+                    />
+                  </div>
+                )}
                 <div className="p-6">
                     {/* Header Section */}
                     <div className="flex flex-col md:flex-row justify-between items-start gap-4 mb-6">

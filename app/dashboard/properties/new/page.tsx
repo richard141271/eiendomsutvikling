@@ -19,6 +19,7 @@ import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
 import { createClient } from "@/lib/supabase"
 import { syncUser } from "@/app/actions/user-sync"
+import { ImageUpload } from "@/components/image-upload"
 
 const formSchema = z.object({
   name: z.string().min(2, "Navn må være minst 2 tegn"),
@@ -26,6 +27,7 @@ const formSchema = z.object({
   gnr: z.string().optional(),
   bnr: z.string().optional(),
   notes: z.string().optional(),
+  imageUrl: z.string().optional(),
 })
 
 export default function NewPropertyPage() {
@@ -41,6 +43,7 @@ export default function NewPropertyPage() {
       gnr: "",
       bnr: "",
       notes: "",
+      imageUrl: "",
     },
   })
 
@@ -152,6 +155,14 @@ export default function NewPropertyPage() {
                   {...form.register("bnr")}
                 />
               </div>
+            </div>
+
+            <div className="space-y-2">
+              <ImageUpload
+                value={form.watch("imageUrl")}
+                onChange={(url) => form.setValue("imageUrl", url)}
+                label="Bilde av eiendommen"
+              />
             </div>
 
             <div className="space-y-2">

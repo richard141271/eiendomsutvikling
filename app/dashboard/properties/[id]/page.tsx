@@ -1,4 +1,5 @@
 import Link from "next/link";
+import Image from "next/image";
 import { notFound } from "next/navigation";
 import { prisma } from "@/lib/prisma";
 import { Button } from "@/components/ui/button";
@@ -54,6 +55,16 @@ export default async function PropertyDetailsPage({
 
   return (
     <div className="flex flex-col gap-6">
+      {property.imageUrl && (
+        <div className="relative w-full h-64 bg-gray-100 rounded-lg overflow-hidden">
+          <Image
+            src={property.imageUrl}
+            alt={property.name}
+            fill
+            className="object-cover"
+          />
+        </div>
+      )}
       <div className="flex items-center justify-between">
         <div className="space-y-1">
           <h1 className="text-2xl font-bold">{property.name}</h1>

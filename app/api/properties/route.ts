@@ -18,7 +18,7 @@ export async function POST(request: Request) {
     // but in production we MUST verify it against the session.
     
     const body = await request.json();
-    const { name, address, gnr, bnr, notes, ownerId, email } = body;
+    const { name, address, gnr, bnr, notes, imageUrl, ownerId, email } = body;
 
     if (!name || !address || !ownerId) {
       return NextResponse.json(
@@ -91,6 +91,7 @@ export async function POST(request: Request) {
         gnr,
         bnr,
         notes,
+        imageUrl,
         ownerId: user.id, // Use the database PK
         status: "ACTIVE",
       },

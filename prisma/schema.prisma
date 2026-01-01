@@ -105,6 +105,7 @@ model Property {
   ownerId   String
   status    PropertyStatus @default(ACTIVE)
   notes     String?
+  imageUrl  String?
   createdAt DateTime       @default(now())
   updatedAt DateTime       @updatedAt
 

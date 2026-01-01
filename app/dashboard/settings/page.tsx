@@ -89,8 +89,8 @@ export default function SettingsPage() {
                         <Input 
                             id="rent" 
                             type="number"
-                            value={rentPerSqm}
-                            onChange={(e) => setRentPerSqm(parseInt(e.target.value) || 0)}
+                            value={rentPerSqm || ""}
+                            onChange={(e) => setRentPerSqm(e.target.value === "" ? 0 : parseInt(e.target.value))}
                         />
                         <p className="text-xs text-muted-foreground">
                             Brukes til å automatisk beregne leiepris basert på størrelse.

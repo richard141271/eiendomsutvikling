@@ -24,6 +24,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select"
+import { ImageUpload } from "@/components/image-upload"
 
 const formSchema = z.object({
   name: z.string().min(2, "Navn må være minst 2 tegn"),
@@ -31,6 +32,7 @@ const formSchema = z.object({
   gnr: z.string().optional(),
   bnr: z.string().optional(),
   notes: z.string().optional(),
+  imageUrl: z.string().optional(),
 })
 
 export default function EditPropertyPage({ params }: { params: { id: string } }) {
@@ -47,6 +49,7 @@ export default function EditPropertyPage({ params }: { params: { id: string } })
       gnr: "",
       bnr: "",
       notes: "",
+      imageUrl: "",
     },
   })
 
@@ -63,6 +66,7 @@ export default function EditPropertyPage({ params }: { params: { id: string } })
           gnr: data.gnr || "",
           bnr: data.bnr || "",
           notes: data.notes || "",
+          imageUrl: data.imageUrl || "",
         })
       } catch (err) {
         setError("Kunne ikke laste eiendomsdata")
@@ -191,6 +195,14 @@ export default function EditPropertyPage({ params }: { params: { id: string } })
                   {...form.register("bnr")}
                 />
               </div>
+            </div>
+
+            <div className="space-y-2">
+              <ImageUpload
+                value={form.watch("imageUrl")}
+                onChange={(url) => form.setValue("imageUrl", url)}
+                label="Bilde av eiendommen"
+              />
             </div>
 
             <div className="space-y-2">
