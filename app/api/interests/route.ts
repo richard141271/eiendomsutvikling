@@ -51,6 +51,9 @@ export async function POST(request: Request) {
 
 export async function GET(request: Request) {
   try {
+    const { searchParams } = new URL(request.url);
+    const unitId = searchParams.get('unitId');
+
     const supabase = createClient();
     const { data: { user: authUser } } = await supabase.auth.getUser();
 
@@ -67,7 +70,10 @@ export async function GET(request: Request) {
         return NextResponse.json({ error: "Forbidden" }, { status: 403 });
     }
 
+    const where = unitId ? { unitId } : {};
+
     const interests = await prisma.interest.findMany({
+      where,
       include: {
         unit: {
           include: {

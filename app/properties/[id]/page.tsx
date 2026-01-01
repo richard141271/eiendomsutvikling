@@ -140,7 +140,7 @@ export default async function PropertyPage({ params }: { params: { id: string } 
                 <p className="text-slate-600 dark:text-slate-400 mb-6 text-sm">
                   Har du spørsmål om denne eiendommen eller ønsker visning? Ta kontakt med oss.
                 </p>
-                <Link href="/contact" className="w-full block mb-3">
+                <Link href="/#contact" className="w-full block mb-3">
                   <Button className="w-full">Kontakt oss</Button>
                 </Link>
                 <Link href={`mailto:post@kias.no?subject=Forespørsel: ${property.address}`} className="w-full block">

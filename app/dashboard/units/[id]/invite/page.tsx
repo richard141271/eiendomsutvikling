@@ -6,12 +6,15 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 
 export default function InviteTenantPage({ params }: { params: { id: string } }) {
   const router = useRouter();
   const [loading, setLoading] = useState(false);
   const [inviteSuccess, setInviteSuccess] = useState(false);
   const [unit, setUnit] = useState<any>(null);
+  const [interests, setInterests] = useState<any[]>([]);
+  const [selectedInterestId, setSelectedInterestId] = useState("manual");
   
   // Form states
   const [name, setName] = useState("");
@@ -23,12 +26,10 @@ export default function InviteTenantPage({ params }: { params: { id: string } })
   const [depositAmount, setDepositAmount] = useState("");
 
   useEffect(() => {
-    // Fetch unit details to pre-fill rent/deposit
-    // In a real app we would fetch this. For MVP without DB connection working yet,
-    // we might skip pre-filling or mock it if fetch fails.
+    // Fetch unit details
     const fetchUnit = async () => {
       try {
-        const res = await fetch(`/api/units/${params.id}`); // This might fail if API not ready
+        const res = await fetch(`/api/units/${params.id}`);
         if (res.ok) {
           const data = await res.json();
           setUnit(data);
@@ -39,8 +40,39 @@ export default function InviteTenantPage({ params }: { params: { id: string } })
         console.error("Failed to fetch unit", e);
       }
     };
+
+    // Fetch interests
+    const fetchInterests = async () => {
+        try {
+            const res = await fetch(`/api/interests?unitId=${params.id}`);
+            if (res.ok) {
+                const data = await res.json();
+                setInterests(data);
+            }
+        } catch (e) {
+            console.error("Failed to fetch interests", e);
+        }
+    }
+
     fetchUnit();
+    fetchInterests();
   }, [params.id]);
+
+  const handleInterestChange = (val: string) => {
+      setSelectedInterestId(val);
+      if (val === "manual") {
+          setName("");
+          setEmail("");
+          setPhone("");
+      } else {
+          const interest = interests.find(i => i.id === val);
+          if (interest) {
+              setName(interest.name);
+              setEmail(interest.email);
+              setPhone(interest.phone || "");
+          }
+      }
+  }
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -77,7 +109,7 @@ export default function InviteTenantPage({ params }: { params: { id: string } })
       <div className="max-w-2xl mx-auto py-8">
         <Card>
           <CardHeader>
-            <CardTitle className="text-green-600">Invitasjon opprettet!</CardTitle>
+            <CardTitle className="text-green-600">Kontrakt opprettet og invitasjon sendt!</CardTitle>
             <CardDescription>
               Kontrakt er opprettet og ligger klar.
             </CardDescription>
@@ -105,13 +137,34 @@ export default function InviteTenantPage({ params }: { params: { id: string } })
     <div className="max-w-2xl mx-auto py-8">
       <Card>
         <CardHeader>
-          <CardTitle>Inviter leietaker og opprett kontrakt</CardTitle>
+          <CardTitle>Opprett Kontrakt</CardTitle>
           <CardDescription>
-            Fyll inn detaljene for å invitere en leietaker. Dette vil opprette et kontraktsutkast.
+            Velg en interessent eller fyll ut manuelt for å opprette kontrakt.
           </CardDescription>
         </CardHeader>
         <CardContent>
           <form onSubmit={handleSubmit} className="space-y-6">
+            
+            {/* Interest Selector */}
+            {interests.length > 0 && (
+                <div className="space-y-2">
+                    <Label>Velg Interessent (Valgfritt)</Label>
+                    <Select value={selectedInterestId} onValueChange={handleInterestChange}>
+                        <SelectTrigger>
+                            <SelectValue placeholder="Velg fra liste" />
+                        </SelectTrigger>
+                        <SelectContent>
+                            <SelectItem value="manual">Fyll ut manuelt</SelectItem>
+                            {interests.map(i => (
+                                <SelectItem key={i.id} value={i.id}>
+                                    {i.name} ({new Date(i.createdAt).toLocaleDateString()})
+                                </SelectItem>
+                            ))}
+                        </SelectContent>
+                    </Select>
+                </div>
+            )}
+
             <div className="space-y-4">
               <h3 className="text-sm font-medium text-muted-foreground uppercase tracking-wider">Leietaker</h3>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -200,7 +253,7 @@ export default function InviteTenantPage({ params }: { params: { id: string } })
                 Avbryt
               </Button>
               <Button type="submit" disabled={loading}>
-                {loading ? "Sender..." : "Send invitasjon"}
+                {loading ? "Oppretter..." : "Opprett & Send"}
               </Button>
             </div>
           </form>

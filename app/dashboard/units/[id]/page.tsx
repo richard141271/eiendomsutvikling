@@ -107,7 +107,14 @@ export default async function UnitDetailsPage({ params }: UnitDetailsPageProps) 
       </div>
 
       <div className="space-y-4">
-        <h2 className="text-xl font-semibold">Leiehistorikk</h2>
+        <div className="flex items-center justify-between">
+            <h2 className="text-xl font-semibold">Leiehistorikk</h2>
+            <Button variant="outline" size="sm" asChild>
+                <Link href={`/dashboard/units/${unit.id}/invite`}>
+                    Opprett kontrakt
+                </Link>
+            </Button>
+        </div>
         {/* We can reuse the Table component here for contracts history */}
         <div className="rounded-md border p-4 text-muted-foreground text-sm">
            {unit.leaseContracts.length === 0 ? "Ingen leiehistorikk." : "Kontraktsliste kommer her."}

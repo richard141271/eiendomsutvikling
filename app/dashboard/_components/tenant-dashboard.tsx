@@ -1,9 +1,14 @@
+"use client"
+
+import { useState } from "react"
 import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Progress } from "@/components/ui/progress"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
-import { AlertCircle, FileText, Home, CreditCard } from "lucide-react"
+import { AlertCircle, FileText, Home, CreditCard, CheckCircle2 } from "lucide-react"
 import Link from "next/link"
+import { Switch } from "@/components/ui/switch"
+import { Label } from "@/components/ui/label"
 
 interface TenantDashboardProps {
   user: any;
@@ -12,6 +17,7 @@ interface TenantDashboardProps {
 }
 
 export function TenantDashboard({ user, activeContract, certificate }: TenantDashboardProps) {
+  const [autoPay, setAutoPay] = useState(false);
   const score = certificate ? certificate.totalScore : 10;
   
   return (
@@ -21,14 +27,26 @@ export function TenantDashboard({ user, activeContract, certificate }: TenantDas
         <p className="text-muted-foreground">Her er oversikten over ditt leieforhold.</p>
       </div>
 
-      {/* Notification Area - Mocked logic for now */}
-      <Alert variant="destructive" className="bg-amber-50 border-amber-200 text-amber-800">
-        <AlertCircle className="h-4 w-4 text-amber-800" />
-        <AlertTitle>Betalingspåminnelse</AlertTitle>
-        <AlertDescription>
-          NB! Betal leien i dag for å unngå at ratingen på ditt leietakerbevis vil synke, samt unngå gebyrer og andre kostnader.
-        </AlertDescription>
-      </Alert>
+      {/* Notifications */}
+      <div className="space-y-4">
+        <Alert variant="destructive" className="bg-amber-50 border-amber-200 text-amber-800">
+            <AlertCircle className="h-4 w-4 text-amber-800" />
+            <AlertTitle>Betalingspåminnelse</AlertTitle>
+            <AlertDescription>
+            NB! Betal leien i dag for å unngå at ratingen på ditt leietakerbevis vil synke, samt unngå gebyrer og andre kostnader.
+            </AlertDescription>
+        </Alert>
+
+        {score < 10 && (
+            <Alert className="bg-blue-50 border-blue-200 text-blue-800">
+                <CheckCircle2 className="h-4 w-4 text-blue-800" />
+                <AlertTitle>Rating Tips</AlertTitle>
+                <AlertDescription>
+                Alle kan gjøre feil, men din rating vil bygge seg oppover igjen, om du fortsetter å være en god leieboer.
+                </AlertDescription>
+            </Alert>
+        )}
+      </div>
 
       <div className="grid gap-6 md:grid-cols-2">
         {/* Leietakerbevis Card */}
@@ -75,29 +93,47 @@ export function TenantDashboard({ user, activeContract, certificate }: TenantDas
             <CardTitle>Ditt Leieforhold</CardTitle>
             <CardDescription>Informasjon om boligen du leier.</CardDescription>
           </CardHeader>
-          <CardContent className="space-y-4">
+          <CardContent className="space-y-6">
             {activeContract ? (
               <>
-                <div className="flex items-center gap-3">
-                  <Home className="h-5 w-5 text-muted-foreground" />
-                  <div>
-                    <p className="font-medium">{activeContract.unit.property.name}</p>
-                    <p className="text-sm text-muted-foreground">{activeContract.unit.property.address} - {activeContract.unit.name}</p>
-                  </div>
+                <div className="space-y-4">
+                    <div className="flex items-center gap-3">
+                    <Home className="h-5 w-5 text-muted-foreground" />
+                    <div>
+                        <p className="font-medium">{activeContract.unit.property.name}</p>
+                        <p className="text-sm text-muted-foreground">{activeContract.unit.property.address} - {activeContract.unit.name}</p>
+                    </div>
+                    </div>
+                    <div className="flex items-center gap-3">
+                    <FileText className="h-5 w-5 text-muted-foreground" />
+                    <div>
+                        <p className="font-medium">Leiekontrakt</p>
+                        <p className="text-sm text-muted-foreground">Signert: {new Date(activeContract.signedAt || activeContract.createdAt).toLocaleDateString("no-NO")}</p>
+                    </div>
+                    </div>
+                    <div className="flex items-center gap-3">
+                    <CreditCard className="h-5 w-5 text-muted-foreground" />
+                    <div>
+                        <p className="font-medium">{activeContract.rentAmount.toLocaleString("no-NO")} NOK</p>
+                        <p className="text-sm text-muted-foreground">Per måned</p>
+                    </div>
+                    </div>
                 </div>
-                <div className="flex items-center gap-3">
-                  <FileText className="h-5 w-5 text-muted-foreground" />
-                  <div>
-                    <p className="font-medium">Leiekontrakt</p>
-                    <p className="text-sm text-muted-foreground">Signert: {new Date(activeContract.signedAt || activeContract.createdAt).toLocaleDateString("no-NO")}</p>
-                  </div>
-                </div>
-                 <div className="flex items-center gap-3">
-                  <CreditCard className="h-5 w-5 text-muted-foreground" />
-                  <div>
-                    <p className="font-medium">{activeContract.rentAmount.toLocaleString("no-NO")} NOK</p>
-                    <p className="text-sm text-muted-foreground">Per måned</p>
-                  </div>
+
+                <div className="pt-4 border-t">
+                    <div className="flex items-center justify-between space-x-2">
+                        <div className="space-y-1">
+                            <Label htmlFor="autopay" className="font-medium">Automatisk trekk</Label>
+                            <p className="text-xs text-muted-foreground">
+                                Leien trekkes automatisk dagen før forfall.
+                            </p>
+                        </div>
+                        <Switch 
+                            id="autopay" 
+                            checked={autoPay}
+                            onCheckedChange={setAutoPay}
+                        />
+                    </div>
                 </div>
               </>
             ) : (

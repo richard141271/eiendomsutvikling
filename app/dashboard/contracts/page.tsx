@@ -37,8 +37,8 @@ export default async function ContractsPage() {
             Oversikt over alle aktive og tidligere kontrakter.
           </p>
         </div>
-        <Button>
-          <Link href="/dashboard/properties">Ny kontrakt</Link>
+        <Button asChild>
+          <Link href="/dashboard/contracts/new">Ny kontrakt</Link>
         </Button>
       </div>
 
@@ -48,7 +48,7 @@ export default async function ContractsPage() {
             <CardContent className="flex flex-col items-center justify-center py-10">
               <p className="text-muted-foreground mb-4">Ingen kontrakter funnet.</p>
               <Button variant="outline" asChild>
-                <Link href="/dashboard/properties">Gå til eiendommer for å opprette</Link>
+                <Link href="/dashboard/contracts/new">Opprett din første kontrakt</Link>
               </Button>
             </CardContent>
           </Card>
