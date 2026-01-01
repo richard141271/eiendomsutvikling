@@ -1,38 +1,59 @@
+import { createClient } from "@/lib/supabase-server";
 import { NextResponse } from "next/server";
-import { writeFile, mkdir } from "fs/promises";
-import path from "path";
 
 export async function POST(request: Request) {
   try {
-    const data = await request.formData();
-    const file: File | null = data.get("file") as unknown as File;
+    const supabase = createClient();
+    
+    // Check auth
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+
+    const formData = await request.formData();
+    const file = formData.get("file") as File;
 
     if (!file) {
       return NextResponse.json({ error: "No file uploaded" }, { status: 400 });
     }
 
-    const bytes = await file.arrayBuffer();
-    const buffer = Buffer.from(bytes);
+    // Sanitize filename and create unique path
+    const fileExt = file.name.split('.').pop();
+    const fileName = `${Date.now()}-${Math.random().toString(36).substring(2, 15)}.${fileExt}`;
+    const filePath = `${user.id}/${fileName}`;
 
-    // Create unique filename
-    const filename = `${Date.now()}-${file.name.replace(/[^a-zA-Z0-9.]/g, "_")}`;
-    const uploadDir = path.join(process.cwd(), "public/uploads");
-    
-    // Ensure directory exists
-    try {
-      await mkdir(uploadDir, { recursive: true });
-    } catch (e) {
-      // Ignore if exists
+    // Upload to Supabase Storage
+    // We assume a public bucket named 'property-images' exists
+    const { error: uploadError } = await supabase
+      .storage
+      .from('property-images')
+      .upload(filePath, file, {
+        upsert: false,
+        contentType: file.type
+      });
+
+    if (uploadError) {
+      console.error("Supabase storage error:", uploadError);
+      return NextResponse.json(
+        { error: `Upload failed: ${uploadError.message}` }, 
+        { status: 500 }
+      );
     }
 
-    const filepath = path.join(uploadDir, filename);
-    await writeFile(filepath, buffer);
+    // Get public URL
+    const { data: { publicUrl } } = supabase
+      .storage
+      .from('property-images')
+      .getPublicUrl(filePath);
 
-    const imageUrl = `/uploads/${filename}`;
+    return NextResponse.json({ imageUrl: publicUrl });
 
-    return NextResponse.json({ imageUrl });
-  } catch (error) {
+  } catch (error: any) {
     console.error("Upload error:", error);
-    return NextResponse.json({ error: "Upload failed" }, { status: 500 });
+    return NextResponse.json(
+      { error: error.message || "Internal server error" }, 
+      { status: 500 }
+    );
   }
 }
