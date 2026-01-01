@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -10,17 +10,53 @@ import { Separator } from "@/components/ui/separator";
 export default function SettingsPage() {
   const [loading, setLoading] = useState(false);
   
-  // Fiken states
+  // Settings states
   const [fikenSlug, setFikenSlug] = useState("");
   const [fikenToken, setFikenToken] = useState("");
+  const [rentPerSqm, setRentPerSqm] = useState(185);
 
-  const handleSaveFiken = async (e: React.FormEvent) => {
+  useEffect(() => {
+    // Fetch settings on load
+    const fetchSettings = async () => {
+      try {
+        const res = await fetch("/api/settings");
+        if (res.ok) {
+          const data = await res.json();
+          if (data.fikenCompanySlug) setFikenSlug(data.fikenCompanySlug);
+          if (data.fikenApiToken) setFikenToken(data.fikenApiToken);
+          if (data.standardRentPerSqm) setRentPerSqm(data.standardRentPerSqm);
+        }
+      } catch (error) {
+        console.error("Failed to load settings", error);
+      }
+    };
+    fetchSettings();
+  }, []);
+
+  const handleSaveSettings = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
-    // Simulate save
-    await new Promise(resolve => setTimeout(resolve, 1000));
-    alert("Fiken innstillinger lagret (simulert)");
-    setLoading(false);
+    
+    try {
+      const res = await fetch("/api/settings", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          fikenCompanySlug: fikenSlug,
+          fikenApiToken: fikenToken,
+          standardRentPerSqm: rentPerSqm
+        })
+      });
+
+      if (!res.ok) throw new Error("Kunne ikke lagre innstillinger");
+      
+      alert("Innstillinger lagret!");
+    } catch (error) {
+      console.error(error);
+      alert("Noe gikk galt under lagring.");
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
@@ -28,53 +64,83 @@ export default function SettingsPage() {
       <div>
         <h1 className="text-3xl font-bold tracking-tight">Innstillinger</h1>
         <p className="text-muted-foreground">
-          Administrer din konto og integrasjoner.
+          Administrer din konto, standardverdier og integrasjoner.
         </p>
       </div>
 
       <Separator />
 
       <div className="grid gap-6">
-        <Card>
-          <CardHeader>
-            <CardTitle>Fiken Integrasjon</CardTitle>
-            <CardDescription>
-              Koble til din Fiken-konto for automatisk fakturering og regnskap.
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            <form onSubmit={handleSaveFiken} className="space-y-4">
-              <div className="grid gap-2">
-                <Label htmlFor="slug">Fiken Bedrifts-slug</Label>
-                <Input 
-                  id="slug" 
-                  placeholder="min-bedrift" 
-                  value={fikenSlug}
-                  onChange={(e) => setFikenSlug(e.target.value)}
-                />
-                <p className="text-xs text-muted-foreground">
-                  Du finner dette i URL-en når du er logget inn i Fiken (f.eks. fiken.no/foretak/<b>min-bedrift</b>).
-                </p>
-              </div>
-              <div className="grid gap-2">
-                <Label htmlFor="token">API-nøkkel</Label>
-                <Input 
-                  id="token" 
-                  type="password" 
-                  placeholder="••••••••••••••••" 
-                  value={fikenToken}
-                  onChange={(e) => setFikenToken(e.target.value)}
-                />
-                <p className="text-xs text-muted-foreground">
-                  Opprettes under "API" i Fiken innstillinger.
-                </p>
-              </div>
-              <Button type="submit" disabled={loading}>
-                {loading ? "Lagrer..." : "Lagre Fiken-innstillinger"}
-              </Button>
-            </form>
-          </CardContent>
-        </Card>
+        <form onSubmit={handleSaveSettings}>
+            <div className="grid gap-6">
+                <Card>
+                <CardHeader>
+                    <CardTitle>Standardverdier</CardTitle>
+                    <CardDescription>
+                    Sett standardverdier for nye utleieenheter.
+                    </CardDescription>
+                </CardHeader>
+                <CardContent>
+                    <div className="grid gap-2 max-w-sm">
+                        <Label htmlFor="rent">Markedsleie per kvm (NOK)</Label>
+                        <Input 
+                            id="rent" 
+                            type="number"
+                            value={rentPerSqm}
+                            onChange={(e) => setRentPerSqm(parseInt(e.target.value) || 0)}
+                        />
+                        <p className="text-xs text-muted-foreground">
+                            Brukes til å automatisk beregne leiepris basert på størrelse.
+                        </p>
+                    </div>
+                </CardContent>
+                </Card>
+
+                <Card>
+                <CardHeader>
+                    <CardTitle>Fiken Integrasjon</CardTitle>
+                    <CardDescription>
+                    Koble til din Fiken-konto for automatisk fakturering og regnskap.
+                    </CardDescription>
+                </CardHeader>
+                <CardContent>
+                    <div className="space-y-4">
+                        <div className="grid gap-2">
+                            <Label htmlFor="slug">Fiken Bedrifts-slug</Label>
+                            <Input 
+                            id="slug" 
+                            placeholder="min-bedrift" 
+                            value={fikenSlug}
+                            onChange={(e) => setFikenSlug(e.target.value)}
+                            />
+                            <p className="text-xs text-muted-foreground">
+                            Du finner dette i URL-en når du er logget inn i Fiken (f.eks. fiken.no/foretak/<b>min-bedrift</b>).
+                            </p>
+                        </div>
+                        <div className="grid gap-2">
+                            <Label htmlFor="token">API-nøkkel</Label>
+                            <Input 
+                            id="token" 
+                            type="password" 
+                            placeholder="••••••••••••••••" 
+                            value={fikenToken}
+                            onChange={(e) => setFikenToken(e.target.value)}
+                            />
+                            <p className="text-xs text-muted-foreground">
+                            Opprettes under "API" i Fiken innstillinger.
+                            </p>
+                        </div>
+                    </div>
+                </CardContent>
+                </Card>
+
+                <div className="flex justify-end">
+                    <Button type="submit" disabled={loading} size="lg">
+                        {loading ? "Lagrer..." : "Lagre alle endringer"}
+                    </Button>
+                </div>
+            </div>
+        </form>
 
         <Card>
           <CardHeader>

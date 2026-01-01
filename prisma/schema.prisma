@@ -73,6 +73,9 @@ model User {
   // For Fiken integration (only for owners)
   fikenCompanySlug    String?
   fikenApiToken       String?
+
+  // Settings
+  standardRentPerSqm  Int      @default(185)
 }
 
 model TenantCertificate {

@@ -48,6 +48,33 @@ export default function NewUnitPage({ params }: NewUnitPageProps) {
     },
   })
 
+  const watchedSizeSqm = form.watch("sizeSqm")
+  const watchedRentAmount = form.watch("rentAmount")
+  const [standardRentPerSqm, setStandardRentPerSqm] = React.useState(185);
+
+  React.useEffect(() => {
+    // Fetch settings
+    fetch("/api/settings").then(res => res.json()).then(data => {
+        if (data.standardRentPerSqm) setStandardRentPerSqm(data.standardRentPerSqm);
+    }).catch(err => console.error(err));
+  }, []);
+
+  // Auto-calculate rent based on size
+  React.useEffect(() => {
+    if (watchedSizeSqm > 0) {
+      const calculatedRent = Math.round(watchedSizeSqm * standardRentPerSqm)
+      form.setValue("rentAmount", calculatedRent, { shouldValidate: true })
+    }
+  }, [watchedSizeSqm, form, standardRentPerSqm])
+
+  // Auto-calculate deposit based on rent (3x monthly rent)
+  React.useEffect(() => {
+    if (watchedRentAmount > 0) {
+      const calculatedDeposit = watchedRentAmount * 3
+      form.setValue("depositAmount", calculatedDeposit, { shouldValidate: true })
+    }
+  }, [watchedRentAmount, form])
+
   async function onSubmit(values: z.infer<typeof formSchema>) {
     setIsLoading(true)
     setError(null)
