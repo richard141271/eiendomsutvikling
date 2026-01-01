@@ -38,6 +38,7 @@ const formSchema = z.object({
 export default function EditPropertyPage({ params }: { params: { id: string } }) {
   const router = useRouter()
   const [isLoading, setIsLoading] = React.useState(false)
+  const [isUploading, setIsUploading] = React.useState(false)
   const [isFetching, setIsFetching] = React.useState(true)
   const [error, setError] = React.useState<string | null>(null)
 

@@ -37,6 +37,7 @@ interface NewUnitPageProps {
 export default function NewUnitPage({ params }: NewUnitPageProps) {
   const router = useRouter()
   const [isLoading, setIsLoading] = React.useState(false)
+  const [isUploading, setIsUploading] = React.useState(false)
   const [error, setError] = React.useState<string | null>(null)
 
   const form = useForm<z.infer<typeof formSchema>>({
