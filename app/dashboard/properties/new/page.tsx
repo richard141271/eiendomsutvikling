@@ -18,6 +18,7 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
 import { createClient } from "@/lib/supabase"
+import { syncUser } from "@/app/actions/user-sync"
 
 const formSchema = z.object({
   name: z.string().min(2, "Navn må være minst 2 tegn"),
@@ -55,6 +56,13 @@ export default function NewPropertyPage() {
         // Redirect to login if session is missing
         router.push("/login?next=/dashboard/properties/new");
         return
+      }
+
+      // Ensure user exists in DB
+      const syncResult = await syncUser();
+      if (!syncResult.success) {
+        console.warn("User sync warning:", syncResult.error);
+        // Continue anyway, as the API might handle it or it might be a transient error
       }
 
       const res = await fetch("/api/properties", {
