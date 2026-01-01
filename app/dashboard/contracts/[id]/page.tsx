@@ -7,6 +7,8 @@ import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
 import { ContractDocument } from "@/components/contract-document";
 import { PrintButton } from "@/components/print-button";
+import { ContractActions } from "@/components/contract-actions";
+import { createClient } from "@/lib/supabase-server";
 
 const statusMap: Record<string, string> = {
   DRAFT: "Utkast",
@@ -42,6 +44,24 @@ export default async function ContractDetailsPage({ params }: ContractDetailsPag
     notFound();
   }
 
+  const supabase = createClient();
+  const { data: { user: authUser } } = await supabase.auth.getUser();
+
+  let isOwner = false;
+  let isTenant = false;
+
+  if (authUser) {
+    // @ts-ignore - authId exists but types are not syncing
+    const dbUser = await prisma.user.findFirst({
+      where: { authId: authUser.id } as any
+    });
+    
+    if (dbUser) {
+      isOwner = contract.unit.property.ownerId === dbUser.id;
+      isTenant = contract.tenantId === dbUser.id;
+    }
+  }
+
   return (
     <div className="flex flex-col gap-6 max-w-5xl mx-auto pb-10">
       <div className="flex items-center justify-between">
@@ -60,17 +80,20 @@ export default async function ContractDetailsPage({ params }: ContractDetailsPag
           <Button variant="outline" asChild>
              <Link href="/dashboard/contracts">Tilbake</Link>
           </Button>
-          {contract.status === "DRAFT" && (
-            <>
-              <Button variant="outline" asChild>
+          
+          <ContractActions 
+            contractId={contract.id} 
+            status={contract.status} 
+            isOwner={isOwner} 
+            isTenant={isTenant} 
+          />
+
+          {isOwner && contract.status === "DRAFT" && (
+             <Button variant="outline" asChild>
                 <Link href={`/dashboard/contracts/${contract.id}/edit`}>Rediger</Link>
               </Button>
-              <Button>Send til signering</Button>
-            </>
           )}
-          {contract.status === "SENT" && (
-             <Button variant="secondary">Marker som signert</Button>
-          )}
+
           <PrintButton />
         </div>
       </div>
