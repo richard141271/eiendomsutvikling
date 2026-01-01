@@ -54,3 +54,47 @@ export async function deleteRoom(id: string, unitId: string) {
     return { success: false, error: "Kunne ikke slette rommet" };
   }
 }
+
+export async function updateRoom(
+  roomId: string,
+  unitId: string,
+  data: {
+    name: string;
+    type: RoomType;
+    sizeSqm?: number;
+    description?: string;
+    scanUrl?: string;
+    images?: string[];
+  }
+) {
+  try {
+    const room = await prisma.room.update({
+      where: { id: roomId },
+      data: {
+        name: data.name,
+        type: data.type,
+        sizeSqm: data.sizeSqm,
+        description: data.description,
+        ...(data.scanUrl && {
+          scanUrl: data.scanUrl,
+          scanFormat: "GLB",
+          scanStatus: "COMPLETED",
+        }),
+        ...(data.images && data.images.length > 0 && {
+            images: {
+                create: data.images.map(url => ({ url }))
+            }
+        })
+      },
+      include: {
+        images: true
+      }
+    });
+    
+    revalidatePath(`/dashboard/units/${unitId}/rooms`);
+    return { success: true, data: room };
+  } catch (error) {
+    console.error("Failed to update room:", error);
+    return { success: false, error: "Kunne ikke oppdatere rommet" };
+  }
+}

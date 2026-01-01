@@ -25,9 +25,20 @@ export interface RoomData {
   images?: File[]; // Standard images
 }
 
+export interface ExistingRoomData {
+  id: string;
+  name: string;
+  type: string;
+  sizeSqm?: number | null;
+  description?: string | null;
+  scanUrl?: string | null;
+  images?: { id: string; url: string }[];
+}
+
 interface RoomFormProps {
   onSave: (data: RoomData) => void;
   onCancel: () => void;
+  initialData?: ExistingRoomData;
 }
 
 const ROOM_TYPES = [
@@ -42,16 +53,14 @@ const ROOM_TYPES = [
   { value: "OTHER", label: "Annet" },
 ];
 
-export default function RoomForm({ onSave, onCancel }: RoomFormProps) {
+export default function RoomForm({ onSave, onCancel, initialData }: RoomFormProps) {
   const [step, setStep] = useState<"details" | "scan">("details");
-  const [isScanning, setIsScanning] = useState(false);
-  const [progress, setProgress] = useState(0);
   
   // Form State
-  const [name, setName] = useState("");
-  const [type, setType] = useState("OTHER");
-  const [sizeSqm, setSizeSqm] = useState("");
-  const [description, setDescription] = useState("");
+  const [name, setName] = useState(initialData?.name || "");
+  const [type, setType] = useState(initialData?.type || "OTHER");
+  const [sizeSqm, setSizeSqm] = useState(initialData?.sizeSqm?.toString() || "");
+  const [description, setDescription] = useState(initialData?.description || "");
   
   // 3D Model File
   const [file, setFile] = useState<File | null>(null);
@@ -104,7 +113,7 @@ export default function RoomForm({ onSave, onCancel }: RoomFormProps) {
           <div className="w-16 h-16 bg-blue-600 rounded-2xl flex items-center justify-center mx-auto shadow-[0_0_30px_-5px_rgba(37,99,235,0.5)]">
             <Layers className="h-8 w-8 text-white" />
           </div>
-          <h2 className="text-2xl font-bold text-white">Registrer Rom</h2>
+          <h2 className="text-2xl font-bold text-white">{initialData ? "Rediger Rom" : "Registrer Rom"}</h2>
           <p className="text-slate-400">
             {step === "details" ? "Fyll inn detaljer om rommet" : "Last opp bilder eller skann rommet"}
           </p>
@@ -191,6 +200,28 @@ export default function RoomForm({ onSave, onCancel }: RoomFormProps) {
                             </Button>
                         </div>
                         
+                        {/* Existing Images */}
+                        {initialData?.images && initialData.images.length > 0 && (
+                            <div className="mb-4">
+                                <h4 className="text-sm font-medium text-slate-400 mb-2">Eksisterende bilder</h4>
+                                <div className="grid grid-cols-4 gap-4">
+                                    {initialData.images.map((img) => (
+                                        <div key={img.id} className="relative aspect-square bg-slate-800 rounded-lg overflow-hidden border border-slate-700">
+                                            {/* eslint-disable-next-line @next/next/no-img-element */}
+                                            <img 
+                                                src={img.url} 
+                                                alt="Existing" 
+                                                className="w-full h-full object-cover opacity-75"
+                                            />
+                                            <div className="absolute inset-0 flex items-center justify-center bg-black/20">
+                                                {/* No delete functionality for existing images yet */}
+                                            </div>
+                                        </div>
+                                    ))}
+                                </div>
+                            </div>
+                        )}
+
                         {images.length > 0 ? (
                             <div className="grid grid-cols-4 gap-4">
                                 {images.map((img, i) => (
@@ -240,6 +271,18 @@ export default function RoomForm({ onSave, onCancel }: RoomFormProps) {
                                  </Button>
                              )}
                         </div>
+
+                        {initialData?.scanUrl && !file && (
+                            <div className="flex items-center gap-4 p-4 bg-blue-900/20 border border-blue-900/50 rounded-lg mb-4">
+                                <div className="bg-blue-500/20 p-2 rounded-full">
+                                    <Box className="h-5 w-5 text-blue-500" />
+                                </div>
+                                <div>
+                                    <p className="font-medium text-blue-400">Eksisterende 3D-modell</p>
+                                    <p className="text-xs text-blue-500/70">Last opp ny fil for å erstatte</p>
+                                </div>
+                            </div>
+                        )}
 
                         {file ? (
                             <div className="flex items-center gap-4 p-4 bg-green-900/20 border border-green-900/50 rounded-lg">
@@ -297,7 +340,10 @@ export default function RoomForm({ onSave, onCancel }: RoomFormProps) {
                     onClick={handleSave} 
                     className="bg-blue-600 hover:bg-blue-700 min-w-[200px]"
                 >
-                    {file ? "Lagre Rom & 3D" : "Lagre Rom"}
+                    {initialData 
+                        ? (file || images.length > 0 ? "Oppdater Rom & Media" : "Oppdater Rom")
+                        : (file ? "Lagre Rom & 3D" : "Lagre Rom")
+                    }
                 </Button>
             </div>
           </div>

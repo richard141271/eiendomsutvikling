@@ -4,6 +4,8 @@ import { UserNav } from "./components/user-nav"
 import { createClient } from "@/lib/supabase-server"
 import { prisma } from "@/lib/prisma"
 import { Users, UserPlus } from "lucide-react"
+import { getUnresolvedDevNotesCount } from "@/app/actions/dev-notes"
+import { Badge } from "@/components/ui/badge"
 
 export default async function DashboardLayout({
   children,
@@ -24,6 +26,8 @@ export default async function DashboardLayout({
 
   const isAdmin = role === "OWNER" || role === "ADMIN" || role === "MANAGER";
   const isTenant = role === "TENANT" || role === "PROSPECT";
+
+  const { count: unresolvedNotesCount } = await getUnresolvedDevNotesCount();
 
   return (
     <div className="flex h-screen w-full">
@@ -126,9 +130,14 @@ export default async function DashboardLayout({
             
             <Link
               href="/dashboard/settings"
-              className="flex items-center gap-3 rounded-lg px-3 py-2 text-gray-500 transition-all hover:text-gray-900 dark:text-gray-400 dark:hover:text-gray-50"
+              className="flex items-center gap-3 rounded-lg px-3 py-2 text-gray-500 transition-all hover:text-gray-900 dark:text-gray-400 dark:hover:text-gray-50 justify-between"
             >
-              Innstillinger
+              <span>Innstillinger</span>
+              {unresolvedNotesCount > 0 && (
+                <Badge variant="destructive" className="ml-auto rounded-full px-2 h-5 min-w-5 flex items-center justify-center">
+                  {unresolvedNotesCount}
+                </Badge>
+              )}
             </Link>
           </div>
         </nav>
@@ -136,7 +145,7 @@ export default async function DashboardLayout({
       <div className="flex flex-col w-full">
 
         <header className="flex h-14 items-center gap-4 border-b bg-gray-100/40 px-6 dark:bg-gray-800/40 print:hidden">
-          <MobileNav />
+          <MobileNav unresolvedNotesCount={unresolvedNotesCount} />
           <div className="w-full flex-1">
              {/* Breadcrumb or Search */}
           </div>

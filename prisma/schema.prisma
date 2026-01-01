@@ -3,9 +3,228 @@ generator client {
 }
 
 datasource db {
-  provider = "postgresql"
-  url      = env("DATABASE_URL")
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
   directUrl = env("DIRECT_URL")
+}
+
+model User {
+  id                   String               @id @default(uuid())
+  authId               String?              @unique
+  name                 String
+  email                String               @unique
+  phone                String?
+  address              String?
+  postalCode           String?
+  city                 String?
+  hasTenantCertificate Boolean              @default(false)
+  role                 UserRole             @default(TENANT)
+  createdAt            DateTime             @default(now())
+  updatedAt            DateTime             @updatedAt
+  fikenCompanySlug     String?
+  fikenApiToken        String?
+  standardRentPerSqm   Int                  @default(185)
+  interests            Interest[]
+  leaseContracts       LeaseContract[]
+  MaintenanceRequest   MaintenanceRequest[]
+  messages             Message[]
+  properties           Property[]           @relation("OwnerProperties")
+  issuedCertificates   TenantCertificate[]  @relation("IssuedCertificates")
+  receivedCertificates TenantCertificate[]  @relation("ReceivedCertificates")
+  TenantWarning        TenantWarning[]
+}
+
+model TenantCertificate {
+  id            String   @id @default(uuid())
+  tenantId      String
+  issuerId      String
+  totalScore    Int
+  behaviorScore Int
+  noiseScore    Int
+  paymentScore  Int
+  cleaningScore Int
+  comment       String?
+  createdAt     DateTime @default(now())
+  issuer        User     @relation("IssuedCertificates", fields: [issuerId], references: [id])
+  tenant        User     @relation("ReceivedCertificates", fields: [tenantId], references: [id])
+}
+
+model Property {
+  id             String         @id @default(uuid())
+  name           String
+  address        String
+  gnr            String?
+  bnr            String?
+  ownerId        String
+  status         PropertyStatus @default(ACTIVE)
+  notes          String?
+  createdAt      DateTime       @default(now())
+  updatedAt      DateTime       @updatedAt
+  imageUrl       String?
+  parentId       String?
+  snr            String?
+  owner          User           @relation("OwnerProperties", fields: [ownerId], references: [id])
+  Property       Property?      @relation("PropertyToProperty", fields: [parentId], references: [id])
+  other_Property Property[]     @relation("PropertyToProperty")
+  units          Unit[]
+}
+
+model Unit {
+  id                 String               @id @default(uuid())
+  propertyId         String
+  name               String
+  sizeSqm            Float
+  rentAmount         Float
+  depositAmount      Float
+  status             UnitStatus           @default(AVAILABLE)
+  createdAt          DateTime             @default(now())
+  updatedAt          DateTime             @updatedAt
+  imageUrl           String?
+  roomCount          Int
+  notes              String?
+  unitNumber         String?
+  interests          Interest[]
+  leaseContracts     LeaseContract[]
+  MaintenanceRequest MaintenanceRequest[]
+  roomDetails        Room[]
+  TenantWarning      TenantWarning[]
+  property           Property             @relation(fields: [propertyId], references: [id], onDelete: Cascade)
+  unitImages         UnitImage[]
+}
+
+model UnitImage {
+  id          String   @id @default(uuid())
+  unitId      String
+  url         String
+  description String?
+  createdAt   DateTime @default(now())
+  unit        Unit     @relation(fields: [unitId], references: [id], onDelete: Cascade)
+}
+
+model Room {
+  id           String      @id @default(cuid())
+  unitId       String
+  name         String
+  type         RoomType    @default(OTHER)
+  sizeSqm      Float?
+  description  String?
+  scanUrl      String?
+  scanFormat   String?
+  scanStatus   String      @default("PENDING")
+  thumbnailUrl String?
+  createdAt    DateTime    @default(now())
+  updatedAt    DateTime    @updatedAt
+  unit         Unit        @relation(fields: [unitId], references: [id], onDelete: Cascade)
+  images       RoomImage[]
+}
+
+model RoomImage {
+  id        String   @id @default(cuid())
+  roomId    String
+  url       String
+  createdAt DateTime @default(now())
+  room      Room     @relation(fields: [roomId], references: [id], onDelete: Cascade)
+}
+
+model LeaseContract {
+  id                 String               @id @default(uuid())
+  unitId             String
+  tenantId           String
+  startDate          DateTime
+  endDate            DateTime?
+  rentAmount         Float
+  depositAmount      Float
+  status             ContractStatus       @default(DRAFT)
+  signedAt           DateTime?
+  signedIp           String?
+  pdfUrl             String?
+  createdAt          DateTime             @default(now())
+  updatedAt          DateTime             @updatedAt
+  fikenCustomerId    String?
+  fikenInvoiceId     String?
+  InspectionProtocol InspectionProtocol[]
+  tenant             User                 @relation(fields: [tenantId], references: [id])
+  unit               Unit                 @relation(fields: [unitId], references: [id], onDelete: Cascade)
+  MessageThread      MessageThread?
+}
+
+model MaintenanceRequest {
+  id          String            @id @default(uuid())
+  unitId      String
+  tenantId    String
+  title       String
+  description String
+  status      MaintenanceStatus @default(REPORTED)
+  createdAt   DateTime          @default(now())
+  updatedAt   DateTime          @updatedAt
+  User        User              @relation(fields: [tenantId], references: [id])
+  Unit        Unit              @relation(fields: [unitId], references: [id], onDelete: Cascade)
+}
+
+model Message {
+  id            String        @id @default(uuid())
+  threadId      String
+  senderId      String
+  content       String
+  timestamp     DateTime      @default(now())
+  sender        User          @relation(fields: [senderId], references: [id])
+  MessageThread MessageThread @relation(fields: [threadId], references: [id], onDelete: Cascade)
+}
+
+model Interest {
+  id        String         @id @default(uuid())
+  unitId    String
+  userId    String?
+  name      String
+  email     String
+  phone     String?
+  message   String?
+  status    InterestStatus @default(PENDING)
+  createdAt DateTime       @default(now())
+  updatedAt DateTime
+  unit      Unit           @relation(fields: [unitId], references: [id], onDelete: Cascade)
+  user      User?          @relation(fields: [userId], references: [id])
+}
+
+model TenantWarning {
+  id       String   @id @default(uuid())
+  tenantId String
+  unitId   String?
+  type     String
+  message  String
+  sentAt   DateTime @default(now())
+  User     User     @relation(fields: [tenantId], references: [id])
+  Unit     Unit?    @relation(fields: [unitId], references: [id])
+}
+
+model InspectionCheckpoint {
+  id                 String             @id
+  protocolId         String
+  room               String
+  element            String
+  status             String
+  notes              String?
+  InspectionProtocol InspectionProtocol @relation(fields: [protocolId], references: [id], onDelete: Cascade)
+}
+
+model InspectionProtocol {
+  id                   String                 @id
+  contractId           String
+  type                 InspectionType
+  notes                String?
+  createdAt            DateTime               @default(now())
+  signedByTenant       Boolean                @default(false)
+  signedByOwner        Boolean                @default(false)
+  InspectionCheckpoint InspectionCheckpoint[]
+  LeaseContract        LeaseContract          @relation(fields: [contractId], references: [id], onDelete: Cascade)
+}
+
+model MessageThread {
+  id            String        @id
+  contractId    String        @unique
+  createdAt     DateTime      @default(now())
+  Message       Message[]
+  LeaseContract LeaseContract @relation(fields: [contractId], references: [id], onDelete: Cascade)
 }
 
 enum UserRole {
@@ -46,103 +265,6 @@ enum InspectionType {
   MOVE_OUT
 }
 
-model User {
-  id        String   @id @default(uuid())
-  authId    String?  @unique // Link to Supabase Auth ID
-  name      String
-  email     String   @unique
-  phone     String?
-  address   String?
-  postalCode String?
-  city      String?
-  hasTenantCertificate Boolean @default(false)
-  role      UserRole @default(TENANT)
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-
-  // Relations
-  properties          Property[]            @relation("OwnerProperties")
-  leaseContracts      LeaseContract[]
-  maintenanceRequests MaintenanceRequest[]
-  messages            Message[]
-  interests           Interest[]
-  tenantWarnings      TenantWarning[]
-  
-  // Tenant Certificate relations
-  receivedCertificates TenantCertificate[] @relation("ReceivedCertificates")
-  issuedCertificates   TenantCertificate[] @relation("IssuedCertificates")
-  
-  // For Fiken integration (only for owners)
-  fikenCompanySlug    String?
-  fikenApiToken       String?
-
-  // Settings
-  standardRentPerSqm  Int      @default(185)
-}
-
-model TenantCertificate {
-  id            String   @id @default(uuid())
-  tenantId      String
-  issuerId      String
-  
-  totalScore    Int      // 1-10
-  behaviorScore Int      // Oppførsel
-  noiseScore    Int      // Lydnivå
-  paymentScore  Int      // Leie betalt som avtalt
-  cleaningScore Int      // Utvask og tilbakelevering
-  
-  comment       String?
-  createdAt     DateTime @default(now())
-  
-  tenant        User     @relation("ReceivedCertificates", fields: [tenantId], references: [id])
-  issuer        User     @relation("IssuedCertificates", fields: [issuerId], references: [id])
-}
-
-model Property {
-  id        String         @id @default(uuid())
-  name      String
-  address   String
-  gnr       String?
-  bnr       String?
-  snr       String?
-  parentId  String?
-  ownerId   String
-  status    PropertyStatus @default(ACTIVE)
-  notes     String?
-  imageUrl  String?
-  createdAt DateTime       @default(now())
-  updatedAt DateTime       @updatedAt
-
-  owner     User           @relation("OwnerProperties", fields: [ownerId], references: [id])
-  parent    Property?      @relation("PropertyHierarchy", fields: [parentId], references: [id])
-  children  Property[]     @relation("PropertyHierarchy")
-  units     Unit[]
-}
-
-model Unit {
-  id             String      @id @default(uuid())
-  propertyId     String
-  name           String      // e.g. "Apt 101"
-  unitNumber     String?     // e.g. "H0101"
-  sizeSqm        Float
-  roomCount      Int
-  rentAmount     Float
-  depositAmount  Float
-  status         UnitStatus  @default(AVAILABLE)
-  notes          String?
-  imageUrl       String?
-  createdAt      DateTime    @default(now())
-  updatedAt      DateTime    @updatedAt
-
-  property       Property    @relation(fields: [propertyId], references: [id], onDelete: Cascade)
-  leaseContracts LeaseContract[]
-  maintenanceRequests MaintenanceRequest[]
-  rooms      Room[]
-  interests  Interest[]
-  unitImages UnitImage[]
-  tenantWarnings TenantWarning[]
-}
-
 enum RoomType {
   LIVING_ROOM
   KITCHEN
@@ -155,158 +277,18 @@ enum RoomType {
   OTHER
 }
 
-model Room {
-  id          String   @id @default(uuid())
-  unitId      String
-  name        String   // e.g. "Stue", "Kjøkken"
-  type        RoomType @default(OTHER)
-  sizeSqm     Float?
-  description String?
-
-  // 3D Scan info
-  scanUrl     String?  // URL to .glb/.usdz file
-  scanFormat  String?  // "GLB", "USDZ", "OBJ"
-  scanStatus  String   @default("PENDING") // "PENDING", "PROCESSING", "COMPLETED", "FAILED"
-  thumbnailUrl String?
-  
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
-
-  unit        Unit     @relation(fields: [unitId], references: [id], onDelete: Cascade)
-  images      RoomImage[]
-}
-
-model RoomImage {
-  id        String   @id @default(uuid())
-  roomId    String
-  url       String
-  createdAt DateTime @default(now())
-  room      Room     @relation(fields: [roomId], references: [id], onDelete: Cascade)
-}
-
-model UnitImage {
-  id          String   @id @default(uuid())
-  unitId      String
-  url         String
-  description String?
-  createdAt   DateTime @default(now())
-  unit        Unit     @relation(fields: [unitId], references: [id], onDelete: Cascade)
-}
-
-model TenantWarning {
-  id        String   @id @default(uuid())
-  tenantId  String
-  unitId    String? 
-  type      String   // e.g. "LATE_PAYMENT", "NOISE", "OTHER"
-  message   String
-  sentAt    DateTime @default(now())
-  
-  tenant    User     @relation(fields: [tenantId], references: [id])
-  unit      Unit?    @relation(fields: [unitId], references: [id])
-}
-
-model LeaseContract {
-  id             String         @id @default(uuid())
-  unitId         String
-  tenantId       String
-  startDate      DateTime
-  endDate        DateTime?
-  rentAmount     Float
-  depositAmount  Float
-  status         ContractStatus @default(DRAFT)
-  signedAt       DateTime?
-  signedIp       String?
-  pdfUrl         String?        // URL to stored PDF
-  createdAt      DateTime       @default(now())
-  updatedAt      DateTime       @updatedAt
-
-  // Fiken integration
-  fikenCustomerId String?
-  fikenInvoiceId  String?
-
-  unit           Unit           @relation(fields: [unitId], references: [id], onDelete: Cascade)
-  tenant         User           @relation(fields: [tenantId], references: [id])
-  messageThread  MessageThread?
-  inspectionProtocols InspectionProtocol[]
-}
-
-model MessageThread {
-  id         String    @id @default(uuid())
-  contractId String    @unique
-  createdAt  DateTime  @default(now())
-
-  contract   LeaseContract @relation(fields: [contractId], references: [id], onDelete: Cascade)
-  messages   Message[]
-}
-
-model Message {
-  id        String   @id @default(uuid())
-  threadId  String
-  senderId  String
-  content   String
-  timestamp DateTime @default(now())
-
-  thread    MessageThread @relation(fields: [threadId], references: [id], onDelete: Cascade)
-  sender    User          @relation(fields: [senderId], references: [id])
-}
-
-model MaintenanceRequest {
-  id          String            @id @default(uuid())
-  unitId      String
-  tenantId    String
-  title       String
-  description String
-  status      MaintenanceStatus @default(REPORTED)
-  createdAt   DateTime          @default(now())
-  updatedAt   DateTime          @updatedAt
-
-  unit        Unit              @relation(fields: [unitId], references: [id], onDelete: Cascade)
-  tenant      User              @relation(fields: [tenantId], references: [id])
-}
-
-model InspectionProtocol {
-  id             String         @id @default(uuid())
-  contractId     String
-  type           InspectionType
-  notes          String?
-  createdAt      DateTime       @default(now())
-  signedByTenant Boolean        @default(false)
-  signedByOwner  Boolean        @default(false)
-
-  checkpoints    InspectionCheckpoint[]
-  contract       LeaseContract  @relation(fields: [contractId], references: [id], onDelete: Cascade)
-}
-
-model InspectionCheckpoint {
-  id              String             @id @default(uuid())
-  protocolId      String
-  room            String
-  element         String
-  status          String             // e.g. "OK", "Mangel", "Ikke vurdert"
-  notes           String?
-  
-  protocol        InspectionProtocol @relation(fields: [protocolId], references: [id], onDelete: Cascade)
-}
-
-model Interest {
-  id        String         @id @default(uuid())
-  unitId    String
-  userId    String?        // Optional: if they are logged in
-  name      String
-  email     String
-  phone     String?
-  message   String?
-  status    InterestStatus @default(PENDING)
-  createdAt DateTime       @default(now())
-  updatedAt DateTime       @updatedAt
-
-  unit      Unit     @relation(fields: [unitId], references: [id], onDelete: Cascade)
-  user      User?    @relation(fields: [userId], references: [id])
-}
-
 enum InterestStatus {
   PENDING
   CONTACTED
   REJECTED
   OFFERED
+}
+
+model DevNote {
+  id        String   @id @default(cuid())
+  content   String
+  author    String?
+  isResolved Boolean @default(false)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 }

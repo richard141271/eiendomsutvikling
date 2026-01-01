@@ -5,7 +5,13 @@ import Link from "next/link"
 import { Menu, X } from "lucide-react"
 import { Button } from "@/components/ui/button"
 
-export function MobileNav() {
+import { Badge } from "@/components/ui/badge"
+
+interface MobileNavProps {
+  unresolvedNotesCount?: number;
+}
+
+export function MobileNav({ unresolvedNotesCount = 0 }: MobileNavProps) {
   const [isOpen, setIsOpen] = useState(false)
 
   return (
@@ -47,8 +53,13 @@ export function MobileNav() {
               <Link href="/dashboard/inspections" onClick={() => setIsOpen(false)} className="text-lg font-medium hover:text-primary">
                 Overtakelse
               </Link>
-              <Link href="/dashboard/settings" onClick={() => setIsOpen(false)} className="text-lg font-medium hover:text-primary">
-                Innstillinger
+              <Link href="/dashboard/settings" onClick={() => setIsOpen(false)} className="text-lg font-medium hover:text-primary flex items-center justify-between">
+                <span>Innstillinger</span>
+                {unresolvedNotesCount > 0 && (
+                  <Badge variant="destructive" className="ml-2 rounded-full px-2">
+                    {unresolvedNotesCount}
+                  </Badge>
+                )}
               </Link>
             </nav>
           </div>

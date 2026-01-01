@@ -2,12 +2,12 @@
 
 import { useState } from "react";
 import dynamic from "next/dynamic";
-import { Plus, Box, ArrowLeft, Trash2, Home, Maximize, FileText, ImageIcon } from "lucide-react";
+import { Plus, Box, ArrowLeft, Trash2, Home, Maximize, FileText, ImageIcon, Pencil } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import RoomForm, { RoomData } from "@/components/3d/room-form";
-import { createRoom, deleteRoom } from "@/app/actions/room";
+import { createRoom, deleteRoom, updateRoom } from "@/app/actions/room";
 import { useRouter } from "next/navigation";
 import { RoomType } from "@prisma/client";
 import Image from "next/image";
@@ -41,39 +41,73 @@ interface RoomManagerProps {
 
 export default function RoomManager({ unitId, initialRooms }: RoomManagerProps) {
   const [rooms, setRooms] = useState<Room[]>(initialRooms);
-  const [viewMode, setViewMode] = useState<"list" | "create" | "view">("list");
+  const [viewMode, setViewMode] = useState<"list" | "create" | "view" | "edit">("list");
   const [currentModelUrl, setCurrentModelUrl] = useState<string | null>(null);
+  const [selectedRoom, setSelectedRoom] = useState<Room | null>(null);
   const router = useRouter();
 
-  const handleCreateRoom = async (data: RoomData) => {
-    // In a real app, upload 'data.file' to storage (Supabase/S3) and get URL.
-    // For this MVP, we will use a demo URL if a file is provided.
-    const demoUrl = "https://modelviewer.dev/shared-assets/models/Astronaut.glb";
-    const scanUrl = data.file ? demoUrl : undefined;
+  const handleSaveRoom = async (data: RoomData) => {
+    // 1. Upload 3D model if present
+    let scanUrl = selectedRoom?.scanUrl || undefined;
+    if (data.file) {
+      // In a real app, upload 'data.file' to storage (Supabase/S3) and get URL.
+      // For this MVP, we will use a demo URL if a file is provided.
+      const demoUrl = "https://modelviewer.dev/shared-assets/models/Astronaut.glb";
+      scanUrl = demoUrl;
+    }
     
-    // Mock image URLs
-    const imageUrls = data.images?.map(() => `https://picsum.photos/seed/${Math.random()}/400/300`);
+    // 2. Upload images if present
+    let imageUrls: string[] = [];
+    if (data.images && data.images.length > 0) {
+        // Mock image URLs
+        imageUrls = data.images.map(() => `https://picsum.photos/seed/${Math.random()}/400/300`);
+    }
 
     // Map string type to RoomType enum
     const roomType = data.type as RoomType;
 
-    const result = await createRoom(unitId, {
-      name: data.name,
-      type: roomType,
-      sizeSqm: data.sizeSqm,
-      description: data.description,
-      scanUrl: scanUrl,
-      images: imageUrls
-    });
-    
-    if (result.success && result.data) {
-      // Cast the result data to Room interface (dates might need handling if passed as strings)
-      setRooms([result.data as unknown as Room, ...rooms]);
-      setViewMode("list");
-      router.refresh();
+    if (viewMode === "edit" && selectedRoom) {
+        const result = await updateRoom(selectedRoom.id, unitId, {
+            name: data.name,
+            type: roomType,
+            sizeSqm: data.sizeSqm,
+            description: data.description,
+            scanUrl,
+            images: imageUrls
+        });
+
+        if (result.success && result.data) {
+            setRooms(rooms.map(r => r.id === result.data.id ? (result.data as unknown as Room) : r));
+            setViewMode("list");
+            setSelectedRoom(null);
+            router.refresh();
+        } else {
+            alert("Feil ved oppdatering av rom");
+        }
     } else {
-      alert("Feil ved lagring av rom");
+        const result = await createRoom(unitId, {
+            name: data.name,
+            type: roomType,
+            sizeSqm: data.sizeSqm,
+            description: data.description,
+            scanUrl: scanUrl,
+            images: imageUrls
+        });
+        
+        if (result.success && result.data) {
+            // Cast the result data to Room interface (dates might need handling if passed as strings)
+            setRooms([result.data as unknown as Room, ...rooms]);
+            setViewMode("list");
+            router.refresh();
+        } else {
+            alert("Feil ved lagring av rom");
+        }
     }
+  };
+
+  const handleEditRoom = (room: Room) => {
+      setSelectedRoom(room);
+      setViewMode("edit");
   };
 
   const handleDelete = async (id: string) => {
@@ -178,12 +212,20 @@ export default function RoomManager({ unitId, initialRooms }: RoomManagerProps) 
                             {getRoomTypeLabel(room.type)}
                           </span>
                         </div>
-                        <Button variant="ghost" size="sm" className="h-8 w-8 p-0 text-red-500 hover:text-red-700 hover:bg-red-50" onClick={(e) => {
-                            e.stopPropagation();
-                            handleDelete(room.id);
-                        }}>
-                            <Trash2 className="h-4 w-4" />
-                        </Button>
+                        <div className="flex gap-1">
+                            <Button variant="ghost" size="sm" className="h-8 w-8 p-0 text-blue-500 hover:text-blue-700 hover:bg-blue-50" onClick={(e) => {
+                                e.stopPropagation();
+                                handleEditRoom(room);
+                            }}>
+                                <Pencil className="h-4 w-4" />
+                            </Button>
+                            <Button variant="ghost" size="sm" className="h-8 w-8 p-0 text-red-500 hover:text-red-700 hover:bg-red-50" onClick={(e) => {
+                                e.stopPropagation();
+                                handleDelete(room.id);
+                            }}>
+                                <Trash2 className="h-4 w-4" />
+                            </Button>
+                        </div>
                     </CardTitle>
                   </CardHeader>
                   <CardContent className="pb-2 flex-grow">
@@ -220,8 +262,19 @@ export default function RoomManager({ unitId, initialRooms }: RoomManagerProps) 
 
       {viewMode === "create" && (
         <RoomForm 
-          onSave={handleCreateRoom} 
+          onSave={handleSaveRoom} 
           onCancel={() => setViewMode("list")} 
+        />
+      )}
+
+      {viewMode === "edit" && selectedRoom && (
+        <RoomForm 
+            onSave={handleSaveRoom} 
+            onCancel={() => {
+                setViewMode("list");
+                setSelectedRoom(null);
+            }} 
+            initialData={selectedRoom}
         />
       )}
 

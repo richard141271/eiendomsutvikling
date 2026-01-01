@@ -6,6 +6,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter }
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Separator } from "@/components/ui/separator";
+import { DevNotesSection } from "@/components/dev-notes-section";
 
 export default function SettingsPage() {
   const [loading, setLoading] = useState(false);
@@ -168,6 +169,8 @@ export default function SettingsPage() {
             <Button variant="outline">Lagre varslinger</Button>
           </CardFooter>
         </Card>
+
+        <DevNotesSection />
       </div>
     </div>
   );
