@@ -36,7 +36,7 @@ export async function PATCH(
 ) {
   try {
     const body = await request.json();
-    const { name, address, gnr, bnr, notes, imageUrl, status } = body;
+    const { name, address, gnr, bnr, snr, parentId, notes, imageUrl, status } = body;
 
     const updatedProperty = await prisma.property.update({
       where: { id: params.id },
@@ -45,6 +45,8 @@ export async function PATCH(
         address,
         gnr,
         bnr,
+        snr,
+        parentId,
         notes,
         imageUrl,
         status,

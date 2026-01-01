@@ -1,9 +1,44 @@
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { prisma } from "@/lib/prisma"
+import { createClient } from "@/lib/supabase-server"
+import { TenantDashboard } from "./_components/tenant-dashboard"
 
 export const dynamic = "force-dynamic";
 
 export default async function DashboardPage() {
+  const supabase = createClient();
+  const { data: { user: authUser } } = await supabase.auth.getUser();
+
+  let dbUser = null;
+  if (authUser) {
+    dbUser = await prisma.user.findUnique({
+      where: { authId: authUser.id },
+      include: {
+        receivedCertificates: {
+          orderBy: { createdAt: 'desc' },
+          take: 1
+        },
+        leaseContracts: {
+          where: { status: 'SIGNED' },
+          include: { unit: { include: { property: true } } },
+          take: 1
+        }
+      }
+    });
+  }
+
+  // Show Tenant Dashboard for Tenants
+  if (dbUser && dbUser.role === 'TENANT') {
+    return (
+      <TenantDashboard 
+        user={dbUser} 
+        activeContract={dbUser.leaseContracts[0]} 
+        certificate={dbUser.receivedCertificates[0]} 
+      />
+    );
+  }
+
+  // Admin/Owner Dashboard
   const propertyCount = await prisma.property.count();
   const unitCount = await prisma.unit.count();
   const activeContractCount = await prisma.leaseContract.count({

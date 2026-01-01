@@ -7,14 +7,14 @@ import { prisma } from "@/lib/prisma";
 export const dynamic = 'force-dynamic';
 
 export default async function Home() {
-  const availableUnits = await prisma.unit.findMany({
+  const properties = await prisma.property.findMany({
     where: {
-      status: 'AVAILABLE'
+      status: 'ACTIVE'
     },
     include: {
-      property: true
+      units: true
     },
-    take: 6 // Limit to 6 for the landing page
+    take: 6
   });
 
   return (
@@ -170,7 +170,7 @@ export default async function Home() {
               <div className="text-center md:text-left">
                 <h2 className="text-3xl font-bold tracking-tight text-slate-900 sm:text-4xl mb-4">Våre Eiendommer</h2>
                 <p className="text-lg text-slate-600 max-w-xl">
-                  Se et utvalg av våre boliger. Logg inn for full oversikt og visningspåmelding.
+                  Se et utvalg av våre eiendommer. Klikk på en eiendom for å se ledige enheter.
                 </p>
               </div>
               <Link href="/login">
@@ -181,39 +181,48 @@ export default async function Home() {
             </div>
             
             <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-8">
-              {availableUnits.length > 0 ? (
-                availableUnits.map((unit) => (
-                  <div key={unit.id} className="group bg-white rounded-xl overflow-hidden border border-slate-200 shadow-sm hover:shadow-xl transition-all duration-300">
-                    <div className="h-48 bg-slate-200 relative overflow-hidden">
-                    {unit.imageUrl ? (
-                      <Image
-                        src={unit.imageUrl}
-                        alt={unit.name || unit.property.name}
-                        fill
-                        className="object-cover transition-transform duration-300 group-hover:scale-105"
-                      />
-                    ) : (
-                      <div className="absolute inset-0 bg-slate-300 flex items-center justify-center text-slate-500">
-                        <HomeIcon className="h-12 w-12 opacity-50" />
+              {properties.length > 0 ? (
+                properties.map((property) => (
+                  <Link href={`/properties/${property.id}`} key={property.id} className="group cursor-pointer">
+                    <div className="bg-white rounded-xl overflow-hidden border border-slate-200 shadow-sm hover:shadow-xl transition-all duration-300 h-full flex flex-col">
+                      <div className="h-48 bg-slate-200 relative overflow-hidden">
+                        {property.imageUrl ? (
+                          <Image
+                            src={property.imageUrl}
+                            alt={property.name}
+                            fill
+                            className="object-cover transition-transform duration-300 group-hover:scale-105"
+                          />
+                        ) : (
+                          <div className="absolute inset-0 bg-slate-300 flex items-center justify-center text-slate-500">
+                            <Building2 className="h-12 w-12 opacity-50" />
+                          </div>
+                        )}
+                        <div className="absolute top-4 right-4 bg-white/90 backdrop-blur-sm px-3 py-1 rounded-full text-xs font-semibold shadow-sm">
+                          {property.units.length} enheter
+                        </div>
                       </div>
-                    )}
-                  </div>
-                    <div className="p-6">
-                      <h3 className="font-bold text-xl mb-2 text-slate-900">{unit.property.address}</h3>
-                      <p className="text-slate-500 mb-4 text-sm">
-                        {unit.name ? `${unit.name} - ` : ''} 
-                        {unit.roomCount} rom • {unit.sizeSqm} m²
-                      </p>
-                      <div className="flex justify-between items-center border-t pt-4 mt-4">
-                        <span className="font-semibold text-blue-600">{unit.rentAmount.toLocaleString('no-NO')} kr/mnd</span>
-                        <span className="text-xs font-medium bg-green-100 text-green-700 px-2 py-1 rounded-full">Ledig nå</span>
+                      <div className="p-6 flex flex-col flex-1">
+                        <h3 className="font-bold text-xl mb-2 text-slate-900 group-hover:text-blue-600 transition-colors">{property.name}</h3>
+                        <div className="flex items-center text-slate-500 mb-4 text-sm">
+                          <MapPin className="h-4 w-4 mr-1" />
+                          {property.address}
+                        </div>
+                        <div className="mt-auto pt-4 border-t border-slate-100 flex justify-between items-center">
+                          <span className="text-sm font-medium text-slate-600">
+                            {property.gnr && property.bnr ? `Gnr ${property.gnr} / Bnr ${property.bnr}` : 'Eiendomsutvikling'}
+                          </span>
+                          <span className="inline-flex items-center justify-center rounded-full w-8 h-8 bg-blue-50 text-blue-600 group-hover:bg-blue-600 group-hover:text-white transition-colors">
+                            <ArrowRight className="h-4 w-4" />
+                          </span>
+                        </div>
                       </div>
                     </div>
-                  </div>
+                  </Link>
                 ))
               ) : (
                 <div className="col-span-full text-center py-12 bg-slate-100 rounded-xl">
-                  <p className="text-slate-600 mb-4">Ingen boliger ligger ute for øyeblikket.</p>
+                  <p className="text-slate-600 mb-4">Ingen eiendommer er lagt ut enda.</p>
                   <p className="text-sm text-slate-500">Ta kontakt med oss for å høre om kommende prosjekter.</p>
                 </div>
               )}

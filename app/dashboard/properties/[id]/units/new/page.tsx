@@ -16,15 +16,18 @@ import {
 } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
+import { Textarea } from "@/components/ui/textarea"
 import { createClient } from "@/lib/supabase"
 import { ImageUpload } from "@/components/image-upload"
 
 const formSchema = z.object({
   name: z.string().min(1, "Navn er påkrevd"),
+  unitNumber: z.string().optional(),
   sizeSqm: z.coerce.number().min(1, "Størrelse må være positiv"),
   roomCount: z.coerce.number().min(1, "Rom må være minst 1"),
   rentAmount: z.coerce.number().min(0, "Leie kan ikke være negativ"),
   depositAmount: z.coerce.number().min(0, "Depositum kan ikke være negativt"),
+  notes: z.string().optional(),
   imageUrl: z.string().optional(),
 })
 
@@ -128,16 +131,26 @@ export default function NewUnitPage({ params }: NewUnitPageProps) {
         </CardHeader>
         <CardContent>
           <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
-            <div className="space-y-2">
-              <Label htmlFor="name">Enhetsnavn</Label>
-              <Input
-                id="name"
-                placeholder="f.eks. Leil. 101 eller 2. etasje"
-                {...form.register("name")}
-              />
-              {form.formState.errors.name && (
-                <p className="text-sm text-red-500">{form.formState.errors.name.message}</p>
-              )}
+            <div className="grid gap-4 md:grid-cols-2">
+              <div className="space-y-2">
+                <Label htmlFor="name">Enhetsnavn</Label>
+                <Input
+                  id="name"
+                  placeholder="f.eks. Leil. 101 eller 2. etasje"
+                  {...form.register("name")}
+                />
+                {form.formState.errors.name && (
+                  <p className="text-sm text-red-500">{form.formState.errors.name.message}</p>
+                )}
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="unitNumber">Bolignummer (H-nummer)</Label>
+                <Input
+                  id="unitNumber"
+                  placeholder="f.eks. H0101"
+                  {...form.register("unitNumber")}
+                />
+              </div>
             </div>
 
             <div className="space-y-2">
@@ -197,6 +210,15 @@ export default function NewUnitPage({ params }: NewUnitPageProps) {
                   <p className="text-sm text-red-500">{form.formState.errors.depositAmount.message}</p>
                 )}
               </div>
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="notes">Notater / Informasjon</Label>
+              <Textarea
+                id="notes"
+                placeholder="Intern informasjon om enheten..."
+                {...form.register("notes")}
+              />
             </div>
 
             {error && <div className="text-sm text-red-500">{error}</div>}

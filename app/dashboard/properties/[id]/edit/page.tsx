@@ -31,6 +31,8 @@ const formSchema = z.object({
   address: z.string().min(5, "Adresse må være minst 5 tegn"),
   gnr: z.string().optional(),
   bnr: z.string().optional(),
+  snr: z.string().optional(),
+  parentId: z.string().optional(),
   notes: z.string().optional(),
   imageUrl: z.string().optional(),
 })
@@ -41,6 +43,7 @@ export default function EditPropertyPage({ params }: { params: { id: string } })
   const [isUploading, setIsUploading] = React.useState(false)
   const [isFetching, setIsFetching] = React.useState(true)
   const [error, setError] = React.useState<string | null>(null)
+  const [properties, setProperties] = React.useState<any[]>([])
 
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
@@ -49,10 +52,27 @@ export default function EditPropertyPage({ params }: { params: { id: string } })
       address: "",
       gnr: "",
       bnr: "",
+      snr: "",
+      parentId: "none",
       notes: "",
       imageUrl: "",
     },
   })
+
+  React.useEffect(() => {
+    async function fetchProperties() {
+      try {
+        const res = await fetch("/api/properties")
+        if (res.ok) {
+          const data = await res.json()
+          setProperties(data)
+        }
+      } catch (error) {
+        console.error("Failed to fetch properties", error)
+      }
+    }
+    fetchProperties()
+  }, [])
 
   React.useEffect(() => {
     async function fetchProperty() {
@@ -66,6 +86,8 @@ export default function EditPropertyPage({ params }: { params: { id: string } })
           address: data.address,
           gnr: data.gnr || "",
           bnr: data.bnr || "",
+          snr: data.snr || "",
+          parentId: data.parentId || "none",
           notes: data.notes || "",
           imageUrl: data.imageUrl || "",
         })
@@ -83,12 +105,17 @@ export default function EditPropertyPage({ params }: { params: { id: string } })
     setError(null)
 
     try {
+      const payload = {
+        ...values,
+        parentId: values.parentId === "none" ? null : values.parentId,
+      }
+
       const res = await fetch(`/api/properties/${params.id}`, {
         method: "PATCH",
         headers: {
           "Content-Type": "application/json",
         },
-        body: JSON.stringify(values),
+        body: JSON.stringify(payload),
       })
 
       if (!res.ok) {
@@ -179,7 +206,7 @@ export default function EditPropertyPage({ params }: { params: { id: string } })
               </div>
             </div>
 
-            <div className="grid gap-4 md:grid-cols-2">
+            <div className="grid gap-4 md:grid-cols-3">
               <div className="space-y-2">
                 <Label htmlFor="gnr">Gnr (Valgfritt)</Label>
                 <Input
@@ -196,6 +223,35 @@ export default function EditPropertyPage({ params }: { params: { id: string } })
                   {...form.register("bnr")}
                 />
               </div>
+              <div className="space-y-2">
+                <Label htmlFor="snr">Snr (Valgfritt)</Label>
+                <Input
+                  id="snr"
+                  placeholder="Seksjonsnummer"
+                  {...form.register("snr")}
+                />
+              </div>
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="parentId">Hovedeiendom (Valgfritt)</Label>
+              <Select 
+                onValueChange={(val) => form.setValue("parentId", val)}
+                value={form.watch("parentId")}
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="Velg hovedeiendom hvis dette er en seksjon" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="none">Ingen (Selvstendig eiendom)</SelectItem>
+                  {properties
+                    .filter(p => p.id !== params.id)
+                    .map((p) => (
+                    <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <p className="text-xs text-slate-500">Velg en hovedeiendom hvis du vil registrere dette som en seksjon under en annen eiendom.</p>
             </div>
 
             <div className="space-y-2">

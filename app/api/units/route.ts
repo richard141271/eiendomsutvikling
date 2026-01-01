@@ -9,7 +9,7 @@ export async function POST(request: Request) {
     // Auth check should be here
     
     const body = await request.json();
-    const { name, sizeSqm, roomCount, rentAmount, depositAmount, propertyId, imageUrl } = body;
+    const { name, unitNumber, sizeSqm, roomCount, rentAmount, depositAmount, propertyId, imageUrl, notes } = body;
 
     if (!name || !propertyId) {
       return NextResponse.json(
@@ -21,6 +21,7 @@ export async function POST(request: Request) {
     const unit = await prisma.unit.create({
       data: {
         name,
+        unitNumber,
         sizeSqm: Number(sizeSqm),
         roomCount: Number(roomCount),
         rentAmount: Number(rentAmount),
@@ -28,6 +29,7 @@ export async function POST(request: Request) {
         propertyId,
         status: "AVAILABLE",
         imageUrl,
+        notes,
       },
     });
 

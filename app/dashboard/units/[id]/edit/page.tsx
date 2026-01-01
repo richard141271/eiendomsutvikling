@@ -16,6 +16,7 @@ import {
 } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
+import { Textarea } from "@/components/ui/textarea"
 import {
   Select,
   SelectContent,
@@ -28,11 +29,13 @@ import { ImageUpload } from "@/components/image-upload"
 
 const formSchema = z.object({
   name: z.string().min(1, "Navn er påkrevd"),
+  unitNumber: z.string().optional(),
   sizeSqm: z.string().min(1, "Størrelse er påkrevd"),
   roomCount: z.string().min(1, "Antall rom er påkrevd"),
   rentAmount: z.string().min(1, "Leie er påkrevd"),
   depositAmount: z.string().min(1, "Depositum er påkrevd"),
   status: z.enum(["AVAILABLE", "RESERVED", "RENTED", "SOLD"]),
+  notes: z.string().optional(),
   imageUrl: z.string().optional(),
 })
 
@@ -47,11 +50,13 @@ export default function EditUnitPage({ params }: { params: { id: string } }) {
     resolver: zodResolver(formSchema),
     defaultValues: {
       name: "",
+      unitNumber: "",
       sizeSqm: "",
       roomCount: "",
       rentAmount: "",
       depositAmount: "",
       status: "AVAILABLE",
+      notes: "",
       imageUrl: "",
     },
   })
@@ -162,16 +167,17 @@ export default function EditUnitPage({ params }: { params: { id: string } }) {
               <ImageUpload
                 value={form.watch("imageUrl")}
                 onChange={(url) => form.setValue("imageUrl", url)}
+                onUploadStatusChange={setIsUploading}
                 label="Last opp bilde"
               />
             </div>
 
             <div className="grid gap-4 md:grid-cols-2">
               <div className="space-y-2">
-                <Label htmlFor="name">Enhetsnavn / Nummer</Label>
+                <Label htmlFor="name">Enhetsnavn</Label>
                 <Input
                   id="name"
-                  placeholder="f.eks. H0101"
+                  placeholder="f.eks. Leil. 101"
                   {...form.register("name")}
                 />
                 {form.formState.errors.name && (
@@ -179,21 +185,39 @@ export default function EditUnitPage({ params }: { params: { id: string } }) {
                 )}
               </div>
               <div className="space-y-2">
-                <Label htmlFor="status">Status</Label>
-                <Select 
-                  onValueChange={(val) => form.setValue("status", val as any)}
-                  defaultValue={form.getValues("status")}
-                >
-                  <SelectTrigger>
-                    <SelectValue placeholder="Velg status" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="AVAILABLE">Ledig</SelectItem>
-                    <SelectItem value="RESERVED">Reservert</SelectItem>
-                    <SelectItem value="RENTED">Utleid</SelectItem>
-                  </SelectContent>
-                </Select>
+                <Label htmlFor="unitNumber">Bolignummer (H-nummer)</Label>
+                <Input
+                  id="unitNumber"
+                  placeholder="f.eks. H0101"
+                  {...form.register("unitNumber")}
+                />
               </div>
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="status">Status</Label>
+              <Select 
+                onValueChange={(val) => form.setValue("status", val as any)}
+                defaultValue={form.getValues("status")}
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="Velg status" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="AVAILABLE">Ledig</SelectItem>
+                  <SelectItem value="RESERVED">Reservert</SelectItem>
+                  <SelectItem value="RENTED">Utleid</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="notes">Notater</Label>
+              <Textarea
+                id="notes"
+                placeholder="Interne notater..."
+                {...form.register("notes")}
+              />
             </div>
 
             <div className="grid gap-4 md:grid-cols-2">

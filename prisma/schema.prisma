@@ -65,6 +65,7 @@ model User {
   leaseContracts      LeaseContract[]
   maintenanceRequests MaintenanceRequest[]
   messages            Message[]
+  interests           Interest[]
   
   // Tenant Certificate relations
   receivedCertificates TenantCertificate[] @relation("ReceivedCertificates")
@@ -102,6 +103,8 @@ model Property {
   address   String
   gnr       String?
   bnr       String?
+  snr       String?
+  parentId  String?
   ownerId   String
   status    PropertyStatus @default(ACTIVE)
   notes     String?
@@ -110,6 +113,8 @@ model Property {
   updatedAt DateTime       @updatedAt
 
   owner     User           @relation("OwnerProperties", fields: [ownerId], references: [id])
+  parent    Property?      @relation("PropertyHierarchy", fields: [parentId], references: [id])
+  children  Property[]     @relation("PropertyHierarchy")
   units     Unit[]
 }
 
@@ -117,11 +122,13 @@ model Unit {
   id             String      @id @default(uuid())
   propertyId     String
   name           String      // e.g. "Apt 101"
+  unitNumber     String?     // e.g. "H0101"
   sizeSqm        Float
   roomCount      Int
   rentAmount     Float
   depositAmount  Float
   status         UnitStatus  @default(AVAILABLE)
+  notes          String?
   imageUrl       String?
   createdAt      DateTime    @default(now())
   updatedAt      DateTime    @updatedAt
@@ -130,6 +137,7 @@ model Unit {
   leaseContracts LeaseContract[]
   maintenanceRequests MaintenanceRequest[]
   rooms      Room[]
+  interests  Interest[]
 }
 
 enum RoomType {
@@ -245,4 +253,27 @@ model InspectionCheckpoint {
   notes           String?
   
   protocol        InspectionProtocol @relation(fields: [protocolId], references: [id], onDelete: Cascade)
+}
+
+model Interest {
+  id        String         @id @default(uuid())
+  unitId    String
+  userId    String?        // Optional: if they are logged in
+  name      String
+  email     String
+  phone     String?
+  message   String?
+  status    InterestStatus @default(PENDING)
+  createdAt DateTime       @default(now())
+  updatedAt DateTime       @updatedAt
+
+  unit      Unit     @relation(fields: [unitId], references: [id], onDelete: Cascade)
+  user      User?    @relation(fields: [userId], references: [id])
+}
+
+enum InterestStatus {
+  PENDING
+  CONTACTED
+  REJECTED
+  OFFERED
 }

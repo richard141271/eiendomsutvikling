@@ -1,12 +1,30 @@
 import Link from "next/link"
 import { MobileNav } from "./components/mobile-nav"
 import { UserNav } from "./components/user-nav"
+import { createClient } from "@/lib/supabase-server"
+import { prisma } from "@/lib/prisma"
+import { Users, UserPlus } from "lucide-react"
 
-export default function DashboardLayout({
+export default async function DashboardLayout({
   children,
 }: {
   children: React.ReactNode
 }) {
+  const supabase = createClient();
+  const { data: { user: authUser } } = await supabase.auth.getUser();
+
+  let role = "TENANT";
+  if (authUser) {
+    const dbUser = await prisma.user.findUnique({
+      where: { authId: authUser.id },
+      select: { role: true }
+    });
+    if (dbUser) role = dbUser.role;
+  }
+
+  const isAdmin = role === "OWNER" || role === "ADMIN" || role === "MANAGER";
+  const isTenant = role === "TENANT" || role === "PROSPECT";
+
   return (
     <div className="flex h-screen w-full">
       <div className="hidden w-64 flex-col border-r bg-gray-100/40 lg:flex dark:bg-gray-800/40 print:hidden">
@@ -28,18 +46,38 @@ export default function DashboardLayout({
             >
               Dashboard
             </Link>
-            <Link
-              href="/dashboard/properties"
-              className="flex items-center gap-3 rounded-lg px-3 py-2 text-gray-500 transition-all hover:text-gray-900 dark:text-gray-400 dark:hover:text-gray-50"
-            >
-              Eiendommer
-            </Link>
-            <Link
-              href="/dashboard/contracts"
-              className="flex items-center gap-3 rounded-lg px-3 py-2 text-gray-500 transition-all hover:text-gray-900 dark:text-gray-400 dark:hover:text-gray-50"
-            >
-              Kontrakter
-            </Link>
+
+            {isAdmin && (
+              <>
+                <Link
+                  href="/dashboard/properties"
+                  className="flex items-center gap-3 rounded-lg px-3 py-2 text-gray-500 transition-all hover:text-gray-900 dark:text-gray-400 dark:hover:text-gray-50"
+                >
+                  Eiendommer
+                </Link>
+                <Link
+                  href="/dashboard/contracts"
+                  className="flex items-center gap-3 rounded-lg px-3 py-2 text-gray-500 transition-all hover:text-gray-900 dark:text-gray-400 dark:hover:text-gray-50"
+                >
+                  Kontrakter
+                </Link>
+                <Link
+                  href="/dashboard/interests"
+                  className="flex items-center gap-3 rounded-lg px-3 py-2 text-gray-500 transition-all hover:text-gray-900 dark:text-gray-400 dark:hover:text-gray-50"
+                >
+                  <UserPlus className="h-4 w-4" />
+                  Interessenter
+                </Link>
+                <Link
+                  href="/dashboard/users"
+                  className="flex items-center gap-3 rounded-lg px-3 py-2 text-gray-500 transition-all hover:text-gray-900 dark:text-gray-400 dark:hover:text-gray-50"
+                >
+                  <Users className="h-4 w-4" />
+                  Brukere
+                </Link>
+              </>
+            )}
+
             <Link
               href="/dashboard/maintenance"
               className="flex items-center gap-3 rounded-lg px-3 py-2 text-gray-500 transition-all hover:text-gray-900 dark:text-gray-400 dark:hover:text-gray-50"
@@ -52,30 +90,40 @@ export default function DashboardLayout({
             >
               Meldinger
             </Link>
-            <Link
-              href="/dashboard/inspections"
-              className="flex items-center gap-3 rounded-lg px-3 py-2 text-gray-500 transition-all hover:text-gray-900 dark:text-gray-400 dark:hover:text-gray-50"
-            >
-              Overtakelse
-            </Link>
+            
+            {isAdmin && (
+              <Link
+                href="/dashboard/inspections"
+                className="flex items-center gap-3 rounded-lg px-3 py-2 text-gray-500 transition-all hover:text-gray-900 dark:text-gray-400 dark:hover:text-gray-50"
+              >
+                Overtakelse
+              </Link>
+            )}
+
             <Link
               href="/dashboard/available"
               className="flex items-center gap-3 rounded-lg px-3 py-2 text-gray-500 transition-all hover:text-gray-900 dark:text-gray-400 dark:hover:text-gray-50"
             >
               Ledige boliger
             </Link>
-            <Link
-              href="/dashboard/my-contracts"
-              className="flex items-center gap-3 rounded-lg px-3 py-2 text-gray-500 transition-all hover:text-gray-900 dark:text-gray-400 dark:hover:text-gray-50"
-            >
-              Mine kontrakter
-            </Link>
-            <Link
-              href="/dashboard/certificate"
-              className="flex items-center gap-3 rounded-lg px-3 py-2 text-gray-500 transition-all hover:text-gray-900 dark:text-gray-400 dark:hover:text-gray-50"
-            >
-              Leietakerbevis
-            </Link>
+
+            {isTenant && (
+              <>
+                <Link
+                  href="/dashboard/my-contracts"
+                  className="flex items-center gap-3 rounded-lg px-3 py-2 text-gray-500 transition-all hover:text-gray-900 dark:text-gray-400 dark:hover:text-gray-50"
+                >
+                  Mine kontrakter
+                </Link>
+                <Link
+                  href="/dashboard/certificate"
+                  className="flex items-center gap-3 rounded-lg px-3 py-2 text-gray-500 transition-all hover:text-gray-900 dark:text-gray-400 dark:hover:text-gray-50"
+                >
+                  Leietakerbevis
+                </Link>
+              </>
+            )}
+            
             <Link
               href="/dashboard/settings"
               className="flex items-center gap-3 rounded-lg px-3 py-2 text-gray-500 transition-all hover:text-gray-900 dark:text-gray-400 dark:hover:text-gray-50"
@@ -86,6 +134,7 @@ export default function DashboardLayout({
         </nav>
       </div>
       <div className="flex flex-col w-full">
+
         <header className="flex h-14 items-center gap-4 border-b bg-gray-100/40 px-6 dark:bg-gray-800/40 print:hidden">
           <MobileNav />
           <div className="w-full flex-1">

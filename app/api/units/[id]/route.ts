@@ -36,18 +36,20 @@ export async function PATCH(
 ) {
   try {
     const body = await request.json();
-    const { name, sizeSqm, roomCount, rentAmount, depositAmount, status, imageUrl } = body;
+    const { name, unitNumber, sizeSqm, roomCount, rentAmount, depositAmount, status, imageUrl, notes } = body;
 
     const updatedUnit = await prisma.unit.update({
       where: { id: params.id },
       data: {
         name,
+        unitNumber,
         sizeSqm: sizeSqm ? parseFloat(sizeSqm) : undefined,
         roomCount: roomCount ? parseInt(roomCount) : undefined,
         rentAmount: rentAmount ? parseFloat(rentAmount) : undefined,
         depositAmount: depositAmount ? parseFloat(depositAmount) : undefined,
         status,
         imageUrl,
+        notes,
       },
     });
 

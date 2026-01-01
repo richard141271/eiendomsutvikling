@@ -22,12 +22,13 @@ export async function POST(request: Request) {
     const fileExt = file.name.split('.').pop();
     const fileName = `${Date.now()}-${Math.random().toString(36).substring(2, 15)}.${fileExt}`;
     const filePath = `${user.id}/${fileName}`;
+    const bucketName = process.env.NEXT_PUBLIC_SUPABASE_STORAGE_BUCKET || 'property-images';
 
     // Upload to Supabase Storage
     // We assume a public bucket named 'property-images' exists
     const { error: uploadError } = await supabase
       .storage
-      .from('property-images')
+      .from(bucketName)
       .upload(filePath, file, {
         upsert: false,
         contentType: file.type
@@ -44,7 +45,7 @@ export async function POST(request: Request) {
     // Get public URL
     const { data: { publicUrl } } = supabase
       .storage
-      .from('property-images')
+      .from(bucketName)
       .getPublicUrl(filePath);
 
     return NextResponse.json({ imageUrl: publicUrl });
