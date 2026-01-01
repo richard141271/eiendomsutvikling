@@ -43,9 +43,11 @@ export async function POST(request: Request) {
     // If user still not found, try to create if email is provided
     if (!user && email) {
       try {
+        const normalizedEmail = email.toLowerCase();
+        
         // Check if email already exists (edge case where authId wasn't linked)
         const existingUserByEmail = await prisma.user.findUnique({
-          where: { email },
+          where: { email: normalizedEmail },
         });
 
         if (existingUserByEmail) {
@@ -59,15 +61,18 @@ export async function POST(request: Request) {
           user = await prisma.user.create({
             data: {
               authId: ownerId,
-              email: email,
-              name: email.split('@')[0], // Fallback name
+              email: normalizedEmail,
+              name: normalizedEmail.split('@')[0], // Fallback name
               role: "OWNER",
             },
           });
         }
-      } catch (createError) {
+      } catch (createError: any) {
         console.error("Failed to auto-create user:", createError);
-        // Fall through to error response
+        return NextResponse.json(
+            { error: `Kunne ikke opprette/koble bruker i databasen: ${createError.message}` },
+            { status: 500 }
+        );
       }
     }
 
