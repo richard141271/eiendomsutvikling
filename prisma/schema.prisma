@@ -88,8 +88,19 @@ model Unit {
   MaintenanceRequest MaintenanceRequest[]
   roomDetails        Room[]
   TenantWarning      TenantWarning[]
+  viewings           Viewing[]
   property           Property             @relation(fields: [propertyId], references: [id], onDelete: Cascade)
   unitImages         UnitImage[]
+}
+
+model Viewing {
+  id        String   @id @default(uuid())
+  unitId    String
+  date      DateTime
+  notes     String?
+  checklist Json?    // Stores the state of checklist items
+  createdAt DateTime @default(now())
+  unit      Unit     @relation(fields: [unitId], references: [id], onDelete: Cascade)
 }
 
 model UnitImage {
@@ -227,6 +238,15 @@ model MessageThread {
   LeaseContract LeaseContract @relation(fields: [contractId], references: [id], onDelete: Cascade)
 }
 
+model DevNote {
+  id         String   @id @default(cuid())
+  content    String
+  author     String?
+  isResolved Boolean  @default(false)
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+}
+
 enum UserRole {
   OWNER
   ADMIN
@@ -282,13 +302,4 @@ enum InterestStatus {
   CONTACTED
   REJECTED
   OFFERED
-}
-
-model DevNote {
-  id        String   @id @default(cuid())
-  content   String
-  author    String?
-  isResolved Boolean @default(false)
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
 }

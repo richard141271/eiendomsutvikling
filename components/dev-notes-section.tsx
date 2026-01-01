@@ -78,7 +78,7 @@ export function DevNotesSection() {
       <CardContent className="space-y-6">
         <form onSubmit={handleSubmit} className="space-y-4 bg-slate-50 p-4 rounded-lg border">
           <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-             <div className="md:col-span-1">
+             <div className="md:col-span-1 space-y-2">
                 <Label htmlFor="author">Navn</Label>
                 <Input 
                     id="author" 
@@ -86,6 +86,14 @@ export function DevNotesSection() {
                     onChange={(e) => setAuthor(e.target.value)}
                     placeholder="Ditt navn"
                 />
+                <div className="flex gap-1">
+                   <Button type="button" variant="outline" size="sm" className="text-xs h-6 px-2" onClick={() => setAuthor("Pål-Martin")}>
+                     PM
+                   </Button>
+                   <Button type="button" variant="outline" size="sm" className="text-xs h-6 px-2" onClick={() => setAuthor("Utvikler")}>
+                     Utvikler
+                   </Button>
+                </div>
              </div>
              <div className="md:col-span-3">
                 <Label htmlFor="content">Notat</Label>

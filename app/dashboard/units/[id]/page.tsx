@@ -7,6 +7,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import UnitImageArchive from "@/components/unit/unit-image-archive";
+import { ViewingSection } from "@/components/unit/viewing-section";
 import { format } from "date-fns";
 import { nb } from "date-fns/locale";
 
@@ -48,6 +49,9 @@ export default async function UnitDetailsPage({ params }: UnitDetailsPageProps) 
       },
       unitImages: {
         orderBy: { createdAt: "desc" },
+      },
+      viewings: {
+        orderBy: { date: "desc" },
       },
     },
   });
@@ -130,6 +134,8 @@ export default async function UnitDetailsPage({ params }: UnitDetailsPageProps) 
       </div>
 
       <UnitImageArchive unitId={unit.id} images={unit.unitImages} />
+
+      <ViewingSection unitId={unit.id} viewings={unit.viewings} />
 
       <div className="space-y-4">
         <div className="flex items-center justify-between">
