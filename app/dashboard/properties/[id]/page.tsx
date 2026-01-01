@@ -56,12 +56,13 @@ export default async function PropertyDetailsPage({
   return (
     <div className="flex flex-col gap-6">
       {property.imageUrl && (
-        <div className="relative w-full h-64 bg-gray-100 rounded-lg overflow-hidden">
+        <div className="relative w-full h-64 md:h-96 bg-gray-100 rounded-lg overflow-hidden shadow-sm">
           <Image
             src={property.imageUrl}
             alt={property.name}
             fill
             className="object-cover"
+            priority
           />
         </div>
       )}

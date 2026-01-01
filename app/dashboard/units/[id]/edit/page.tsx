@@ -24,6 +24,8 @@ import {
   SelectValue,
 } from "@/components/ui/select"
 
+import { ImageUpload } from "@/components/image-upload"
+
 const formSchema = z.object({
   name: z.string().min(1, "Navn er påkrevd"),
   sizeSqm: z.string().min(1, "Størrelse er påkrevd"),
@@ -31,6 +33,7 @@ const formSchema = z.object({
   rentAmount: z.string().min(1, "Leie er påkrevd"),
   depositAmount: z.string().min(1, "Depositum er påkrevd"),
   status: z.enum(["AVAILABLE", "RESERVED", "RENTED", "SOLD"]),
+  imageUrl: z.string().optional(),
 })
 
 export default function EditUnitPage({ params }: { params: { id: string } }) {
@@ -48,6 +51,7 @@ export default function EditUnitPage({ params }: { params: { id: string } }) {
       rentAmount: "",
       depositAmount: "",
       status: "AVAILABLE",
+      imageUrl: "",
     },
   })
 
@@ -65,6 +69,7 @@ export default function EditUnitPage({ params }: { params: { id: string } }) {
           rentAmount: data.rentAmount?.toString() || "",
           depositAmount: data.depositAmount?.toString() || "",
           status: data.status,
+          imageUrl: data.imageUrl || "",
         })
       } catch (err) {
         setError("Kunne ikke laste enhetsdata")
@@ -151,6 +156,15 @@ export default function EditUnitPage({ params }: { params: { id: string } }) {
         </CardHeader>
         <CardContent>
           <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
+            <div className="space-y-2">
+              <Label>Bilde av enheten</Label>
+              <ImageUpload
+                value={form.watch("imageUrl")}
+                onChange={(url) => form.setValue("imageUrl", url)}
+                label="Last opp bilde"
+              />
+            </div>
+
             <div className="grid gap-4 md:grid-cols-2">
               <div className="space-y-2">
                 <Label htmlFor="name">Enhetsnavn / Nummer</Label>

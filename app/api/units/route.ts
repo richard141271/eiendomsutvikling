@@ -9,7 +9,7 @@ export async function POST(request: Request) {
     // Auth check should be here
     
     const body = await request.json();
-    const { name, sizeSqm, roomCount, rentAmount, depositAmount, propertyId } = body;
+    const { name, sizeSqm, roomCount, rentAmount, depositAmount, propertyId, imageUrl } = body;
 
     if (!name || !propertyId) {
       return NextResponse.json(
@@ -27,6 +27,7 @@ export async function POST(request: Request) {
         depositAmount: Number(depositAmount),
         propertyId,
         status: "AVAILABLE",
+        imageUrl,
       },
     });
 

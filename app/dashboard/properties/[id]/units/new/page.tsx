@@ -17,6 +17,7 @@ import {
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { createClient } from "@/lib/supabase"
+import { ImageUpload } from "@/components/image-upload"
 
 const formSchema = z.object({
   name: z.string().min(1, "Navn er påkrevd"),
@@ -24,6 +25,7 @@ const formSchema = z.object({
   roomCount: z.coerce.number().min(1, "Rom må være minst 1"),
   rentAmount: z.coerce.number().min(0, "Leie kan ikke være negativ"),
   depositAmount: z.coerce.number().min(0, "Depositum kan ikke være negativt"),
+  imageUrl: z.string().optional(),
 })
 
 interface NewUnitPageProps {
@@ -45,6 +47,7 @@ export default function NewUnitPage({ params }: NewUnitPageProps) {
       roomCount: 1,
       rentAmount: 0,
       depositAmount: 0,
+      imageUrl: "",
     },
   })
 
@@ -134,6 +137,15 @@ export default function NewUnitPage({ params }: NewUnitPageProps) {
               {form.formState.errors.name && (
                 <p className="text-sm text-red-500">{form.formState.errors.name.message}</p>
               )}
+            </div>
+
+            <div className="space-y-2">
+              <Label>Bilde av enheten</Label>
+              <ImageUpload
+                value={form.watch("imageUrl")}
+                onChange={(url) => form.setValue("imageUrl", url)}
+                label="Last opp bilde"
+              />
             </div>
 
             <div className="grid gap-4 md:grid-cols-2">
