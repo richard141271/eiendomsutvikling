@@ -17,7 +17,7 @@ import {
 } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
-import { createClient } from "@/lib/supabase"
+import { login } from "@/app/login/actions"
 
 const formSchema = z.object({
   email: z.string().email("Ugyldig e-postadresse"),
@@ -42,33 +42,23 @@ export function LoginForm() {
     setError(null)
 
     try {
-      // Pad 4-digit PIN with "00" to satisfy Supabase 6-char requirement
-      const passwordToUse = values.password.length === 4 ? values.password + "00" : values.password;
-
-      const supabase = createClient()
-      const { error } = await supabase.auth.signInWithPassword({
-        email: values.email,
-        password: passwordToUse,
-      })
-
-      if (error) {
-        console.error("Login error:", error);
-        // Translate common errors
-        if (error.message === "Invalid login credentials") {
-           setError("Feil e-post eller passord");
-        } else if (error.message.includes("Email not confirmed")) {
-           setError("Du må bekrefte e-postadressen din før du logger inn.");
-        } else {
-           setError(`Feil ved innlogging: ${error.message}`);
-        }
+      const formData = new FormData()
+      formData.append('email', values.email)
+      formData.append('password', values.password)
+      
+      const result = await login(formData)
+      
+      if (result?.error) {
+        setError(result.error)
+        setIsLoading(false)
         return
       }
-
-      router.push("/dashboard")
-      router.refresh()
+      
+      // If successful, the server action redirects, so we don't need to do anything here.
+      // However, we might want to handle the loading state if the redirect takes time.
+      
     } catch (err) {
       setError("En uventet feil oppstod")
-    } finally {
       setIsLoading(false)
     }
   }

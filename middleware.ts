@@ -58,12 +58,28 @@ export async function middleware(request: NextRequest) {
 
   // Protect dashboard routes
   if (request.nextUrl.pathname.startsWith('/dashboard') && !user) {
-    return NextResponse.redirect(new URL('/login', request.url))
+    const redirectUrl = new URL('/login', request.url)
+    const redirectResponse = NextResponse.redirect(redirectUrl)
+    
+    // Copy cookies from the 'response' object (which might have refreshed tokens) to the redirect response
+    response.cookies.getAll().forEach(cookie => {
+      redirectResponse.cookies.set(cookie)
+    })
+    
+    return redirectResponse
   }
 
   // Redirect to dashboard if logged in and trying to access auth pages
   if ((request.nextUrl.pathname === '/login' || request.nextUrl.pathname === '/register') && user) {
-    return NextResponse.redirect(new URL('/dashboard', request.url))
+    const redirectUrl = new URL('/dashboard', request.url)
+    const redirectResponse = NextResponse.redirect(redirectUrl)
+    
+    // Copy cookies here too
+    response.cookies.getAll().forEach(cookie => {
+      redirectResponse.cookies.set(cookie)
+    })
+    
+    return redirectResponse
   }
 
   return response
