@@ -124,6 +124,21 @@ model Unit {
   property       Property    @relation(fields: [propertyId], references: [id], onDelete: Cascade)
   leaseContracts LeaseContract[]
   maintenanceRequests MaintenanceRequest[]
+  roomScans      RoomScan[]
+}
+
+model RoomScan {
+  id          String   @id @default(uuid())
+  unitId      String
+  name        String   // e.g. "Stue", "Kjøkken"
+  fileUrl     String   // URL to .glb/.usdz file
+  format      String   // "GLB", "USDZ", "OBJ"
+  status      String   @default("COMPLETED") // "PROCESSING", "COMPLETED", "FAILED"
+  thumbnailUrl String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  unit        Unit     @relation(fields: [unitId], references: [id], onDelete: Cascade)
 }
 
 model LeaseContract {
