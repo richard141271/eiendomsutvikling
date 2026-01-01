@@ -4,7 +4,7 @@ import { useEffect, useRef } from 'react';
 import { useRouter, usePathname } from 'next/navigation';
 import { createClient } from '@/lib/supabase';
 
-const TIMEOUT_MS = 5 * 60 * 1000; // 5 minutes
+const TIMEOUT_MS = 60 * 60 * 1000; // 1 hour
 
 export function SessionTimeout() {
   const router = useRouter();
@@ -14,8 +14,11 @@ export function SessionTimeout() {
   const isLoginPage = pathname === '/login' || pathname === '/register' || pathname === '/';
 
   useEffect(() => {
-    // Don't run timeout logic on login/register pages
-    if (isLoginPage) return;
+    // Clear last active time on login pages so we start fresh after login
+    if (isLoginPage) {
+      localStorage.removeItem('lastActive');
+      return;
+    }
 
     // Check local storage for last active time (to support tab switching/background)
     const storedLastActive = localStorage.getItem('lastActive');
