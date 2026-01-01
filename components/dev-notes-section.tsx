@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { createDevNote, getDevNotes, deleteDevNote, toggleDevNoteResolved } from "@/app/actions/dev-notes";
-import { Trash2, CheckCircle2, Circle, Loader2 } from "lucide-react";
+import { Trash2, CheckCircle2, Circle, Loader2, Copy, Check } from "lucide-react";
 import { format } from "date-fns";
 import { nb } from "date-fns/locale";
 
@@ -24,6 +24,7 @@ export function DevNotesSection() {
   const [author, setAuthor] = useState("Pål-Martin"); // Default
   const [loading, setLoading] = useState(false);
   const [fetching, setFetching] = useState(true);
+  const [copiedId, setCopiedId] = useState<string | null>(null);
 
   useEffect(() => {
     loadNotes();
@@ -65,6 +66,12 @@ export function DevNotesSection() {
     if (!confirm("Slett notat?")) return;
     setNotes(notes.filter(n => n.id !== id));
     await deleteDevNote(id);
+  };
+
+  const handleCopy = (note: DevNote) => {
+    navigator.clipboard.writeText(note.content);
+    setCopiedId(note.id);
+    setTimeout(() => setCopiedId(null), 2000);
   };
 
   return (
@@ -144,14 +151,26 @@ export function DevNotesSection() {
                         </div>
                     </div>
                 </div>
-                <Button 
-                    variant="ghost" 
-                    size="sm" 
-                    className="h-8 w-8 p-0 text-slate-400 hover:text-red-500"
-                    onClick={() => handleDelete(note.id)}
-                >
-                    <Trash2 className="h-4 w-4" />
-                </Button>
+                <div className="flex gap-1">
+                    <Button 
+                        variant="ghost" 
+                        size="sm" 
+                        className="h-8 w-8 p-0 text-slate-400 hover:text-slate-900"
+                        onClick={() => handleCopy(note)}
+                        title="Kopier notat"
+                    >
+                        {copiedId === note.id ? <Check className="h-4 w-4" /> : <Copy className="h-4 w-4" />}
+                    </Button>
+                    <Button 
+                        variant="ghost" 
+                        size="sm" 
+                        className="h-8 w-8 p-0 text-slate-400 hover:text-red-500"
+                        onClick={() => handleDelete(note.id)}
+                        title="Slett notat"
+                    >
+                        <Trash2 className="h-4 w-4" />
+                    </Button>
+                </div>
               </div>
             ))
           )}

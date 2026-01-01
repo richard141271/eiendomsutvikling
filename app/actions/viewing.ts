@@ -23,7 +23,9 @@ export async function createViewing(data: z.infer<typeof createViewingSchema>) {
             "Rydd inngangsparti": false,
             "Sjekk brannvarsler": false,
             "Luft ut boligen": false,
-            "Ha nøkler klare": false
+            "Ha nøkler klare": false,
+            "Helle vann i vannlåser": false,
+            "Sette opp varmen til ca 22 grader dagen før visning": false
         }
       },
     });
