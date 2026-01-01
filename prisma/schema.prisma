@@ -31,7 +31,7 @@ model User {
   properties           Property[]           @relation("OwnerProperties")
   issuedCertificates   TenantCertificate[]  @relation("IssuedCertificates")
   receivedCertificates TenantCertificate[]  @relation("ReceivedCertificates")
-  TenantWarning        TenantWarning[]
+  tenantWarnings       TenantWarning[]
 }
 
 model TenantCertificate {

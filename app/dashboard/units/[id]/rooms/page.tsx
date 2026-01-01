@@ -14,7 +14,7 @@ export default async function RoomPage({ params }: RoomPageProps) {
   const unit = await prisma.unit.findUnique({
     where: { id: params.id },
     include: {
-      rooms: {
+      roomDetails: {
         include: {
           images: true,
         },
@@ -56,7 +56,7 @@ export default async function RoomPage({ params }: RoomPageProps) {
 
       <RoomManager 
         unitId={unit.id} 
-        initialRooms={unit.rooms} 
+        initialRooms={unit.roomDetails} 
       />
     </div>
   );

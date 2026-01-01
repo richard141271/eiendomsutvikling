@@ -131,7 +131,7 @@ export default function SettingsPage() {
                             onChange={(e) => setFikenToken(e.target.value)}
                             />
                             <p className="text-xs text-muted-foreground">
-                            Opprettes under "API" i Fiken innstillinger.
+                            Opprettes under &quot;API&quot; i Fiken innstillinger.
                             </p>
                         </div>
                     </div>

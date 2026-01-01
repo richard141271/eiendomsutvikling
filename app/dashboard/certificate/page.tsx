@@ -36,7 +36,7 @@ export default function CertificatePage() {
         <div>
            <h1 className="text-3xl font-bold tracking-tight">Mitt Leietakerbevis</h1>
            <p className="text-muted-foreground mt-2">
-             Din personlige "Bolig-CV". Vis dette til fremtidige utleiere for å bevise din pålitelighet.
+             Din personlige &quot;Bolig-CV&quot;. Vis dette til fremtidige utleiere for å bevise din pålitelighet.
            </p>
         </div>
         <div className="flex gap-2">

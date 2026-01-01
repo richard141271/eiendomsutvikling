@@ -7,6 +7,8 @@ import { Users, UserPlus } from "lucide-react"
 import { getUnresolvedDevNotesCount } from "@/app/actions/dev-notes"
 import { Badge } from "@/components/ui/badge"
 
+import Image from "next/image"
+
 export default async function DashboardLayout({
   children,
 }: {
@@ -34,10 +36,12 @@ export default async function DashboardLayout({
       <div className="hidden w-64 flex-col border-r bg-gray-100/40 lg:flex dark:bg-gray-800/40 print:hidden">
         <div className="flex h-14 items-center border-b px-6">
           <Link href="/dashboard" className="flex items-center gap-2 font-semibold">
-            <img 
+            <Image 
               src="/logo.png" 
               alt="Logo" 
-              className="h-8 w-8 rounded-lg"
+              width={32}
+              height={32}
+              className="rounded-lg"
             />
             <span>Eiendomssystem</span>
           </Link>

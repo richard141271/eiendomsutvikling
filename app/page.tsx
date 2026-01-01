@@ -77,7 +77,7 @@ export default async function Home() {
                   Eiendomsinvest arbeider med kjøp, utleie og flipping av boliger med fokus på kvalitet og verdiskapning. Vi prioriterer ryddige prosesser, solide løsninger og profesjonelle avtaler fra start til slutt.
                 </p>
                 <p className="mx-auto max-w-[700px] text-slate-400 md:text-lg font-light italic">
-                  "Vårt mål er å skape gode eiendomsinvesteringer som gir trygghet og verdi både for kjøpere og leietakere."
+                  &quot;Vårt mål er å skape gode eiendomsinvesteringer som gir trygghet og verdi både for kjøpere og leietakere.&quot;
                 </p>
               </div>
               <div className="flex flex-col sm:flex-row gap-4 w-full justify-center pt-4">

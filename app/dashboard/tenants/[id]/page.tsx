@@ -187,36 +187,46 @@ export default async function TenantPage({ params }: TenantPageProps) {
           </Card>
         </TabsContent>
 
-        <TabsContent value="warnings" className="mt-6">
+        <TabsContent value="warnings" className="space-y-4">
+          <div className="flex justify-between items-center mb-4">
+            <h3 className="text-lg font-medium">Varsler & Purringer</h3>
+            {/* <Button size="sm" variant="outline" className="gap-2">
+              <AlertTriangle className="h-4 w-4" />
+              Opprett varsel
+            </Button> */}
+          </div>
+          
           <Card>
-            <CardHeader>
-              <CardTitle>Varsler & Purringer</CardTitle>
-            </CardHeader>
-            <CardContent>
+            <CardContent className="p-0">
               {tenant.tenantWarnings.length === 0 ? (
-                <p className="text-muted-foreground">Ingen varsler registrert.</p>
+                <div className="p-8 text-center text-muted-foreground">
+                  Ingen varsler registrert på denne leietakeren.
+                </div>
               ) : (
                 <Table>
                   <TableHeader>
                     <TableRow>
-                      <TableHead>Type</TableHead>
                       <TableHead>Dato</TableHead>
-                      <TableHead>Enhet</TableHead>
+                      <TableHead>Type</TableHead>
                       <TableHead>Melding</TableHead>
+                      <TableHead>Enhet</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
                     {tenant.tenantWarnings.map((warning) => (
                       <TableRow key={warning.id}>
+                        <TableCell>{format(warning.sentAt, "dd.MM.yyyy", { locale: nb })}</TableCell>
                         <TableCell>
-                          <div className="flex items-center gap-2">
-                            <AlertTriangle className="h-4 w-4 text-amber-500" />
-                            <span>{warning.type}</span>
-                          </div>
+                          <Badge variant="destructive">{warning.type}</Badge>
                         </TableCell>
-                        <TableCell>{format(warning.sentAt, 'dd.MM.yyyy', { locale: nb })}</TableCell>
-                        <TableCell>{warning.unit?.name || "-"}</TableCell>
-                        <TableCell className="max-w-md truncate">{warning.message}</TableCell>
+                        <TableCell>{warning.message}</TableCell>
+                        <TableCell>
+                          {warning.unit ? (
+                            <div className="flex flex-col">
+                              <span className="font-medium">{warning.unit.name}</span>
+                            </div>
+                          ) : "-"}
+                        </TableCell>
                       </TableRow>
                     ))}
                   </TableBody>
