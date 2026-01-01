@@ -13,12 +13,12 @@ const statusMap: Record<string, string> = {
 export default async function MaintenancePage() {
   const requests = await prisma.maintenanceRequest.findMany({
     include: {
-      unit: {
+      Unit: {
         include: {
           property: true,
         },
       },
-      tenant: true,
+      User: true,
     },
     orderBy: {
       createdAt: "desc",
@@ -57,13 +57,13 @@ export default async function MaintenancePage() {
                   <div className="space-y-1">
                     <h3 className="font-semibold text-lg">{request.title}</h3>
                     <p className="text-sm text-muted-foreground">
-                      {request.unit.property.name} - {request.unit.name}
+                      {request.Unit.property.name} - {request.Unit.name}
                     </p>
                     <p className="text-sm">
                       {request.description}
                     </p>
                     <div className="text-xs text-muted-foreground pt-2">
-                      Rapportert av: {request.tenant.name} ({request.createdAt.toLocaleDateString()})
+                      Rapportert av: {request.User.name} ({request.createdAt.toLocaleDateString()})
                     </div>
                   </div>
                   <div className="flex flex-col items-end gap-2">

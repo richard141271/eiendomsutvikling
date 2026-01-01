@@ -16,8 +16,8 @@ export default async function InspectionPage({ params }: InspectionPageProps) {
   const inspection = await prisma.inspectionProtocol.findUnique({
     where: { id: params.id },
     include: {
-      checkpoints: true,
-      contract: {
+      InspectionCheckpoint: true,
+      LeaseContract: {
         include: {
           unit: {
             include: {
@@ -49,7 +49,7 @@ export default async function InspectionPage({ params }: InspectionPageProps) {
             </Badge>
           </div>
           <p className="text-muted-foreground">
-            {inspection.contract.unit.property.name} - {inspection.contract.unit.name}
+            {inspection.LeaseContract.unit.property.name} - {inspection.LeaseContract.unit.name}
           </p>
         </div>
         <div className="flex gap-2">
@@ -77,11 +77,11 @@ export default async function InspectionPage({ params }: InspectionPageProps) {
             </div>
             <div className="grid grid-cols-2 gap-1 text-sm">
               <span className="font-medium text-muted-foreground">Leietaker:</span>
-              <span>{inspection.contract.tenant.name}</span>
+              <span>{inspection.LeaseContract.tenant.name}</span>
             </div>
             <div className="grid grid-cols-2 gap-1 text-sm">
               <span className="font-medium text-muted-foreground">Utleier:</span>
-              <span>{inspection.contract.unit.property.ownerId} (Eier)</span>
+              <span>{inspection.LeaseContract.unit.property.ownerId} (Eier)</span>
             </div>
           </CardContent>
         </Card>
@@ -119,7 +119,7 @@ export default async function InspectionPage({ params }: InspectionPageProps) {
              </p>
              
              <h3 className="text-base font-semibold mb-4">Sjekkpunkter</h3>
-             {inspection.checkpoints.length > 0 ? (
+             {inspection.InspectionCheckpoint.length > 0 ? (
                <div className="border rounded-md">
                  <div className="grid grid-cols-12 gap-4 p-3 font-medium border-b bg-muted/50 text-xs sm:text-sm">
                    <div className="col-span-3">Rom</div>
@@ -127,7 +127,7 @@ export default async function InspectionPage({ params }: InspectionPageProps) {
                    <div className="col-span-2">Status</div>
                    <div className="col-span-4">Merknad</div>
                  </div>
-                 {inspection.checkpoints.map((cp) => (
+                 {inspection.InspectionCheckpoint.map((cp) => (
                    <div key={cp.id} className="grid grid-cols-12 gap-4 p-3 border-b last:border-0 text-sm items-center">
                      <div className="col-span-3 font-medium">{cp.room}</div>
                      <div className="col-span-3">{cp.element}</div>

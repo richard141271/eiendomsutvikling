@@ -7,7 +7,7 @@ import { Badge } from "@/components/ui/badge";
 export default async function InspectionsPage() {
   const inspections = await prisma.inspectionProtocol.findMany({
     include: {
-      contract: {
+      LeaseContract: {
         include: {
           unit: {
             include: {
@@ -59,10 +59,10 @@ export default async function InspectionsPage() {
                       </Badge>
                     </div>
                     <p className="text-sm text-muted-foreground">
-                      {inspection.contract.unit.property.name} - {inspection.contract.unit.name}
+                      {inspection.LeaseContract.unit.property.name} - {inspection.LeaseContract.unit.name}
                     </p>
                     <p className="text-sm">
-                      Leietaker: {inspection.contract.tenant.name}
+                      Leietaker: {inspection.LeaseContract.tenant.name}
                     </p>
                   </div>
                   <div className="flex flex-col items-end gap-2">

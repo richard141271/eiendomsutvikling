@@ -39,7 +39,7 @@ export default async function TenantPage({ params }: TenantPageProps) {
       },
       tenantWarnings: {
         orderBy: { sentAt: "desc" },
-        include: { unit: true }
+        include: { Unit: true }
       },
       // messages: true, // TODO: Implement messages view
     },
@@ -221,9 +221,9 @@ export default async function TenantPage({ params }: TenantPageProps) {
                         </TableCell>
                         <TableCell>{warning.message}</TableCell>
                         <TableCell>
-                          {warning.unit ? (
+                          {warning.Unit ? (
                             <div className="flex flex-col">
-                              <span className="font-medium">{warning.unit.name}</span>
+                              <span className="font-medium">{warning.Unit.name}</span>
                             </div>
                           ) : "-"}
                         </TableCell>

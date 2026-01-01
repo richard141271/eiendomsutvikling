@@ -17,7 +17,7 @@ export default async function MessagesPage() {
   try {
     threads = await prisma.messageThread.findMany({
       include: {
-        contract: {
+        LeaseContract: {
           include: {
             unit: {
                include: {
@@ -27,7 +27,7 @@ export default async function MessagesPage() {
             tenant: true
           }
         },
-        messages: {
+        Message: {
           orderBy: {
             timestamp: 'desc'
           },
@@ -68,10 +68,10 @@ export default async function MessagesPage() {
                </TableRow>
              ) : (
                threads.map((thread) => {
-                 const lastMessage = thread.messages[0];
-                 const tenantName = thread.contract.tenant.name;
-                 const propertyName = thread.contract.unit.property.name;
-                 const unitName = thread.contract.unit.name;
+                 const lastMessage = thread.Message[0];
+                 const tenantName = thread.LeaseContract.tenant.name;
+                 const propertyName = thread.LeaseContract.unit.property.name;
+                 const unitName = thread.LeaseContract.unit.name;
 
                  return (
                    <TableRow key={thread.id}>

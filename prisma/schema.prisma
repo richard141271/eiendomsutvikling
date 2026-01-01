@@ -181,7 +181,7 @@ model Interest {
   message   String?
   status    InterestStatus @default(PENDING)
   createdAt DateTime       @default(now())
-  updatedAt DateTime
+  updatedAt DateTime       @updatedAt
   unit      Unit           @relation(fields: [unitId], references: [id], onDelete: Cascade)
   user      User?          @relation(fields: [userId], references: [id])
 }
