@@ -48,12 +48,15 @@ export default function SettingsPage() {
         })
       });
 
-      if (!res.ok) throw new Error("Kunne ikke lagre innstillinger");
+      if (!res.ok) {
+        const errorData = await res.json();
+        throw new Error(errorData.error || "Kunne ikke lagre innstillinger");
+      }
       
       alert("Innstillinger lagret!");
-    } catch (error) {
+    } catch (error: any) {
       console.error(error);
-      alert("Noe gikk galt under lagring.");
+      alert(`Noe gikk galt under lagring: ${error.message}`);
     } finally {
       setLoading(false);
     }
