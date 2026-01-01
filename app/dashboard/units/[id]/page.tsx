@@ -4,6 +4,11 @@ import { notFound } from "next/navigation";
 import { prisma } from "@/lib/prisma";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { Badge } from "@/components/ui/badge";
+import UnitImageArchive from "@/components/unit/unit-image-archive";
+import { format } from "date-fns";
+import { nb } from "date-fns/locale";
 
 interface UnitDetailsPageProps {
   params: {
@@ -15,6 +20,21 @@ const statusMap: Record<string, string> = {
   AVAILABLE: "Ledig",
   RESERVED: "Reservert",
   RENTED: "Utleid",
+  SOLD: "Solgt",
+};
+
+const contractStatusMap: Record<string, string> = {
+  DRAFT: "Utkast",
+  SENT: "Sendt",
+  SIGNED: "Signert",
+  TERMINATED: "Avsluttet",
+};
+
+const contractStatusColor: Record<string, string> = {
+  DRAFT: "bg-gray-500",
+  SENT: "bg-blue-500",
+  SIGNED: "bg-green-500",
+  TERMINATED: "bg-red-500",
 };
 
 export default async function UnitDetailsPage({ params }: UnitDetailsPageProps) {
@@ -24,6 +44,9 @@ export default async function UnitDetailsPage({ params }: UnitDetailsPageProps) 
       property: true,
       leaseContracts: {
         include: { tenant: true },
+        orderBy: { createdAt: "desc" },
+      },
+      unitImages: {
         orderBy: { createdAt: "desc" },
       },
     },
@@ -106,6 +129,8 @@ export default async function UnitDetailsPage({ params }: UnitDetailsPageProps) 
         </Link>
       </div>
 
+      <UnitImageArchive unitId={unit.id} images={unit.unitImages} />
+
       <div className="space-y-4">
         <div className="flex items-center justify-between">
             <h2 className="text-xl font-semibold">Leiehistorikk</h2>
@@ -115,9 +140,59 @@ export default async function UnitDetailsPage({ params }: UnitDetailsPageProps) 
                 </Link>
             </Button>
         </div>
-        {/* We can reuse the Table component here for contracts history */}
-        <div className="rounded-md border p-4 text-muted-foreground text-sm">
-           {unit.leaseContracts.length === 0 ? "Ingen leiehistorikk." : "Kontraktsliste kommer her."}
+        
+        <div className="rounded-md border bg-white">
+           {unit.leaseContracts.length === 0 ? (
+             <div className="p-4 text-muted-foreground text-sm text-center">
+               Ingen leiehistorikk registrert.
+             </div>
+           ) : (
+             <Table>
+               <TableHeader>
+                 <TableRow>
+                   <TableHead>Leietaker</TableHead>
+                   <TableHead>Status</TableHead>
+                   <TableHead>Periode</TableHead>
+                   <TableHead>Opprettet</TableHead>
+                   <TableHead className="text-right">Leie</TableHead>
+                 </TableRow>
+               </TableHeader>
+               <TableBody>
+                 {unit.leaseContracts.map((contract) => (
+                   <TableRow key={contract.id}>
+                     <TableCell className="font-medium">
+                       {contract.tenant ? (
+                         <Link 
+                           href={`/dashboard/tenants/${contract.tenant.id}`}
+                           className="text-blue-600 hover:underline hover:text-blue-800"
+                         >
+                           {contract.tenant.name}
+                         </Link>
+                       ) : (
+                         <span className="text-muted-foreground">Ikke registrert</span>
+                       )}
+                     </TableCell>
+                     <TableCell>
+                       <Badge variant="secondary" className={`${contractStatusColor[contract.status]} text-white hover:text-white`}>
+                         {contractStatusMap[contract.status] || contract.status}
+                       </Badge>
+                     </TableCell>
+                     <TableCell>
+                       {contract.startDate ? format(contract.startDate, 'dd.MM.yyyy') : '-'} 
+                       {' - '}
+                       {contract.endDate ? format(contract.endDate, 'dd.MM.yyyy') : 'Løpende'}
+                     </TableCell>
+                     <TableCell>
+                       {format(contract.createdAt, 'dd.MM.yyyy', { locale: nb })}
+                     </TableCell>
+                     <TableCell className="text-right">
+                       {contract.rentAmount} NOK
+                     </TableCell>
+                   </TableRow>
+                 ))}
+               </TableBody>
+             </Table>
+           )}
         </div>
       </div>
     </div>

@@ -20,6 +20,7 @@ import { Label } from "@/components/ui/label"
 import { createClient } from "@/lib/supabase"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import { CheckCircle2 } from "lucide-react"
+import { fetchCityFromPostalCode } from "@/lib/postal-service"
 import {
   Select,
   SelectContent,
@@ -62,6 +63,18 @@ export function RegisterForm() {
   })
   
   const role = form.watch("role");
+  const postalCode = form.watch("postalCode");
+
+  // Auto-fetch city from postal code
+  React.useEffect(() => {
+    if (postalCode && postalCode.length === 4) {
+      fetchCityFromPostalCode(postalCode).then(city => {
+        if (city) {
+          form.setValue("city", city);
+        }
+      });
+    }
+  }, [postalCode, form]);
 
   async function onSubmit(values: z.infer<typeof formSchema>) {
     setIsLoading(true)

@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import dynamic from "next/dynamic";
-import { Plus, Box, ArrowLeft, Trash2, Home, Maximize, FileText } from "lucide-react";
+import { Plus, Box, ArrowLeft, Trash2, Home, Maximize, FileText, ImageIcon } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -10,12 +10,18 @@ import RoomForm, { RoomData } from "@/components/3d/room-form";
 import { createRoom, deleteRoom } from "@/app/actions/room";
 import { useRouter } from "next/navigation";
 import { RoomType } from "@prisma/client";
+import Image from "next/image";
 
 // Dynamic import for ModelViewer to avoid SSR issues
 const ModelViewer = dynamic(() => import("@/components/3d/model-viewer"), {
   ssr: false,
   loading: () => <div className="h-[500px] w-full bg-slate-900 animate-pulse rounded-xl" />,
 });
+
+interface RoomImage {
+  id: string;
+  url: string;
+}
 
 interface Room {
   id: string;
@@ -25,6 +31,7 @@ interface Room {
   description: string | null;
   scanUrl: string | null;
   createdAt: Date;
+  images: RoomImage[];
 }
 
 interface RoomManagerProps {
@@ -44,6 +51,9 @@ export default function RoomManager({ unitId, initialRooms }: RoomManagerProps) 
     const demoUrl = "https://modelviewer.dev/shared-assets/models/Astronaut.glb";
     const scanUrl = data.file ? demoUrl : undefined;
     
+    // Mock image URLs
+    const imageUrls = data.images?.map(() => `https://picsum.photos/seed/${Math.random()}/400/300`);
+
     // Map string type to RoomType enum
     const roomType = data.type as RoomType;
 
@@ -52,7 +62,8 @@ export default function RoomManager({ unitId, initialRooms }: RoomManagerProps) 
       type: roomType,
       sizeSqm: data.sizeSqm,
       description: data.description,
-      scanUrl: scanUrl
+      scanUrl: scanUrl,
+      images: imageUrls
     });
     
     if (result.success && result.data) {
@@ -114,7 +125,7 @@ export default function RoomManager({ unitId, initialRooms }: RoomManagerProps) 
               rooms.map((room) => (
                 <Card key={room.id} className="overflow-hidden group hover:shadow-lg transition-all flex flex-col">
                   <div 
-                    className="h-40 bg-slate-100 relative cursor-pointer flex items-center justify-center border-b"
+                    className="h-40 bg-slate-100 relative cursor-pointer flex items-center justify-center border-b overflow-hidden"
                     onClick={() => {
                       if (room.scanUrl) {
                         setCurrentModelUrl(room.scanUrl);
@@ -122,7 +133,27 @@ export default function RoomManager({ unitId, initialRooms }: RoomManagerProps) 
                       }
                     }}
                   >
-                    {room.scanUrl ? (
+                    {room.images && room.images.length > 0 ? (
+                       // Show first image if available
+                       <div className="relative w-full h-full">
+                           <Image 
+                                src={room.images[0].url} 
+                                alt={room.name} 
+                                fill 
+                                className="object-cover"
+                           />
+                           {room.scanUrl && (
+                                <Badge className="absolute top-2 right-2 bg-blue-500 hover:bg-blue-600 z-10">3D</Badge>
+                           )}
+                           {room.scanUrl && (
+                                <div className="absolute inset-0 bg-black/0 group-hover:bg-black/20 transition-colors flex items-center justify-center z-20">
+                                    <span className="opacity-0 group-hover:opacity-100 bg-black/70 text-white text-xs px-2 py-1 rounded transition-opacity">
+                                        Vis 3D Modell
+                                    </span>
+                                </div>
+                           )}
+                       </div>
+                    ) : room.scanUrl ? (
                       <>
                         <Box className="h-16 w-16 text-blue-400 group-hover:scale-110 transition-transform" />
                         <div className="absolute inset-0 bg-black/0 group-hover:bg-black/5 transition-colors flex items-center justify-center">
@@ -135,7 +166,7 @@ export default function RoomManager({ unitId, initialRooms }: RoomManagerProps) 
                     ) : (
                       <div className="flex flex-col items-center text-slate-300">
                         <Home className="h-12 w-12 mb-2" />
-                        <span className="text-xs">Ingen 3D-modell</span>
+                        <span className="text-xs">Ingen media</span>
                       </div>
                     )}
                   </div>
@@ -168,6 +199,12 @@ export default function RoomManager({ unitId, initialRooms }: RoomManagerProps) 
                           <FileText className="h-4 w-4 text-slate-400 mt-0.5" />
                           <span className="line-clamp-2">{room.description}</span>
                         </div>
+                      )}
+                      {room.images && room.images.length > 0 && (
+                          <div className="flex items-center gap-2 text-xs text-muted-foreground mt-2">
+                              <ImageIcon className="h-3 w-3" />
+                              <span>{room.images.length} bilde{room.images.length !== 1 ? 'r' : ''}</span>
+                          </div>
                       )}
                     </div>
                   </CardContent>

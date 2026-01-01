@@ -43,13 +43,14 @@ export default async function Home() {
         </nav>
         <div className="ml-auto md:ml-8 flex items-center gap-4">
           <Link href="/login">
-            <Button variant="outline" className="hidden sm:flex border-slate-200">
+            <Button variant="outline" className="flex border-slate-200">
               Logg inn
             </Button>
           </Link>
           <Link href="/register">
             <Button className="bg-slate-900 hover:bg-slate-800 text-white shadow-md">
-              Registrer interesse
+              <span className="hidden sm:inline">Registrer interesse</span>
+              <span className="sm:hidden">Registrer</span>
             </Button>
           </Link>
         </div>

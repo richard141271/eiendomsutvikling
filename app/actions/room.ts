@@ -12,6 +12,7 @@ export async function createRoom(
     sizeSqm?: number;
     description?: string;
     scanUrl?: string;
+    images?: string[];
   }
 ) {
   try {
@@ -25,7 +26,13 @@ export async function createRoom(
         scanUrl: data.scanUrl,
         scanFormat: data.scanUrl ? "GLB" : undefined,
         scanStatus: data.scanUrl ? "COMPLETED" : "PENDING",
+        images: {
+            create: data.images?.map(url => ({ url }))
+        }
       },
+      include: {
+        images: true
+      }
     });
     
     revalidatePath(`/dashboard/units/${unitId}/rooms`);

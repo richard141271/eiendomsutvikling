@@ -66,6 +66,7 @@ model User {
   maintenanceRequests MaintenanceRequest[]
   messages            Message[]
   interests           Interest[]
+  tenantWarnings      TenantWarning[]
   
   // Tenant Certificate relations
   receivedCertificates TenantCertificate[] @relation("ReceivedCertificates")
@@ -138,6 +139,8 @@ model Unit {
   maintenanceRequests MaintenanceRequest[]
   rooms      Room[]
   interests  Interest[]
+  unitImages UnitImage[]
+  tenantWarnings TenantWarning[]
 }
 
 enum RoomType {
@@ -170,6 +173,36 @@ model Room {
   updatedAt   DateTime @updatedAt
 
   unit        Unit     @relation(fields: [unitId], references: [id], onDelete: Cascade)
+  images      RoomImage[]
+}
+
+model RoomImage {
+  id        String   @id @default(uuid())
+  roomId    String
+  url       String
+  createdAt DateTime @default(now())
+  room      Room     @relation(fields: [roomId], references: [id], onDelete: Cascade)
+}
+
+model UnitImage {
+  id          String   @id @default(uuid())
+  unitId      String
+  url         String
+  description String?
+  createdAt   DateTime @default(now())
+  unit        Unit     @relation(fields: [unitId], references: [id], onDelete: Cascade)
+}
+
+model TenantWarning {
+  id        String   @id @default(uuid())
+  tenantId  String
+  unitId    String? 
+  type      String   // e.g. "LATE_PAYMENT", "NOISE", "OTHER"
+  message   String
+  sentAt    DateTime @default(now())
+  
+  tenant    User     @relation(fields: [tenantId], references: [id])
+  unit      Unit?    @relation(fields: [unitId], references: [id])
 }
 
 model LeaseContract {

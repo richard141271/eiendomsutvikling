@@ -15,6 +15,9 @@ export default async function RoomPage({ params }: RoomPageProps) {
     where: { id: params.id },
     include: {
       rooms: {
+        include: {
+          images: true,
+        },
         orderBy: { createdAt: "desc" },
       },
       property: true,
