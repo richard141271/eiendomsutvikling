@@ -82,13 +82,13 @@ export default async function UnitDetailsPage({ params }: UnitDetailsPageProps) 
             <div className="text-2xl font-bold">{unit.sizeSqm} m²</div>
           </CardContent>
         </Card>
-        <Link href={`/dashboard/units/${unit.id}/room-scan`}>
+        <Link href={`/dashboard/units/${unit.id}/rooms`}>
           <Card className="hover:bg-slate-50 transition-colors cursor-pointer border-blue-200">
             <CardHeader className="pb-2">
-              <CardTitle className="text-sm font-medium text-blue-700">3D & Romskanning</CardTitle>
+              <CardTitle className="text-sm font-medium text-blue-700">Rom & 3D</CardTitle>
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold text-blue-600">Apne</div>
+              <div className="text-2xl font-bold text-blue-600">Administrer</div>
             </CardContent>
           </Card>
         </Link>

@@ -18,7 +18,7 @@ export async function POST(request: Request) {
     // but in production we MUST verify it against the session.
     
     const body = await request.json();
-    const { name, address, gnr, bnr, notes, ownerId } = body;
+    const { name, address, gnr, bnr, notes, ownerId, email } = body;
 
     if (!name || !address || !ownerId) {
       return NextResponse.json(
@@ -38,6 +38,37 @@ export async function POST(request: Request) {
       user = await prisma.user.findUnique({
         where: { id: ownerId },
       });
+    }
+
+    // If user still not found, try to create if email is provided
+    if (!user && email) {
+      try {
+        // Check if email already exists (edge case where authId wasn't linked)
+        const existingUserByEmail = await prisma.user.findUnique({
+          where: { email },
+        });
+
+        if (existingUserByEmail) {
+          // Update authId
+          user = await prisma.user.update({
+            where: { id: existingUserByEmail.id },
+            data: { authId: ownerId },
+          });
+        } else {
+          // Create new user
+          user = await prisma.user.create({
+            data: {
+              authId: ownerId,
+              email: email,
+              name: email.split('@')[0], // Fallback name
+              role: "OWNER",
+            },
+          });
+        }
+      } catch (createError) {
+        console.error("Failed to auto-create user:", createError);
+        // Fall through to error response
+      }
     }
 
     if (!user) {

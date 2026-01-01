@@ -21,7 +21,7 @@ import { createClient } from "@/lib/supabase"
 const formSchema = z.object({
   name: z.string().min(1, "Navn er påkrevd"),
   sizeSqm: z.coerce.number().min(1, "Størrelse må være positiv"),
-  rooms: z.coerce.number().min(1, "Rom må være minst 1"),
+  roomCount: z.coerce.number().min(1, "Rom må være minst 1"),
   rentAmount: z.coerce.number().min(0, "Leie kan ikke være negativ"),
   depositAmount: z.coerce.number().min(0, "Depositum kan ikke være negativt"),
 })
@@ -42,7 +42,7 @@ export default function NewUnitPage({ params }: NewUnitPageProps) {
     defaultValues: {
       name: "",
       sizeSqm: 0,
-      rooms: 1,
+      roomCount: 1,
       rentAmount: 0,
       depositAmount: 0,
     },
@@ -122,14 +122,14 @@ export default function NewUnitPage({ params }: NewUnitPageProps) {
                 )}
               </div>
               <div className="space-y-2">
-                <Label htmlFor="rooms">Antall rom</Label>
+                <Label htmlFor="roomCount">Antall rom</Label>
                 <Input
-                  id="rooms"
+                  id="roomCount"
                   type="number"
-                  {...form.register("rooms")}
+                  {...form.register("roomCount")}
                 />
-                {form.formState.errors.rooms && (
-                  <p className="text-sm text-red-500">{form.formState.errors.rooms.message}</p>
+                {form.formState.errors.roomCount && (
+                  <p className="text-sm text-red-500">{form.formState.errors.roomCount.message}</p>
                 )}
               </div>
             </div>

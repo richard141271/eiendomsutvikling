@@ -114,7 +114,7 @@ model Unit {
   propertyId     String
   name           String      // e.g. "Apt 101"
   sizeSqm        Float
-  rooms          Int
+  roomCount      Int
   rentAmount     Float
   depositAmount  Float
   status         UnitStatus  @default(AVAILABLE)
@@ -124,17 +124,35 @@ model Unit {
   property       Property    @relation(fields: [propertyId], references: [id], onDelete: Cascade)
   leaseContracts LeaseContract[]
   maintenanceRequests MaintenanceRequest[]
-  roomScans      RoomScan[]
+  rooms      Room[]
 }
 
-model RoomScan {
+enum RoomType {
+  LIVING_ROOM
+  KITCHEN
+  BEDROOM
+  BATHROOM
+  HALLWAY
+  STORAGE
+  BALCONY
+  GARAGE
+  OTHER
+}
+
+model Room {
   id          String   @id @default(uuid())
   unitId      String
   name        String   // e.g. "Stue", "Kjøkken"
-  fileUrl     String   // URL to .glb/.usdz file
-  format      String   // "GLB", "USDZ", "OBJ"
-  status      String   @default("COMPLETED") // "PROCESSING", "COMPLETED", "FAILED"
+  type        RoomType @default(OTHER)
+  sizeSqm     Float?
+  description String?
+
+  // 3D Scan info
+  scanUrl     String?  // URL to .glb/.usdz file
+  scanFormat  String?  // "GLB", "USDZ", "OBJ"
+  scanStatus  String   @default("PENDING") // "PENDING", "PROCESSING", "COMPLETED", "FAILED"
   thumbnailUrl String?
+  
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 

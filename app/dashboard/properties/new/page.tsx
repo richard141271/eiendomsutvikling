@@ -65,6 +65,7 @@ export default function NewPropertyPage() {
         body: JSON.stringify({
           ...values,
           ownerId: user.id,
+          email: user.email,
         }),
       })
 

@@ -1,20 +1,20 @@
 import { prisma } from "@/lib/prisma";
 import { notFound } from "next/navigation";
-import RoomScanManager from "./room-scan-manager";
+import RoomManager from "./room-manager";
 import Link from "next/link";
 import { ChevronRight } from "lucide-react";
 
-interface RoomScanPageProps {
+interface RoomPageProps {
   params: {
     id: string; // This is unitId based on folder structure [id]
   };
 }
 
-export default async function RoomScanPage({ params }: RoomScanPageProps) {
+export default async function RoomPage({ params }: RoomPageProps) {
   const unit = await prisma.unit.findUnique({
     where: { id: params.id },
     include: {
-      roomScans: {
+      rooms: {
         orderBy: { createdAt: "desc" },
       },
       property: true,
@@ -41,19 +41,19 @@ export default async function RoomScanPage({ params }: RoomScanPageProps) {
           {unit.name}
         </Link>
         <ChevronRight className="h-4 w-4 mx-1" />
-        <span className="text-foreground font-medium">3D-visning & Rom-skanner</span>
+        <span className="text-foreground font-medium">Rom & 3D</span>
       </div>
 
       <div className="space-y-1">
-        <h1 className="text-3xl font-bold tracking-tight">3D-visning & Rom-skanner</h1>
+        <h1 className="text-3xl font-bold tracking-tight">Rom & 3D</h1>
         <p className="text-muted-foreground">
-          Administrer 3D-modeller og romskanninger for {unit.name}.
+          Administrer rom og 3D-modeller for {unit.name}.
         </p>
       </div>
 
-      <RoomScanManager 
+      <RoomManager 
         unitId={unit.id} 
-        initialScans={unit.roomScans} 
+        initialRooms={unit.rooms} 
       />
     </div>
   );

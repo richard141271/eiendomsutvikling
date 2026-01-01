@@ -58,7 +58,7 @@ export function ContractDocument({ contract, owner, tenant, unit, property }: Co
                 {unit.name && <span> Enhetsnummer/Navn: <strong>{unit.name}</strong>.</span>}
             </p>
             <p>
-                Leieobjektet har <strong>{unit.rooms} rom</strong> (eksklusiv kjøkken og bad). 
+                Leieobjektet har <strong>{unit.roomCount} rom</strong> (eksklusiv kjøkken og bad). 
                 Størrelse: <strong>{unit.sizeSqm} m²</strong>.
                 Inkludert i avtalen er rettigheter til fellesareal med mindre annet er avtalt.
             </p>

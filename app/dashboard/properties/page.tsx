@@ -110,7 +110,7 @@ export default async function PropertiesPage() {
                                 <span>{unit.name}</span>
                             </div>
                             <div className="flex items-center gap-1 bg-slate-100 px-2 py-1 rounded">
-                                <span>{unit.rooms} rom</span>
+                                <span>{unit.roomCount} rom</span>
                             </div>
                         </div>
                     </div>

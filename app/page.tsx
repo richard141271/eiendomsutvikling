@@ -193,7 +193,7 @@ export default async function Home() {
                       <h3 className="font-bold text-xl mb-2 text-slate-900">{unit.property.address}</h3>
                       <p className="text-slate-500 mb-4 text-sm">
                         {unit.name ? `${unit.name} - ` : ''} 
-                        {unit.rooms} rom • {unit.sizeSqm} m²
+                        {unit.roomCount} rom • {unit.sizeSqm} m²
                       </p>
                       <div className="flex justify-between items-center border-t pt-4 mt-4">
                         <span className="font-semibold text-blue-600">{unit.rentAmount.toLocaleString('no-NO')} kr/mnd</span>
@@ -236,7 +236,7 @@ export default async function Home() {
               <div className="flex flex-col items-center">
                 <Phone className="h-6 w-6 text-blue-400 mb-4" />
                 <h4 className="font-semibold mb-2">Telefon</h4>
-                <p className="text-slate-400">+47 12 34 56 78</p>
+                <p className="text-slate-400">908 01 716</p>
               </div>
               <div className="flex flex-col items-center">
                 <Mail className="h-6 w-6 text-blue-400 mb-4" />

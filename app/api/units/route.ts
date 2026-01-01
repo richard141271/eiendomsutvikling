@@ -9,7 +9,7 @@ export async function POST(request: Request) {
     // Auth check should be here
     
     const body = await request.json();
-    const { name, sizeSqm, rooms, rentAmount, depositAmount, propertyId } = body;
+    const { name, sizeSqm, roomCount, rentAmount, depositAmount, propertyId } = body;
 
     if (!name || !propertyId) {
       return NextResponse.json(
@@ -22,7 +22,7 @@ export async function POST(request: Request) {
       data: {
         name,
         sizeSqm: Number(sizeSqm),
-        rooms: Number(rooms),
+        roomCount: Number(roomCount),
         rentAmount: Number(rentAmount),
         depositAmount: Number(depositAmount),
         propertyId,

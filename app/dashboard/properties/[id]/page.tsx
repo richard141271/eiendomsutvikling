@@ -130,7 +130,7 @@ export default async function PropertyDetailsPage({
                   <TableRow key={unit.id}>
                     <TableCell className="font-medium">{unit.name}</TableCell>
                     <TableCell>{unit.sizeSqm}</TableCell>
-                    <TableCell>{unit.rooms}</TableCell>
+                    <TableCell>{unit.roomCount}</TableCell>
                     <TableCell>{unit.rentAmount}</TableCell>
                     <TableCell>{unitStatusMap[unit.status] || unit.status}</TableCell>
                     <TableCell>{tenantName}</TableCell>
@@ -166,7 +166,7 @@ export default async function PropertyDetailsPage({
                         {unitStatusMap[unit.status] || unit.status}
                       </Badge>
                     </div>
-                    <CardDescription>{unit.sizeSqm} kvm • {unit.rooms} rom</CardDescription>
+                    <CardDescription>{unit.sizeSqm} kvm • {unit.roomCount} rom</CardDescription>
                   </CardHeader>
                   <CardContent className="space-y-4">
                     <div className="grid grid-cols-2 gap-2 text-sm">

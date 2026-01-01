@@ -20,7 +20,7 @@ interface Unit {
 }
 
 export default function AvailableUnitsPage() {
-  const [units, setUnits] = useState<Unit[]>([]);
+  const [units, setUnits] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -78,7 +78,7 @@ export default function AvailableUnitsPage() {
                 </div>
                 <div className="flex items-center justify-between text-sm">
                   <div className="flex items-center">
-                    <span>{unit.rooms} rom</span>
+                    <span>{unit.roomCount} rom</span>
                   </div>
                   <div className="flex items-center font-bold">
                     <DollarSign className="h-4 w-4 mr-1 text-muted-foreground" />

@@ -27,7 +27,7 @@ import {
 const formSchema = z.object({
   name: z.string().min(1, "Navn er påkrevd"),
   sizeSqm: z.string().min(1, "Størrelse er påkrevd"),
-  rooms: z.string().min(1, "Antall rom er påkrevd"),
+  roomCount: z.string().min(1, "Antall rom er påkrevd"),
   rentAmount: z.string().min(1, "Leie er påkrevd"),
   depositAmount: z.string().min(1, "Depositum er påkrevd"),
   status: z.enum(["AVAILABLE", "RESERVED", "RENTED", "SOLD"]),
@@ -44,7 +44,7 @@ export default function EditUnitPage({ params }: { params: { id: string } }) {
     defaultValues: {
       name: "",
       sizeSqm: "",
-      rooms: "",
+      roomCount: "",
       rentAmount: "",
       depositAmount: "",
       status: "AVAILABLE",
@@ -61,7 +61,7 @@ export default function EditUnitPage({ params }: { params: { id: string } }) {
         form.reset({
           name: data.name,
           sizeSqm: data.sizeSqm?.toString() || "",
-          rooms: data.rooms?.toString() || "",
+          roomCount: data.roomCount?.toString() || "",
           rentAmount: data.rentAmount?.toString() || "",
           depositAmount: data.depositAmount?.toString() || "",
           status: data.status,
@@ -191,11 +191,11 @@ export default function EditUnitPage({ params }: { params: { id: string } }) {
                 />
               </div>
               <div className="space-y-2">
-                <Label htmlFor="rooms">Antall rom</Label>
+                <Label htmlFor="roomCount">Antall rom</Label>
                 <Input
-                  id="rooms"
+                  id="roomCount"
                   type="number"
-                  {...form.register("rooms")}
+                  {...form.register("roomCount")}
                 />
               </div>
             </div>
