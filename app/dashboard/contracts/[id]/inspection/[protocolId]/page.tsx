@@ -5,6 +5,7 @@ import { InspectionForm } from "./inspection-form";
 import { Button } from "@/components/ui/button";
 import Link from "next/link";
 import { ArrowLeft } from "lucide-react";
+import { InspectionProtocol, InspectionCheckpoint, LeaseContract, Unit, Property } from "@prisma/client";
 
 interface InspectionPageProps {
   params: {
@@ -12,6 +13,23 @@ interface InspectionPageProps {
     protocolId: string;
   };
 }
+
+type CheckpointImage = {
+  id: string;
+  url: string;
+  checkpointId: string;
+  createdAt: Date;
+};
+
+type ProtocolDetails = InspectionProtocol & {
+  checkpoints: (InspectionCheckpoint & { images: CheckpointImage[] })[];
+  LeaseContract: LeaseContract & {
+    unit: Unit & {
+      property: Property;
+    };
+    tenant: any; // Simplified for now
+  };
+};
 
 export default async function InspectionPage({ params }: InspectionPageProps) {
   const supabase = createClient();
@@ -24,6 +42,7 @@ export default async function InspectionPage({ params }: InspectionPageProps) {
   const protocol = await prisma.inspectionProtocol.findUnique({
     where: { id: params.protocolId },
     include: {
+      // @ts-ignore
       checkpoints: {
         include: {
           images: true
@@ -39,11 +58,12 @@ export default async function InspectionPage({ params }: InspectionPageProps) {
             include: {
               property: true
             }
-          }
+          },
+          tenant: true
         }
       }
     }
-  });
+  }) as unknown as ProtocolDetails;
 
   if (!protocol || protocol.contractId !== params.id) {
     notFound();
@@ -79,7 +99,6 @@ export default async function InspectionPage({ params }: InspectionPageProps) {
       </div>
 
       <InspectionForm 
-        // @ts-ignore - Types mismatch due to schema update lag
         protocol={protocol} 
         isOwner={isOwner} 
         isTenant={isTenant} 
