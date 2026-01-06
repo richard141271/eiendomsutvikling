@@ -68,6 +68,35 @@ export async function updateCheckpoint(checkpointId: string, data: { status: str
     revalidatePath('/dashboard/contracts');
 }
 
+export async function addCheckpointImage(checkpointId: string, url: string) {
+    try {
+        await prisma.checkpointImage.create({
+            data: {
+                checkpointId,
+                url
+            }
+        });
+        revalidatePath('/dashboard/contracts');
+        return { success: true };
+    } catch (error) {
+        console.error("Failed to add image:", error);
+        return { success: false, error: "Failed to add image" };
+    }
+}
+
+export async function deleteCheckpointImage(imageId: string) {
+    try {
+        await prisma.checkpointImage.delete({
+            where: { id: imageId }
+        });
+        revalidatePath('/dashboard/contracts');
+        return { success: true };
+    } catch (error) {
+        console.error("Failed to delete image:", error);
+        return { success: false, error: "Failed to delete image" };
+    }
+}
+
 export async function updateProtocolDetails(protocolId: string, data: { 
     electricityMeterReading?: string, 
     keysHandedOver?: number,
