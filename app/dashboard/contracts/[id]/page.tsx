@@ -8,6 +8,7 @@ import { Separator } from "@/components/ui/separator";
 import { ContractDocument } from "@/components/contract-document";
 import { PrintButton } from "@/components/print-button";
 import { ContractActions } from "@/components/contract-actions";
+import { ProtocolActions } from "./protocol-actions";
 import { createClient } from "@/lib/supabase-server";
 
 const statusMap: Record<string, string> = {
@@ -37,6 +38,12 @@ export default async function ContractDetailsPage({ params }: ContractDetailsPag
         },
       },
       tenant: true,
+      InspectionProtocol: {
+        select: {
+          id: true,
+          type: true,
+        }
+      }
     },
   });
 
@@ -96,6 +103,22 @@ export default async function ContractDetailsPage({ params }: ContractDetailsPag
 
           <PrintButton />
         </div>
+      </div>
+
+      <div className="print:hidden">
+        <Card>
+          <CardHeader className="pb-3">
+            <CardTitle className="text-base font-medium">Protokoller</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <ProtocolActions 
+              contractId={contract.id}
+              // @ts-ignore
+              existingProtocols={contract.InspectionProtocol}
+              isOwner={isOwner}
+            />
+          </CardContent>
+        </Card>
       </div>
 
       <div className="bg-gray-100 p-8 rounded-lg overflow-auto print:p-0 print:bg-white">

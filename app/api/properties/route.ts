@@ -1,83 +1,113 @@
 import { prisma } from "@/lib/prisma";
-import { createClient } from "@/lib/supabase";
+import { createClient } from "@/lib/supabase-server";
 import { NextResponse } from "next/server";
+import { z } from "zod";
+
+const propertySchema = z.object({
+  name: z.string().min(1, "Navn er påkrevd"),
+  address: z.string().min(1, "Adresse er påkrevd"),
+  gnr: z.string().optional(),
+  bnr: z.string().optional(),
+  snr: z.string().optional(),
+  parentId: z.string().optional().nullable(),
+  notes: z.string().optional(),
+  imageUrl: z.string().optional(),
+});
+
+export async function GET(request: Request) {
+  try {
+    const supabase = createClient();
+    const { data: { user } } = await supabase.auth.getUser();
+
+    if (!user) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+
+    const dbUser = await prisma.user.findUnique({
+      where: { authId: user.id },
+    });
+
+    if (!dbUser) {
+      // Return empty if user not synced yet, or 404? 
+      // Empty list is safer.
+      return NextResponse.json([]);
+    }
+
+    const properties = await prisma.property.findMany({
+      where: { ownerId: dbUser.id },
+      include: {
+        units: true,
+      },
+      orderBy: { createdAt: 'desc' }
+    });
+
+    return NextResponse.json(properties);
+  } catch (error) {
+    console.error("Fetch properties error:", error);
+    return NextResponse.json(
+      { error: "Intern serverfeil" },
+      { status: 500 }
+    );
+  }
+}
 
 export async function POST(request: Request) {
   try {
     const supabase = createClient();
-    
-    // Check auth
-    // Note: In an API route, we should verify the session.
-    // However, createBrowserClient (in lib/supabase) is for client side.
-    // We need to trust the caller or verify the JWT. 
-    // For this MVP, we will rely on the client sending the user ID or 
-    // we can use the supabase client to getUser from the header token.
-    
-    // A simpler way for MVP: Client sends data, we validate, and insert.
-    // We will trust the ownerId sent from client for now (MVP trade-off), 
-    // but in production we MUST verify it against the session.
-    
-    const body = await request.json();
-    const { name, address, gnr, bnr, snr, parentId, notes, imageUrl, ownerId, email } = body;
+    const { data: { user } } = await supabase.auth.getUser();
 
-    if (!name || !address || !ownerId) {
+    if (!user) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+
+    const body = await request.json();
+    
+    // Validate body with Zod
+    const result = propertySchema.safeParse(body);
+    if (!result.success) {
       return NextResponse.json(
-        { error: "Mangler påkrevde felt" },
+        { error: "Ugyldig data", details: result.error.flatten() },
         { status: 400 }
       );
     }
 
-    // Check if user exists in database (by authId or id)
-    // The client sends the Supabase User ID as 'ownerId'
-    let user = await prisma.user.findUnique({
-      where: { authId: ownerId },
+    const { name, address, gnr, bnr, snr, parentId, notes, imageUrl } = result.data;
+
+    // Get DB user
+    let dbUser = await prisma.user.findUnique({
+      where: { authId: user.id },
     });
 
-    if (!user) {
-      // Fallback: check if it matches the PK directly
-      user = await prisma.user.findUnique({
-        where: { id: ownerId },
-      });
-    }
+    if (!dbUser) {
+        // Fallback: Try to sync/create user if not found
+        // This handles cases where user registered but sync didn't happen yet
+        const email = user.email;
+        if (email) {
+            const normalizedEmail = email.toLowerCase();
+             // Check if email already exists
+            const existingUserByEmail = await prisma.user.findUnique({
+                where: { email: normalizedEmail },
+            });
 
-    // If user still not found, try to create if email is provided
-    if (!user && email) {
-      try {
-        const normalizedEmail = email.toLowerCase();
-        
-        // Check if email already exists (edge case where authId wasn't linked)
-        const existingUserByEmail = await prisma.user.findUnique({
-          where: { email: normalizedEmail },
-        });
-
-        if (existingUserByEmail) {
-          // Update authId
-          user = await prisma.user.update({
-            where: { id: existingUserByEmail.id },
-            data: { authId: ownerId },
-          });
-        } else {
-          // Create new user
-          user = await prisma.user.create({
-            data: {
-              authId: ownerId,
-              email: normalizedEmail,
-              name: normalizedEmail.split('@')[0], // Fallback name
-              role: "OWNER",
-            },
-          });
+            if (existingUserByEmail) {
+                 dbUser = await prisma.user.update({
+                    where: { id: existingUserByEmail.id },
+                    data: { authId: user.id },
+                });
+            } else {
+                 dbUser = await prisma.user.create({
+                    data: {
+                        authId: user.id,
+                        email: normalizedEmail,
+                        name: user.user_metadata?.name || normalizedEmail.split('@')[0],
+                        role: "OWNER",
+                    },
+                });
+            }
         }
-      } catch (createError: any) {
-        console.error("Failed to auto-create user:", createError);
-        return NextResponse.json(
-            { error: `Kunne ikke opprette/koble bruker i databasen: ${createError.message}` },
-            { status: 500 }
-        );
-      }
     }
 
-    if (!user) {
-      console.error("User not found in database:", ownerId);
+    if (!dbUser) {
       return NextResponse.json(
         { error: "Brukerprofil mangler i databasen. Prøv å logge ut og inn igjen." },
         { status: 400 }
@@ -94,7 +124,7 @@ export async function POST(request: Request) {
         parentId: parentId === "none" ? null : parentId,
         notes,
         imageUrl,
-        ownerId: user.id, // Use the database PK
+        ownerId: dbUser.id,
         status: "ACTIVE",
       },
     });

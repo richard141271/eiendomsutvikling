@@ -3,6 +3,99 @@
 import { createClient } from "@/lib/supabase-server";
 import { prisma } from "@/lib/prisma";
 import { revalidatePath } from "next/cache";
+import { FikenClient } from "@/lib/fiken";
+
+async function syncContractToFiken(contractId: string) {
+  try {
+    const contract = await prisma.leaseContract.findUnique({
+      where: { id: contractId },
+      include: {
+        tenant: true,
+        unit: {
+          include: {
+            property: {
+              include: {
+                owner: true,
+              },
+            },
+          },
+        },
+      },
+    });
+
+    if (!contract) return;
+
+    const owner = contract.unit.property.owner;
+    if (!owner.fikenApiToken || !owner.fikenCompanySlug) {
+      console.log("Fiken not configured for owner");
+      return;
+    }
+
+    console.log("Starting Fiken sync for contract:", contractId);
+    const fiken = new FikenClient(owner.fikenApiToken);
+
+    // 1. Create/Get Contact
+    const tenant = contract.tenant as any;
+    const contactUrl = await fiken.createContact(owner.fikenCompanySlug, {
+      name: tenant.name,
+      email: tenant.email,
+      address: tenant.address || undefined,
+      city: tenant.city || undefined,
+      postCode: tenant.postalCode || undefined,
+    });
+
+    if (!contactUrl) {
+      console.error("Could not get Fiken contact URL");
+      return;
+    }
+
+    // 2. Get Bank Account
+    const bankAccounts = await fiken.getBankAccounts(owner.fikenCompanySlug);
+    const bankAccountUrl = bankAccounts.length > 0 ? bankAccounts[0].href : undefined;
+
+    // 3. Create Invoice (First month rent)
+    const invoicePayload = {
+      issueDate: new Date().toISOString().split("T")[0],
+      dueDate: new Date(Date.now() + 14 * 24 * 60 * 60 * 1000).toISOString().split("T")[0],
+      lines: [
+        {
+          netAmount: contract.rentAmount,
+          vatAmount: 0,
+          grossAmount: contract.rentAmount,
+          description: `Husleie ${contract.unit.property.name} - ${contract.unit.name}`,
+          vatType: "EXEMPT",
+        },
+      ],
+      customer: {
+        url: contactUrl,
+      },
+      bankAccountUrl: bankAccountUrl,
+      invoiceText: `Første husleie. Kontrakt signert ${new Date().toLocaleDateString("no-NO")}`,
+    };
+
+    // Include deposit if specified and not zero
+    if (contract.depositAmount > 0) {
+      invoicePayload.lines.push({
+        netAmount: contract.depositAmount,
+        vatAmount: 0,
+        grossAmount: contract.depositAmount,
+        description: "Depositum",
+        vatType: "EXEMPT",
+      });
+    }
+
+    await fiken.createInvoice(owner.fikenCompanySlug, invoicePayload);
+    console.log("Fiken invoice created successfully");
+    
+    // Ideally we would save the Fiken Invoice ID back to the contract, 
+    // but the create-invoice-service response parsing needs more work to get the ID reliable.
+    // For now, we trust it worked.
+
+  } catch (error) {
+    console.error("Fiken sync failed:", error);
+    // Don't throw, so we don't block the contract signing flow
+  }
+}
 
 export async function sendContract(contractId: string) {
   try {
@@ -91,6 +184,9 @@ export async function signContract(contractId: string) {
       data: { status: "SIGNED" },
     });
 
+    // Trigger Fiken integration
+    await syncContractToFiken(contractId);
+
     revalidatePath(`/dashboard/contracts/${contractId}`);
     return { success: true };
   } catch (error: any) {
@@ -106,6 +202,10 @@ export async function markAsSigned(contractId: string) {
                 where: { id: contractId },
                 data: { status: "SIGNED" },
               });
+
+              // Trigger Fiken integration
+              await syncContractToFiken(contractId);
+
               revalidatePath(`/dashboard/contracts/${contractId}`);
               return { success: true };
         }

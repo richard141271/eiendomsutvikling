@@ -22,14 +22,8 @@ export default function MyContractsPage() {
         const { data: { user } } = await supabase.auth.getUser();
         if (!user) return;
 
-        // Fetch user from Prisma to get internal ID
-        const userRes = await fetch(`/api/users/me`); // Need to ensure this endpoint exists
-        if (!userRes.ok) return;
-        const userData = await userRes.json();
-
         // Fetch contracts for this tenant
-        // Passing email as query param for MVP authentication
-        const res = await fetch(`/api/contracts/my?email=${user.email}`);
+        const res = await fetch(`/api/contracts/my`);
         if (res.ok) {
           const data = await res.json();
           setContracts(data);

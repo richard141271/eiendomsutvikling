@@ -209,25 +209,39 @@ model TenantWarning {
 }
 
 model InspectionCheckpoint {
-  id                 String             @id
+  id                 String             @id @default(uuid())
   protocolId         String
-  room               String
-  element            String
-  status             String
+  roomName           String // Changed from room (enum or string reference)
+  element            String // e.g., "Wall", "Floor", "Window"
+  status             String // "OK", "NOT_OK", "FIXED"
   notes              String?
+  images             CheckpointImage[]
   InspectionProtocol InspectionProtocol @relation(fields: [protocolId], references: [id], onDelete: Cascade)
 }
 
+model CheckpointImage {
+  id           String               @id @default(uuid())
+  checkpointId String
+  url          String
+  createdAt    DateTime             @default(now())
+  checkpoint   InspectionCheckpoint @relation(fields: [checkpointId], references: [id], onDelete: Cascade)
+}
+
 model InspectionProtocol {
-  id                   String                 @id
-  contractId           String
-  type                 InspectionType
-  notes                String?
-  createdAt            DateTime               @default(now())
-  signedByTenant       Boolean                @default(false)
-  signedByOwner        Boolean                @default(false)
-  InspectionCheckpoint InspectionCheckpoint[]
-  LeaseContract        LeaseContract          @relation(fields: [contractId], references: [id], onDelete: Cascade)
+  id                      String                 @id @default(uuid())
+  contractId              String
+  type                    InspectionType
+  date                    DateTime               @default(now())
+  electricityMeterReading String?
+  keysHandedOver          Int?
+  notes                   String?
+  createdAt               DateTime               @default(now())
+  updatedAt               DateTime               @updatedAt
+  signedByTenant          Boolean                @default(false)
+  signedByOwner           Boolean                @default(false)
+  signedAt                DateTime?
+  checkpoints             InspectionCheckpoint[]
+  LeaseContract           LeaseContract          @relation(fields: [contractId], references: [id], onDelete: Cascade)
 }
 
 model MessageThread {
