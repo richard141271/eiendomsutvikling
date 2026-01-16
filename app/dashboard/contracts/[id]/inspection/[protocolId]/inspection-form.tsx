@@ -15,6 +15,7 @@ import { Loader2, X, AlertCircle, Camera } from "lucide-react";
 import { cn } from "@/lib/utils";
 import Image from "next/image";
 import { useRef } from "react";
+import { AudioRecorder } from "./audio-recorder";
 
 type CheckpointWithImages = InspectionCheckpoint & { images: CheckpointImage[] };
 
@@ -71,6 +72,13 @@ export function InspectionForm({ protocol, isOwner }: InspectionFormProps) {
 
   return (
     <div className="space-y-8">
+      <AudioRecorder 
+        protocolId={protocol.id} 
+        existingAudioUrl={(protocol as any).audioUrl} 
+        existingTranscription={(protocol as any).transcription}
+        disabled={isLocked}
+      />
+
       <Card>
         <CardHeader>
           <CardTitle>Generell Info</CardTitle>
@@ -278,6 +286,7 @@ function CheckpointItem({ checkpoint, disabled }: { checkpoint: CheckpointWithIm
                 ref={fileInputRef} 
                 className="hidden" 
                 accept="image/*"
+                capture="environment"
                 onChange={handleImageUpload}
                 disabled={disabled || isUploading}
              />
