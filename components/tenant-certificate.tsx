@@ -26,7 +26,18 @@ export function TenantCertificate({
   
   if (variant === 'print') {
     return (
-      <div className="w-[210mm] h-[297mm] bg-white text-slate-900 p-12 relative overflow-hidden border-8 border-double border-slate-200 shadow-2xl mx-auto">
+      <div className="w-[210mm] h-[297mm] bg-white text-slate-900 p-12 relative overflow-hidden border-8 border-double border-slate-200 shadow-2xl mx-auto print:border-none print:shadow-none print:m-0 print:w-full print:h-screen">
+        <style jsx global>{`
+          @page {
+            size: A4;
+            margin: 0;
+          }
+          @media print {
+            body {
+              -webkit-print-color-adjust: exact;
+            }
+          }
+        `}</style>
         {/* Background Watermark */}
         <div className="absolute inset-0 flex items-center justify-center opacity-[0.03] pointer-events-none">
           <ShieldCheck className="w-[500px] h-[500px]" />

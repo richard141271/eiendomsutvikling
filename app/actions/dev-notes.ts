@@ -76,10 +76,29 @@ export async function toggleDevNoteResolved(id: string, isResolved: boolean) {
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) throw new Error("Unauthorized");
 
+    // Fetch user name for the "notification"
+    const dbUser = await prisma.user.findUnique({
+        where: { authId: user.id },
+        select: { name: true }
+    });
+    const userName = dbUser?.name || "Ukjent bruker";
+
     const note = await prisma.devNote.update({
       where: { id },
       data: { isResolved },
     });
+
+    // If resolved, create a notification note for Pål-Martin
+    if (isResolved) {
+        await prisma.devNote.create({
+            data: {
+                content: `🚀 KLAR FOR TEST: "${note.content.substring(0, 50)}${note.content.length > 50 ? '...' : ''}" (Utført av ${userName})`,
+                author: "Systemvarsel",
+                isResolved: false // So it appears in the list
+            }
+        });
+    }
+
     revalidatePath("/dashboard/settings");
     return { success: true, data: note };
   } catch (error) {

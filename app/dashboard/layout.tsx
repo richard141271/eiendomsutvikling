@@ -29,7 +29,11 @@ export default async function DashboardLayout({
   const isAdmin = role === "OWNER" || role === "ADMIN" || role === "MANAGER";
   const isTenant = role === "TENANT" || role === "PROSPECT";
 
-  const { count: unresolvedNotesCount } = await getUnresolvedDevNotesCount();
+  let unresolvedNotesCount = 0;
+  if (isAdmin) {
+    const result = await getUnresolvedDevNotesCount();
+    unresolvedNotesCount = result.count;
+  }
 
   return (
     <div className="flex h-screen w-full">

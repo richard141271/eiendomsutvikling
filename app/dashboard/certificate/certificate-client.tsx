@@ -19,6 +19,39 @@ export default function CertificateClient({ name, id, issueDate, score, memberSi
     window.print();
   };
 
+  const handleShare = async () => {
+    const url = `${window.location.origin}/verify/${id}`;
+    
+    // Check if Web Share API is supported and we are in a secure context (or localhost)
+    if (navigator.share) {
+      try {
+        await navigator.share({
+          title: 'Leietakerbevis',
+          text: `Sjekk ut leietakerbeviset til ${name}`,
+          url: url,
+        });
+      } catch (err: any) {
+        // User cancelled or other error
+        if (err.name !== 'AbortError') {
+          console.error('Error sharing:', err);
+          // Fallback to clipboard if share fails (but not if cancelled)
+           navigator.clipboard.writeText(url)
+            .then(() => alert('Lenke kopiert til utklippstavlen!'))
+            .catch(() => alert('Kunne ikke kopiere lenke.'));
+        }
+      }
+    } else {
+      // Fallback for desktop / non-supported browsers
+      try {
+        await navigator.clipboard.writeText(url);
+        alert('Lenke kopiert til utklippstavlen!');
+      } catch (err) {
+        console.error('Clipboard error:', err);
+        alert('Kunne ikke kopiere lenke automatisk. Kopier URL-en fra adressefeltet.');
+      }
+    }
+  };
+
   return (
     <>
       <div className="hidden print:block print:w-full print:h-full">
@@ -33,11 +66,11 @@ export default function CertificateClient({ name, id, issueDate, score, memberSi
       </div>
 
       <div className="container mx-auto py-8 print:hidden">
-        <div className="flex justify-between items-center mb-8">
+        <div className="flex flex-col sm:flex-row gap-4 justify-between items-start sm:items-center mb-8">
         <div>
            <h1 className="text-3xl font-bold tracking-tight">Mitt Leietakerbevis</h1>
            <p className="text-muted-foreground mt-2">
-             Din personlige &quot;Bolig-CV&quot;. Vis dette til fremtidige utleiere for å bevise din pålitelighet.
+             Din personlige "Bolig-CV". Vis dette til fremtidige utleiere for å bevise din pålitelighet.
            </p>
         </div>
         <div className="flex gap-2">
@@ -45,7 +78,7 @@ export default function CertificateClient({ name, id, issueDate, score, memberSi
              <Printer className="w-4 h-4" />
              Skriv ut / Lagre som PDF
            </Button>
-           <Button className="gap-2">
+           <Button className="gap-2" onClick={handleShare}>
              <Share2 className="w-4 h-4" />
              Del lenke
            </Button>
