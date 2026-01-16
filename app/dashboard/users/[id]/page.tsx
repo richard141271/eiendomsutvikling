@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import Link from "next/link";
 import {
   Select,
   SelectContent,
@@ -62,13 +63,13 @@ export default function EditUserPage({ params }: { params: { id: string } }) {
   if (!user) return <div>Bruker ikke funnet.</div>;
 
   return (
-    <div className="max-w-2xl space-y-6">
+    <div className="max-w-2xl space-y-8">
       <div>
         <h1 className="text-3xl font-bold tracking-tight">Rediger Bruker</h1>
         <p className="text-muted-foreground">Endre informasjon og tilgang.</p>
       </div>
 
-      <form onSubmit={handleSubmit} className="space-y-4 border p-6 rounded-md">
+      <form onSubmit={handleSubmit} className="space-y-4 border p-6 rounded-md bg-white">
         <div className="grid gap-2">
           <Label htmlFor="name">Navn</Label>
           <Input
@@ -124,6 +125,55 @@ export default function EditUserPage({ params }: { params: { id: string } }) {
           </Button>
         </div>
       </form>
+
+      {user.role === 'TENANT' && (
+         <div className="border rounded-md p-6 space-y-4 bg-white">
+           <div className="flex items-center justify-between">
+              <h2 className="text-xl font-bold">Leiekontrakter</h2>
+              <Button variant="secondary" size="sm" asChild>
+                <Link href={`/dashboard/tenants/${user.id}`}>Gå til full leietakerprofil</Link>
+              </Button>
+           </div>
+           
+           {user.leaseContracts && user.leaseContracts.length > 0 ? (
+             <div className="grid gap-4">
+               {user.leaseContracts.map((contract: any) => {
+                 const moveIn = contract.InspectionProtocol?.find((p: any) => p.type === 'MOVE_IN');
+                 return (
+                   <div key={contract.id} className="flex items-center justify-between border p-4 rounded bg-slate-50">
+                      <div>
+                        <div className="font-medium">{contract.unit.name}</div>
+                        <div className="text-sm text-muted-foreground">{contract.unit.property.name}</div>
+                        <div className="text-xs text-muted-foreground mt-1">
+                           {contract.startDate ? new Date(contract.startDate).toLocaleDateString() : '-'} - {contract.endDate ? new Date(contract.endDate).toLocaleDateString() : 'Løpende'}
+                        </div>
+                      </div>
+                      <div className="flex gap-2">
+                        {moveIn && (
+                            <Button variant="outline" size="sm" asChild className="hidden sm:flex">
+                                <Link href={`/dashboard/contracts/${contract.id}/inspection/${moveIn.id}`}>
+                                    Protokoll
+                                </Link>
+                            </Button>
+                        )}
+                        <Button variant="outline" size="sm" asChild>
+                          <Link href={`/dashboard/contracts/${contract.id}`}>Vis kontrakt</Link>
+                        </Button>
+                      </div>
+                   </div>
+                 );
+               })}
+             </div>
+           ) : (
+             <div className="text-center py-6 text-muted-foreground">
+               <p>Ingen kontrakter funnet.</p>
+               <Button variant="link" asChild className="mt-2">
+                  <Link href="/dashboard/contracts/new">Opprett ny kontrakt</Link>
+               </Button>
+             </div>
+           )}
+         </div>
+       )}
     </div>
   );
 }

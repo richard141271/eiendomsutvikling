@@ -28,6 +28,12 @@ export async function GET(request: Request) {
           include: {
             property: true
           }
+        },
+        InspectionProtocol: {
+          select: {
+            id: true,
+            type: true
+          }
         }
       }
     });

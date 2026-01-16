@@ -26,7 +26,25 @@ export async function GET(
     }
 
     const user = await prisma.user.findUnique({
-      where: { id: params.id }
+      where: { id: params.id },
+      include: {
+        leaseContracts: {
+          include: {
+            unit: {
+              include: {
+                property: true
+              }
+            },
+            InspectionProtocol: {
+              select: {
+                id: true,
+                type: true
+              }
+            }
+          },
+          orderBy: { createdAt: 'desc' }
+        }
+      }
     });
 
     return NextResponse.json(user);

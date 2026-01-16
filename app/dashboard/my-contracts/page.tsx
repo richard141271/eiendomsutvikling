@@ -65,10 +65,15 @@ export default function MyContractsPage() {
                   <p><strong>Startdato:</strong> {new Date(contract.startDate).toLocaleDateString()}</p>
                   <p><strong>Leie:</strong> {contract.rentAmount} kr/mnd</p>
                 </div>
-                <div className="flex gap-2">
+                <div className="flex gap-2 flex-wrap">
                   <Button variant="outline" onClick={() => router.push(`/dashboard/contracts/${contract.id}`)}>
                     Se kontrakt
                   </Button>
+                  {contract.InspectionProtocol?.find((p: any) => p.type === 'MOVE_IN') && (
+                    <Button variant="secondary" onClick={() => router.push(`/dashboard/contracts/${contract.id}/inspection/${contract.InspectionProtocol.find((p: any) => p.type === 'MOVE_IN').id}`)}>
+                      Innflyttingsprotokoll
+                    </Button>
+                  )}
                   {contract.status === 'DRAFT' && (
                     <Button onClick={() => router.push(`/dashboard/contracts/${contract.id}`)}>
                       Signer
