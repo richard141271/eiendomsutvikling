@@ -32,6 +32,8 @@ export function DevNotesSection() {
   const [fetching, setFetching] = useState(true);
   const [copiedId, setCopiedId] = useState<string | null>(null);
 
+  const [showStatusBanner, setShowStatusBanner] = useState(true);
+
   useEffect(() => {
     loadNotes();
     // Load current user or saved author
@@ -51,7 +53,19 @@ export function DevNotesSection() {
         }
     };
     initAuthor();
+    
+    // Load banner preference
+    const savedBanner = localStorage.getItem("showDevStatusBanner");
+    if (savedBanner !== null) {
+      setShowStatusBanner(savedBanner === "true");
+    }
   }, []);
+
+  const toggleBanner = () => {
+    const newState = !showStatusBanner;
+    setShowStatusBanner(newState);
+    localStorage.setItem("showDevStatusBanner", String(newState));
+  };
 
   const loadNotes = async () => {
     setFetching(true);
@@ -69,7 +83,8 @@ export function DevNotesSection() {
     setLoading(true);
     const res = await createDevNote(content, author, imageUrl);
     if (res.success && res.data) {
-      setNotes([res.data as unknown as DevNote, ...notes]);
+      // Optimistic update might be tricky with dates, so let's reload to be safe and get the server-side timestamp
+      await loadNotes();
       setContent("");
       setImageUrl(null);
       localStorage.setItem("devNoteAuthor", author);
@@ -81,12 +96,15 @@ export function DevNotesSection() {
     // Optimistic update
     setNotes(notes.map(n => n.id === id ? { ...n, isResolved: !currentStatus } : n));
     await toggleDevNoteResolved(id, !currentStatus);
+    // Refresh to update counts/sorting if needed
+    loadNotes();
   };
 
   const handleDelete = async (id: string) => {
     if (!confirm("Slett notat?")) return;
     setNotes(notes.filter(n => n.id !== id));
     await deleteDevNote(id);
+    loadNotes();
   };
 
   const handleCopy = (note: DevNote) => {
@@ -94,23 +112,61 @@ export function DevNotesSection() {
     setCopiedId(note.id);
     setTimeout(() => setCopiedId(null), 2000);
   };
+  
+  const unresolvedNotes = notes.filter(n => !n.isResolved);
 
   return (
     <Card>
-      <CardHeader>
-        <CardTitle>Notater (Utvikling & Testing)</CardTitle>
-        <CardDescription>
-          Interne notater mellom Pål-Martin og Utvikler. Legg inn bugs, ønsker eller endringer her.
-        </CardDescription>
+      <CardHeader className="flex flex-row items-center justify-between">
+        <div>
+            <CardTitle>Notater (Utvikling & Testing)</CardTitle>
+            <CardDescription>
+            Interne notater mellom Pål-Martin og Utvikler. Legg inn bugs, ønsker eller endringer her.
+            </CardDescription>
+        </div>
+        <Button variant="outline" size="sm" onClick={toggleBanner}>
+            {showStatusBanner ? "Skjul status" : "Vis status"}
+        </Button>
       </CardHeader>
       <CardContent className="space-y-6">
-        <Alert className="bg-blue-50 border-blue-200">
-          <Info className="h-4 w-4 text-blue-600" />
-          <AlertTitle className="text-blue-800">Status fra Utvikler</AlertTitle>
-          <AlertDescription className="text-blue-700">
-            Jeg har sett notatene som ligger her (per 16.01.2026), men har ikke rukket å gjøre noe med alle enda.
-          </AlertDescription>
-        </Alert>
+        {showStatusBanner && (
+            <Alert className="bg-blue-50 border-blue-200">
+            <Info className="h-4 w-4 text-blue-600" />
+            <AlertTitle className="text-blue-800">Status fra Utvikler</AlertTitle>
+            <AlertDescription className="text-blue-700">
+                Jeg har sett notatene som ligger her (per 16.01.2026), men har ikke rukket å gjøre noe med alle enda.
+            </AlertDescription>
+            </Alert>
+        )}
+        
+        {/* Compact Todo List for Unresolved Items */}
+        {unresolvedNotes.length > 0 && (
+          <div className="border rounded-md p-4 bg-yellow-50/50">
+            <h3 className="font-medium mb-3 flex items-center gap-2">
+                <Circle className="h-4 w-4 text-yellow-600" />
+                Gjenstående oppgaver ({unresolvedNotes.length})
+            </h3>
+            <ul className="space-y-2">
+              {unresolvedNotes.map((note) => (
+                <li key={note.id} className="flex justify-between items-start text-sm bg-white p-2 rounded border shadow-sm">
+                  <span className="text-slate-700">{note.content}</span>
+                  <div className="flex items-center gap-2">
+                    <span className="text-xs text-slate-400">{note.author}</span>
+                    <Button 
+                        variant="ghost" 
+                        size="sm" 
+                        className="h-6 w-6 p-0 hover:bg-green-100 hover:text-green-600"
+                        onClick={() => handleToggle(note.id, note.isResolved)}
+                        title="Marker som løst"
+                    >
+                        <Check className="h-4 w-4" />
+                    </Button>
+                  </div>
+                </li>
+              ))}
+            </ul>
+          </div>
+        )}
 
         <form onSubmit={handleSubmit} className="space-y-4 bg-slate-50 p-4 rounded-lg border">
           <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
