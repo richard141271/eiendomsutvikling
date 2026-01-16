@@ -1,4 +1,5 @@
 import { notFound } from "next/navigation";
+import Link from "next/link";
 import { prisma } from "@/lib/prisma";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
@@ -6,7 +7,8 @@ import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { format } from "date-fns";
 import { nb } from "date-fns/locale";
-import { Mail, Phone, MapPin, AlertTriangle, FileText, CheckCircle } from "lucide-react";
+import { Mail, Phone, MapPin, FileText, CheckCircle } from "lucide-react";
+import { Button } from "@/components/ui/button";
 
 interface TenantPageProps {
   params: {
@@ -29,7 +31,8 @@ export default async function TenantPage({ params }: TenantPageProps) {
         include: {
           unit: {
             include: { property: true }
-          }
+          },
+          InspectionProtocol: true
         },
         orderBy: { createdAt: "desc" }
       },
@@ -116,7 +119,8 @@ export default async function TenantPage({ params }: TenantPageProps) {
                       <TableHead>Eiendom / Enhet</TableHead>
                       <TableHead>Periode</TableHead>
                       <TableHead>Status</TableHead>
-                      <TableHead className="text-right">Leie</TableHead>
+                      <TableHead>Leie</TableHead>
+                      <TableHead className="text-right">Kontrakt</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
@@ -127,14 +131,21 @@ export default async function TenantPage({ params }: TenantPageProps) {
                           <div className="text-xs text-muted-foreground">{contract.unit.property.name}</div>
                         </TableCell>
                         <TableCell>
-                          {contract.startDate ? format(contract.startDate, 'dd.MM.yyyy') : '-'} 
-                          {' - '}
-                          {contract.endDate ? format(contract.endDate, 'dd.MM.yyyy') : 'Løpende'}
+                          {contract.startDate ? format(contract.startDate, "dd.MM.yyyy") : "-"}{" "}
+                          {" - "}
+                          {contract.endDate ? format(contract.endDate, "dd.MM.yyyy") : "Løpende"}
                         </TableCell>
                         <TableCell>
-                          <Badge variant="outline">{contractStatusMap[contract.status] || contract.status}</Badge>
+                          <Badge variant="outline">
+                            {contractStatusMap[contract.status] || contract.status}
+                          </Badge>
                         </TableCell>
-                        <TableCell className="text-right">{contract.rentAmount} NOK</TableCell>
+                        <TableCell>{contract.rentAmount} NOK</TableCell>
+                        <TableCell className="text-right">
+                          <Button variant="outline" size="sm" asChild>
+                            <Link href={`/dashboard/contracts/${contract.id}`}>Vis kontrakt</Link>
+                          </Button>
+                        </TableCell>
                       </TableRow>
                     ))}
                   </TableBody>
@@ -149,40 +160,114 @@ export default async function TenantPage({ params }: TenantPageProps) {
             <CardHeader>
               <CardTitle>Overtagelsesprotokoller & Attester</CardTitle>
             </CardHeader>
-            <CardContent>
-              {tenant.receivedCertificates.length === 0 ? (
-                <p className="text-muted-foreground">Ingen protokoller eller attester registrert.</p>
-              ) : (
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead>Type</TableHead>
-                      <TableHead>Dato</TableHead>
-                      <TableHead>Total Score</TableHead>
-                      <TableHead>Kommentar</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {tenant.receivedCertificates.map((cert) => (
-                      <TableRow key={cert.id}>
-                        <TableCell>
-                          <div className="flex items-center gap-2">
-                            <CheckCircle className="h-4 w-4 text-green-500" />
-                            <span>Leieattest</span>
-                          </div>
-                        </TableCell>
-                        <TableCell>{format(cert.createdAt, 'dd.MM.yyyy', { locale: nb })}</TableCell>
-                        <TableCell>
-                          <Badge variant={cert.totalScore >= 8 ? "default" : cert.totalScore >= 5 ? "secondary" : "destructive"}>
-                            {cert.totalScore}/10
-                          </Badge>
-                        </TableCell>
-                        <TableCell className="max-w-md truncate">{cert.comment || "-"}</TableCell>
+            <CardContent className="space-y-6">
+              <div>
+                <h3 className="text-sm font-medium mb-2">Overtakelsesprotokoller</h3>
+                {tenant.leaseContracts.flatMap((contract: any) =>
+                  contract.InspectionProtocol?.map((protocol: any) => ({
+                    protocol,
+                    contract,
+                  })) || []
+                ).length === 0 ? (
+                  <p className="text-muted-foreground text-sm">
+                    Ingen overtakelsesprotokoller registrert.
+                  </p>
+                ) : (
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead>Type</TableHead>
+                        <TableHead>Dato</TableHead>
+                        <TableHead>Eiendom / Enhet</TableHead>
+                        <TableHead className="text-right">Handling</TableHead>
                       </TableRow>
-                    ))}
-                  </TableBody>
-                </Table>
-              )}
+                    </TableHeader>
+                    <TableBody>
+                      {tenant.leaseContracts.flatMap((contract: any) =>
+                        contract.InspectionProtocol?.map((protocol: any) => (
+                          <TableRow key={protocol.id}>
+                            <TableCell>
+                              <div className="flex items-center gap-2">
+                                <FileText className="h-4 w-4 text-muted-foreground" />
+                                <span>
+                                  {protocol.type === "MOVE_IN" ? "Innflytting" : "Utflytting"}
+                                </span>
+                              </div>
+                            </TableCell>
+                            <TableCell>
+                              {format(protocol.date, "dd.MM.yyyy", { locale: nb })}
+                            </TableCell>
+                            <TableCell>
+                              <div className="font-medium">{contract.unit.name}</div>
+                              <div className="text-xs text-muted-foreground">
+                                {contract.unit.property.name}
+                              </div>
+                            </TableCell>
+                            <TableCell className="text-right">
+                              <Button variant="outline" size="sm" asChild>
+                                <Link
+                                  href={`/dashboard/contracts/${contract.id}/inspection/${protocol.id}`}
+                                >
+                                  Åpne
+                                </Link>
+                              </Button>
+                            </TableCell>
+                          </TableRow>
+                        )) || []
+                      )}
+                    </TableBody>
+                  </Table>
+                )}
+              </div>
+
+              <div>
+                <h3 className="text-sm font-medium mb-2">Leieattester</h3>
+                {tenant.receivedCertificates.length === 0 ? (
+                  <p className="text-muted-foreground text-sm">Ingen attester registrert.</p>
+                ) : (
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead>Type</TableHead>
+                        <TableHead>Dato</TableHead>
+                        <TableHead>Total Score</TableHead>
+                        <TableHead>Kommentar</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {tenant.receivedCertificates.map((cert) => (
+                        <TableRow key={cert.id}>
+                          <TableCell>
+                            <div className="flex items-center gap-2">
+                              <CheckCircle className="h-4 w-4 text-green-500" />
+                              <span>Leieattest</span>
+                            </div>
+                          </TableCell>
+                          <TableCell>
+                            {format(cert.createdAt, "dd.MM.yyyy", { locale: nb })}
+                          </TableCell>
+                          <TableCell>
+                            <Badge
+                              variant={
+                                cert.totalScore >= 8
+                                  ? "default"
+                                  : cert.totalScore >= 5
+                                  ? "secondary"
+                                  : "destructive"
+                              }
+                            >
+                              {cert.totalScore}/10
+                            </Badge>
+                          </TableCell>
+                          <TableCell className="max-w-md truncate">
+                            {cert.comment || "-"}
+                          </TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                )}
+              </div>
             </CardContent>
           </Card>
         </TabsContent>

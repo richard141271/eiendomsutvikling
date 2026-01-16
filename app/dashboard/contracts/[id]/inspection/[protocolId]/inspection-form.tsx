@@ -9,10 +9,9 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Separator } from "@/components/ui/separator";
-import { Badge } from "@/components/ui/badge";
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { updateCheckpoint, updateProtocolDetails, signProtocol, addCheckpointImage, deleteCheckpointImage } from "@/app/actions/inspection-actions";
-import { Loader2, Check, X, AlertCircle, Camera, Upload, Trash2, Image as ImageIcon } from "lucide-react";
+import { Loader2, X, AlertCircle, Camera } from "lucide-react";
 import { cn } from "@/lib/utils";
 import Image from "next/image";
 import { useRef } from "react";
@@ -29,7 +28,7 @@ interface InspectionFormProps {
   isTenant: boolean;
 }
 
-export function InspectionForm({ protocol, isOwner, isTenant }: InspectionFormProps) {
+export function InspectionForm({ protocol, isOwner }: InspectionFormProps) {
   const router = useRouter();
   const [loading, setLoading] = useState(false);
   const [meterReading, setMeterReading] = useState(protocol.electricityMeterReading || "");
@@ -68,7 +67,6 @@ export function InspectionForm({ protocol, isOwner, isTenant }: InspectionFormPr
   };
 
   const isSignedByMe = isOwner ? protocol.signedByOwner : protocol.signedByTenant;
-  const canEdit = !protocol.signedByOwner || !protocol.signedByTenant; // Can edit until both signed? Or lock after self sign? Usually lock after self sign.
   const isLocked = isSignedByMe; 
 
   return (
@@ -102,13 +100,21 @@ export function InspectionForm({ protocol, isOwner, isTenant }: InspectionFormPr
             </div>
           </div>
           <div className="space-y-2">
-            <Label>Generelle merknader</Label>
-            <Textarea 
-              value={notes} 
-              onChange={(e) => setNotes(e.target.value)} 
+            <Label>
+              {protocol.type === "MOVE_OUT"
+                ? "Feil og mangler som leietaker skal dekke"
+                : "Generelle merknader"}
+            </Label>
+            <Textarea
+              value={notes}
+              onChange={(e) => setNotes(e.target.value)}
               onBlur={handleDetailsSave}
               disabled={isLocked}
-              placeholder="Andre observasjoner..."
+              placeholder={
+                protocol.type === "MOVE_OUT"
+                  ? "Beskriv skader, mangler og avtalt kostnad som skal dekkes av depositum."
+                  : "Andre observasjoner..."
+              }
             />
           </div>
         </CardContent>
@@ -141,6 +147,16 @@ export function InspectionForm({ protocol, isOwner, isTenant }: InspectionFormPr
           <CardTitle>Signering</CardTitle>
         </CardHeader>
         <CardContent className="space-y-4">
+          {protocol.type === "MOVE_OUT" && (
+            <Alert className="bg-amber-50 border-amber-200 text-amber-900">
+              <AlertCircle className="h-4 w-4 text-amber-900" />
+              <AlertTitle>Depositum og mangler</AlertTitle>
+              <AlertDescription>
+                Ved signering bekrefter begge parter at registrerte feil og mangler, inkludert tekstfeltet
+                over, kan dekkes fra depositum før eventuelt resterende beløp utbetales til leietaker.
+              </AlertDescription>
+            </Alert>
+          )}
           <div className="flex flex-col sm:flex-row gap-4 justify-between items-center p-4 bg-muted/50 rounded-lg">
             <div className="flex items-center gap-2">
               <div className={cn("w-4 h-4 rounded-full", protocol.signedByOwner ? "bg-green-500" : "bg-gray-300")} />
