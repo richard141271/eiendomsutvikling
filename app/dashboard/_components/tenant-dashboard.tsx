@@ -82,7 +82,7 @@ export function TenantDashboard({ user, activeContract, certificate }: TenantDas
           </CardContent>
           <CardFooter>
             <Button variant="outline" className="w-full" asChild>
-                <Link href="/dashboard/leietakerbevis">Se detaljer</Link>
+                <Link href="/dashboard/certificate">Se detaljer</Link>
             </Button>
           </CardFooter>
         </Card>

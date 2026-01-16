@@ -10,9 +10,11 @@ import { Badge } from "@/components/ui/badge"
 
 interface MobileNavProps {
   unresolvedNotesCount?: number;
+  isAdmin?: boolean;
+  isTenant?: boolean;
 }
 
-export function MobileNav({ unresolvedNotesCount = 0 }: MobileNavProps) {
+export function MobileNav({ unresolvedNotesCount = 0, isAdmin = false, isTenant = false }: MobileNavProps) {
   const [isOpen, setIsOpen] = useState(false)
 
   return (
@@ -45,21 +47,52 @@ export function MobileNav({ unresolvedNotesCount = 0 }: MobileNavProps) {
               <Link href="/dashboard" onClick={() => setIsOpen(false)} className="text-lg font-medium hover:text-primary">
                 Dashboard
               </Link>
-              <Link href="/dashboard/properties" onClick={() => setIsOpen(false)} className="text-lg font-medium hover:text-primary">
-                Eiendommer
-              </Link>
-              <Link href="/dashboard/contracts" onClick={() => setIsOpen(false)} className="text-lg font-medium hover:text-primary">
-                Kontrakter
-              </Link>
+              
+              {isAdmin && (
+                <>
+                  <Link href="/dashboard/properties" onClick={() => setIsOpen(false)} className="text-lg font-medium hover:text-primary">
+                    Eiendommer
+                  </Link>
+                  <Link href="/dashboard/contracts" onClick={() => setIsOpen(false)} className="text-lg font-medium hover:text-primary">
+                    Kontrakter
+                  </Link>
+                  <Link href="/dashboard/interests" onClick={() => setIsOpen(false)} className="text-lg font-medium hover:text-primary">
+                    Interessenter
+                  </Link>
+                  <Link href="/dashboard/users" onClick={() => setIsOpen(false)} className="text-lg font-medium hover:text-primary">
+                    Brukere
+                  </Link>
+                </>
+              )}
+
               <Link href="/dashboard/maintenance" onClick={() => setIsOpen(false)} className="text-lg font-medium hover:text-primary">
                 Vedlikehold
               </Link>
               <Link href="/dashboard/messages" onClick={() => setIsOpen(false)} className="text-lg font-medium hover:text-primary">
                 Meldinger
               </Link>
-              <Link href="/dashboard/inspections" onClick={() => setIsOpen(false)} className="text-lg font-medium hover:text-primary">
-                Overtakelse
+              
+              {isAdmin && (
+                <Link href="/dashboard/inspections" onClick={() => setIsOpen(false)} className="text-lg font-medium hover:text-primary">
+                  Overtakelse
+                </Link>
+              )}
+
+              <Link href="/dashboard/available" onClick={() => setIsOpen(false)} className="text-lg font-medium hover:text-primary">
+                Ledige boliger
               </Link>
+
+              {isTenant && (
+                <>
+                  <Link href="/dashboard/my-contracts" onClick={() => setIsOpen(false)} className="text-lg font-medium hover:text-primary">
+                    Mine kontrakter
+                  </Link>
+                  <Link href="/dashboard/certificate" onClick={() => setIsOpen(false)} className="text-lg font-medium hover:text-primary">
+                    Leietakerbevis
+                  </Link>
+                </>
+              )}
+
               <Link href="/dashboard/settings" onClick={() => setIsOpen(false)} className="text-lg font-medium hover:text-primary flex items-center justify-between">
                 <span>Innstillinger</span>
                 {unresolvedNotesCount > 0 && (
