@@ -13,7 +13,7 @@ export async function GET(request: Request) {
 
     const user = await prisma.user.findUnique({
       where: { authId: authUser.id },
-      select: { standardRentPerSqm: true, fikenCompanySlug: true, fikenApiToken: true }
+      select: { standardRentPerSqm: true }
     });
 
     if (!user) {
@@ -37,7 +37,7 @@ export async function PUT(request: Request) {
     }
 
     const body = await request.json();
-    const { standardRentPerSqm, fikenCompanySlug, fikenApiToken } = body;
+    const { standardRentPerSqm } = body;
 
     // Ensure user exists before updating
     let user = await prisma.user.findUnique({
@@ -77,9 +77,7 @@ export async function PUT(request: Request) {
     const updatedUser = await prisma.user.update({
       where: { id: user.id },
       data: {
-        standardRentPerSqm: standardRentPerSqm ? parseInt(standardRentPerSqm) : undefined,
-        fikenCompanySlug,
-        fikenApiToken
+        standardRentPerSqm: standardRentPerSqm ? parseInt(standardRentPerSqm) : undefined
       }
     });
 

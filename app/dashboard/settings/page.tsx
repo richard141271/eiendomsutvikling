@@ -7,19 +7,12 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Separator } from "@/components/ui/separator";
 import { DevNotesSection } from "@/components/dev-notes-section";
-import { Loader2, CheckCircle2, AlertCircle } from "lucide-react";
 
 export default function SettingsPage() {
   const [loading, setLoading] = useState(false);
   
   // Settings states
-  const [fikenSlug, setFikenSlug] = useState("");
-  const [fikenToken, setFikenToken] = useState("");
   const [rentPerSqm, setRentPerSqm] = useState(185);
-  
-  // Fiken connection state
-  const [isTesting, setIsTesting] = useState(false);
-  const [connectionStatus, setConnectionStatus] = useState<"idle" | "success" | "error">("idle");
 
   useEffect(() => {
     // Fetch settings on load
@@ -28,11 +21,6 @@ export default function SettingsPage() {
         const res = await fetch("/api/settings");
         if (res.ok) {
           const data = await res.json();
-          if (data.fikenCompanySlug) setFikenSlug(data.fikenCompanySlug);
-          if (data.fikenApiToken) {
-              setFikenToken(data.fikenApiToken);
-              if (data.fikenCompanySlug) setConnectionStatus("success");
-          }
           if (data.standardRentPerSqm) setRentPerSqm(data.standardRentPerSqm);
         }
       } catch (error) {
@@ -41,47 +29,6 @@ export default function SettingsPage() {
     };
     fetchSettings();
   }, []);
-
-  const handleTestConnection = async (e: React.MouseEvent) => {
-    e.preventDefault();
-    if (!fikenToken) {
-        alert("Vennligst lim inn API-nøkkel først");
-        return;
-    }
-
-    setIsTesting(true);
-    setConnectionStatus("idle");
-    try {
-      const res = await fetch("/api/settings/fiken/test", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ token: fikenToken })
-      });
-      
-      const data = await res.json();
-      
-      if (res.ok && data.companies && data.companies.length > 0) {
-        setConnectionStatus("success");
-        // Auto-select first company if slug is empty
-        if (!fikenSlug) {
-            setFikenSlug(data.companies[0].slug);
-        }
-        // If we found a slug but it's different, maybe ask? For now, just keep existing or set if empty.
-        // Actually, if user changes token, they probably want new slug.
-        // But let's stick to "set if empty" to be safe.
-        
-        alert(`Koblet til Fiken! Fant bedriften: ${data.companies[0].name}`);
-      } else {
-        throw new Error(data.error || "Fant ingen bedrifter");
-      }
-    } catch (error: any) {
-      console.error(error);
-      setConnectionStatus("error");
-      alert(`Kunne ikke koble til Fiken: ${error.message}`);
-    } finally {
-      setIsTesting(false);
-    }
-  };
 
   const handleSaveSettings = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -92,8 +39,6 @@ export default function SettingsPage() {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          fikenCompanySlug: fikenSlug,
-          fikenApiToken: fikenToken,
           standardRentPerSqm: rentPerSqm
         })
       });
@@ -145,58 +90,6 @@ export default function SettingsPage() {
                         <p className="text-xs text-muted-foreground">
                             Brukes til å automatisk beregne leiepris basert på størrelse.
                         </p>
-                    </div>
-                </CardContent>
-                </Card>
-
-                <Card>
-                <CardHeader>
-                    <CardTitle className="flex items-center justify-between">
-                        Fiken Integrasjon
-                        {connectionStatus === "success" && <CheckCircle2 className="h-5 w-5 text-green-500" />}
-                        {connectionStatus === "error" && <AlertCircle className="h-5 w-5 text-red-500" />}
-                    </CardTitle>
-                    <CardDescription>
-                    Koble til din Fiken-konto for automatisk fakturering og regnskap.
-                    </CardDescription>
-                </CardHeader>
-                <CardContent>
-                    <div className="space-y-4">
-                        <div className="grid gap-2">
-                            <Label htmlFor="token">API-nøkkel</Label>
-                            <div className="flex gap-2">
-                                <Input 
-                                    id="token" 
-                                    type="password" 
-                                    placeholder="••••••••••••••••" 
-                                    value={fikenToken}
-                                    onChange={(e) => setFikenToken(e.target.value)}
-                                />
-                                <Button 
-                                    variant="outline" 
-                                    onClick={handleTestConnection}
-                                    disabled={isTesting || !fikenToken}
-                                >
-                                    {isTesting ? <Loader2 className="h-4 w-4 animate-spin" /> : "Koble til"}
-                                </Button>
-                            </div>
-                            <p className="text-xs text-muted-foreground">
-                            Opprettes under &quot;API&quot; i Fiken innstillinger.
-                            </p>
-                        </div>
-
-                        <div className="grid gap-2">
-                            <Label htmlFor="slug">Fiken Bedrifts-slug</Label>
-                            <Input 
-                                id="slug" 
-                                placeholder="min-bedrift" 
-                                value={fikenSlug}
-                                onChange={(e) => setFikenSlug(e.target.value)}
-                            />
-                            <p className="text-xs text-muted-foreground">
-                            Hentes automatisk ved tilkobling. Du finner dette også i URL-en (f.eks. fiken.no/foretak/<b>min-bedrift</b>).
-                            </p>
-                        </div>
                     </div>
                 </CardContent>
                 </Card>

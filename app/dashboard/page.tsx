@@ -98,7 +98,7 @@ export default async function DashboardPage() {
         </Card>
       </div>
       
-      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-7">
+      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
         <Card className="col-span-4">
           <CardHeader>
             <CardTitle>Siste Eiendommer</CardTitle>
@@ -121,14 +121,6 @@ export default async function DashboardPage() {
             ) : (
               <p className="text-sm text-muted-foreground">Ingen eiendommer registrert.</p>
             )}
-          </CardContent>
-        </Card>
-        <Card className="col-span-3">
-           <CardHeader>
-            <CardTitle>Fiken Status</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <p className="text-sm text-muted-foreground">Integrasjon ikke konfigurert.</p>
           </CardContent>
         </Card>
       </div>
