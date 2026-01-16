@@ -259,6 +259,7 @@ model DevNote {
   isResolved Boolean  @default(false)
   createdAt  DateTime @default(now())
   updatedAt  DateTime @updatedAt
+  imageUrl   String?
 }
 
 enum UserRole {

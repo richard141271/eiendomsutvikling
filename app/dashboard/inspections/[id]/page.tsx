@@ -16,7 +16,7 @@ export default async function InspectionPage({ params }: InspectionPageProps) {
   const inspection = await prisma.inspectionProtocol.findUnique({
     where: { id: params.id },
     include: {
-      InspectionCheckpoint: true,
+      checkpoints: true,
       LeaseContract: {
         include: {
           unit: {
@@ -119,7 +119,7 @@ export default async function InspectionPage({ params }: InspectionPageProps) {
              </p>
              
              <h3 className="text-base font-semibold mb-4">Sjekkpunkter</h3>
-             {inspection.InspectionCheckpoint.length > 0 ? (
+             {inspection.checkpoints.length > 0 ? (
                <div className="border rounded-md">
                  <div className="grid grid-cols-12 gap-4 p-3 font-medium border-b bg-muted/50 text-xs sm:text-sm">
                    <div className="col-span-3">Rom</div>
@@ -127,9 +127,9 @@ export default async function InspectionPage({ params }: InspectionPageProps) {
                    <div className="col-span-2">Status</div>
                    <div className="col-span-4">Merknad</div>
                  </div>
-                 {inspection.InspectionCheckpoint.map((cp) => (
+                 {inspection.checkpoints.map((cp) => (
                    <div key={cp.id} className="grid grid-cols-12 gap-4 p-3 border-b last:border-0 text-sm items-center">
-                     <div className="col-span-3 font-medium">{cp.room}</div>
+                     <div className="col-span-3 font-medium">{cp.roomName}</div>
                      <div className="col-span-3">{cp.element}</div>
                      <div className="col-span-2">
                         <Badge variant={cp.status === 'OK' ? 'outline' : 'destructive'} className="whitespace-nowrap">

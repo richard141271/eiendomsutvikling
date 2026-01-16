@@ -4,7 +4,7 @@ import { prisma } from "@/lib/prisma";
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase-server";
 
-export async function createDevNote(content: string, author: string = "Anonym") {
+export async function createDevNote(content: string, author: string = "Anonym", imageUrl?: string | null) {
   try {
     const supabase = createClient();
     const { data: { user } } = await supabase.auth.getUser();
@@ -14,6 +14,7 @@ export async function createDevNote(content: string, author: string = "Anonym") 
       data: {
         content,
         author,
+        imageUrl: imageUrl || null,
       },
     });
     revalidatePath("/dashboard/settings");

@@ -1,15 +1,18 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import Image from "next/image";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { ImageUpload } from "@/components/image-upload";
 import { createDevNote, getDevNotes, deleteDevNote, toggleDevNoteResolved } from "@/app/actions/dev-notes";
 import { getCurrentUser } from "@/app/actions/user-sync";
-import { Trash2, CheckCircle2, Circle, Loader2, Copy, Check } from "lucide-react";
+import { Trash2, CheckCircle2, Circle, Loader2, Copy, Check, Info } from "lucide-react";
 import { format } from "date-fns";
 import { nb } from "date-fns/locale";
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 
 interface DevNote {
   id: string;
@@ -17,12 +20,14 @@ interface DevNote {
   author: string | null;
   isResolved: boolean;
   createdAt: Date;
+  imageUrl?: string | null;
 }
 
 export function DevNotesSection() {
   const [notes, setNotes] = useState<DevNote[]>([]);
   const [content, setContent] = useState("");
-  const [author, setAuthor] = useState("Pål-Martin"); // Default
+  const [author, setAuthor] = useState("Pål-Martin");
+  const [imageUrl, setImageUrl] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [fetching, setFetching] = useState(true);
   const [copiedId, setCopiedId] = useState<string | null>(null);
@@ -62,10 +67,11 @@ export function DevNotesSection() {
     if (!content.trim()) return;
 
     setLoading(true);
-    const res = await createDevNote(content, author);
+    const res = await createDevNote(content, author, imageUrl);
     if (res.success && res.data) {
       setNotes([res.data as unknown as DevNote, ...notes]);
       setContent("");
+      setImageUrl(null);
       localStorage.setItem("devNoteAuthor", author);
     }
     setLoading(false);
@@ -98,6 +104,14 @@ export function DevNotesSection() {
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-6">
+        <Alert className="bg-blue-50 border-blue-200">
+          <Info className="h-4 w-4 text-blue-600" />
+          <AlertTitle className="text-blue-800">Status fra Utvikler</AlertTitle>
+          <AlertDescription className="text-blue-700">
+            Jeg har sett notatene som ligger her (per 16.01.2026), men har ikke rukket å gjøre noe med alle enda.
+          </AlertDescription>
+        </Alert>
+
         <form onSubmit={handleSubmit} className="space-y-4 bg-slate-50 p-4 rounded-lg border">
           <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
              <div className="md:col-span-1 space-y-2">
@@ -117,20 +131,27 @@ export function DevNotesSection() {
                    </Button>
                 </div>
              </div>
-             <div className="md:col-span-3">
-                <Label htmlFor="content">Notat</Label>
-                <div className="flex gap-2">
-                    <Input 
-                        id="content" 
-                        value={content} 
-                        onChange={(e) => setContent(e.target.value)}
-                        placeholder="Hva vil du notere?"
-                        className="flex-1"
-                    />
-                    <Button type="submit" disabled={loading}>
-                        {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : "Legg til"}
-                    </Button>
+             <div className="md:col-span-3 space-y-3">
+                <div className="space-y-2">
+                  <Label htmlFor="content">Notat</Label>
+                  <div className="flex gap-2">
+                      <Input 
+                          id="content" 
+                          value={content} 
+                          onChange={(e) => setContent(e.target.value)}
+                          placeholder="Hva vil du notere?"
+                          className="flex-1"
+                      />
+                      <Button type="submit" disabled={loading}>
+                          {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : "Legg til"}
+                      </Button>
+                  </div>
                 </div>
+                <ImageUpload 
+                  value={imageUrl || null}
+                  onChange={(url) => setImageUrl(url || null)}
+                  label="Skjermbilde / eksempel (valgfritt)"
+                />
              </div>
           </div>
         </form>
@@ -159,6 +180,16 @@ export function DevNotesSection() {
                         <p className={`text-sm ${note.isResolved ? 'line-through text-slate-500' : 'text-slate-900'}`}>
                             {note.content}
                         </p>
+                        {note.imageUrl && (
+                          <div className="mt-2 relative w-56 h-32 rounded-md overflow-hidden border bg-slate-50">
+                            <Image 
+                              src={note.imageUrl}
+                              alt="Notatbilde"
+                              fill
+                              className="object-cover"
+                            />
+                          </div>
+                        )}
                         <div className="flex gap-2 text-xs text-slate-400 mt-1">
                             <span className="font-medium text-slate-500">{note.author}</span>
                             <span>•</span>
