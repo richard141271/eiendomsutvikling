@@ -120,6 +120,32 @@ export default function EditUserPage({ params }: { params: { id: string } }) {
             onChange={(e) => setUser({ ...user, phone: e.target.value })}
           />
         </div>
+        <div className="grid gap-2">
+          <Label htmlFor="address">Adresse</Label>
+          <Input
+            id="address"
+            value={user.address || ""}
+            onChange={(e) => setUser({ ...user, address: e.target.value })}
+          />
+        </div>
+        <div className="grid gap-2 md:grid-cols-2">
+          <div className="grid gap-2">
+            <Label htmlFor="postalCode">Postnummer</Label>
+            <Input
+              id="postalCode"
+              value={user.postalCode || ""}
+              onChange={(e) => setUser({ ...user, postalCode: e.target.value })}
+            />
+          </div>
+          <div className="grid gap-2">
+            <Label htmlFor="city">Sted</Label>
+            <Input
+              id="city"
+              value={user.city || ""}
+              onChange={(e) => setUser({ ...user, city: e.target.value })}
+            />
+          </div>
+        </div>
         
         <div className="grid gap-2">
           <Label htmlFor="role">Rolle</Label>

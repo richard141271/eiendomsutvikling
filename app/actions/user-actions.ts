@@ -35,7 +35,10 @@ export async function resetUserPassword(userId: string, newPassword: string) {
     // NOTE: This requires SUPABASE_SERVICE_ROLE_KEY to be set in .env
     const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
     if (!serviceRoleKey) {
-        return { success: false, error: "Server configuration error: Missing service role key" };
+        return { 
+          success: false, 
+          error: "Passordendring er ikke aktivert på serveren (mangler SUPABASE_SERVICE_ROLE_KEY)." 
+        };
     }
 
     const adminSupabase = createClient(
