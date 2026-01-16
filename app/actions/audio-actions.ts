@@ -60,12 +60,13 @@ export async function uploadAndTranscribeAudio(formData: FormData, protocolId: s
           language: "no", // Norwegian
         });
         transcriptionText = transcription.text;
-      } catch (aiError) {
+      } catch (aiError: any) {
         console.error("OpenAI Transcription error:", aiError);
-        transcriptionText = "(Transkripsjon feilet - sjekk API-nøkkel eller filformat)";
+        transcriptionText = `(Transkripsjon feilet: ${aiError.message || "Ukjent feil"})`;
       }
     } else {
-      transcriptionText = "(Transkripsjon ikke tilgjengelig - mangler OPENAI_API_KEY)";
+      console.warn("Missing OPENAI_API_KEY");
+      transcriptionText = "(Transkripsjon ikke tilgjengelig - systemet mangler API-nøkkel)";
     }
 
     // 3. Update Database
@@ -76,15 +77,14 @@ export async function uploadAndTranscribeAudio(formData: FormData, protocolId: s
         transcription: transcriptionText,
       }
     });
-
-    revalidatePath(`/dashboard/contracts/${protocolId}`); // Note: ID might be contractId or protocolId depending on route structure, checking route...
-    // The route is /dashboard/contracts/[id]/inspection/[protocolId]
-    // We should revalidate the specific inspection page.
+    
+    revalidatePath(`/dashboard/contracts/${protocolId}`, 'page'); 
     
     return { success: true, transcription: transcriptionText, audioUrl: publicUrl };
 
   } catch (error: any) {
     console.error("Action error:", error);
-    return { success: false, error: error.message };
+    // Return a more descriptive error
+    return { success: false, error: error.message || "Ukjent feil under lagring av lydfil" };
   }
 }
