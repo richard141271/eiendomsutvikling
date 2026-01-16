@@ -9,6 +9,7 @@ interface TenantCertificateProps {
   score?: number; // 1-10
   id: string; // Certificate ID for verification
   variant?: 'digital' | 'print'; // Card vs A4
+  memberSince?: Date;
 }
 
 export function TenantCertificate({ 
@@ -16,10 +17,12 @@ export function TenantCertificate({
   issueDate, 
   score = 10, 
   id,
-  variant = 'digital' 
+  variant = 'digital',
+  memberSince
 }: TenantCertificateProps) {
   
   const verificationUrl = `${process.env.NEXT_PUBLIC_APP_URL || 'https://halden-eiendom.no'}/verify/${id}`;
+  const memberSinceYear = memberSince ? memberSince.getFullYear() : issueDate.getFullYear();
   
   if (variant === 'print') {
     return (
@@ -52,7 +55,12 @@ export function TenantCertificate({
         {/* Score Details */}
         <div className="grid grid-cols-2 gap-12 max-w-3xl mx-auto mb-16 w-full">
           <div className="border p-6 bg-slate-50">
-             <h3 className="font-bold text-lg mb-4 uppercase tracking-wide border-b pb-2">Vurdering</h3>
+             <div className="flex justify-between items-center border-b pb-2 mb-4">
+               <h3 className="font-bold text-lg uppercase tracking-wide">Vurdering</h3>
+               <span className="font-bold text-lg text-yellow-600 flex items-center gap-1">
+                 {score}/10 <Star className="w-4 h-4 fill-current" />
+               </span>
+             </div>
              <div className="flex justify-between items-center mb-2">
                <span>Betalingsevne</span>
                <div className="flex gap-1">{[1,2,3,4,5].map(i => <Star key={i} className="w-4 h-4 fill-slate-900 text-slate-900" />)}</div>
@@ -144,7 +152,7 @@ export function TenantCertificate({
             <div className="flex gap-4 mb-1">
               <div>
                 <p className="text-[10px] text-slate-400 uppercase">Medlem siden</p>
-                <p className="text-sm font-mono">{issueDate.getFullYear()}</p>
+                <p className="text-sm font-mono">{memberSinceYear}</p>
               </div>
               <div>
                 <p className="text-[10px] text-slate-400 uppercase">Score</p>
