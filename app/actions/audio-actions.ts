@@ -24,7 +24,8 @@ export async function uploadAndTranscribeAudio(formData: FormData, protocolId: s
     }
 
     // 1. Upload to Supabase
-    const fileExt = "webm"; // MediaRecorder usually produces webm
+    const originalName = file.name || "audio.webm";
+    const fileExt = originalName.split('.').pop() || "webm";
     const fileName = `audio-${Date.now()}-${Math.random().toString(36).substring(2, 9)}.${fileExt}`;
     const filePath = `inspection-audio/${protocolId}/${fileName}`;
     const bucketName = process.env.NEXT_PUBLIC_SUPABASE_STORAGE_BUCKET || 'property-images';
@@ -34,7 +35,7 @@ export async function uploadAndTranscribeAudio(formData: FormData, protocolId: s
       .from(bucketName)
       .upload(filePath, file, {
         upsert: false,
-        contentType: file.type || 'audio/webm'
+        contentType: file.type || `audio/${fileExt}`
       });
 
     if (uploadError) {
@@ -70,15 +71,20 @@ export async function uploadAndTranscribeAudio(formData: FormData, protocolId: s
     }
 
     // 3. Update Database
-    await prisma.inspectionProtocol.update({
+    const updatedProtocol = await prisma.inspectionProtocol.update({
       where: { id: protocolId },
       data: {
         audioUrl: publicUrl,
         transcription: transcriptionText,
+      },
+      select: {
+        contractId: true
       }
     });
     
-    revalidatePath(`/dashboard/contracts/${protocolId}`, 'page'); 
+    if (updatedProtocol.contractId) {
+      revalidatePath(`/dashboard/contracts/${updatedProtocol.contractId}`, 'page');
+    }
     
     return { success: true, transcription: transcriptionText, audioUrl: publicUrl };
 

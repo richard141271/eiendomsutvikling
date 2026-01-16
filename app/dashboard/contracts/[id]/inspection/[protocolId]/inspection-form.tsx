@@ -161,8 +161,7 @@ export function InspectionForm({ protocol, isOwner }: InspectionFormProps) {
               <AlertTitle>Depositum og mangler</AlertTitle>
               <AlertDescription>
                 Ved signering bekrefter begge parter at registrerte feil og mangler, inkludert tekstfeltet
-                over, kan dekkes fra depositum før eventuelt resterende beløp utbetales til leietaker,
-                eller innkreves dersom depositumet ikke dekker kostnadene.
+                over, kan dekkes fra depositum. Eventuelt resterende beløp utbetales til leietaker, eller innkreves dersom depositumet ikke dekker kostnadene.
               </AlertDescription>
             </Alert>
           )}

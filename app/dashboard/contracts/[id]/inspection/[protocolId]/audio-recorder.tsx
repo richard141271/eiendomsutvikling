@@ -45,7 +45,8 @@ export function AudioRecorder({ protocolId, existingAudioUrl, existingTranscript
       };
 
       mediaRecorder.onstop = () => {
-        const blob = new Blob(chunks, { type: "audio/webm" });
+        const mimeType = mediaRecorder.mimeType || "audio/webm";
+        const blob = new Blob(chunks, { type: mimeType });
         setAudioBlob(blob);
         stream.getTracks().forEach(track => track.stop());
       };
@@ -82,7 +83,8 @@ export function AudioRecorder({ protocolId, existingAudioUrl, existingTranscript
     try {
       const formData = new FormData();
       // Append file with a filename so the server sees it as a file
-      formData.append("file", audioBlob, "recording.webm");
+      const ext = audioBlob.type.includes("mp4") ? "mp4" : "webm";
+      formData.append("file", audioBlob, `recording.${ext}`);
 
       const result = await uploadAndTranscribeAudio(formData, protocolId);
 
