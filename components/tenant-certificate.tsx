@@ -1,3 +1,5 @@
+ "use client";
+
 import React from 'react';
 import { QRCodeSVG } from 'qrcode.react';
 import { ShieldCheck, Star, Calendar, User, Home } from 'lucide-react';
