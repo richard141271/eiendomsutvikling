@@ -3,6 +3,7 @@
 import { prisma } from "@/lib/prisma";
 import { revalidatePath } from "next/cache";
 import { RoomType } from "@prisma/client";
+import { createClient } from "@/lib/supabase-server";
 
 export async function createRoom(
   unitId: string, 
@@ -16,6 +17,10 @@ export async function createRoom(
   }
 ) {
   try {
+    const supabase = createClient();
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) throw new Error("Unauthorized");
+
     const room = await prisma.room.create({
       data: {
         unitId,
@@ -45,6 +50,10 @@ export async function createRoom(
 
 export async function deleteRoom(id: string, unitId: string) {
   try {
+    const supabase = createClient();
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) throw new Error("Unauthorized");
+
     await prisma.room.delete({
       where: { id },
     });
@@ -68,6 +77,10 @@ export async function updateRoom(
   }
 ) {
   try {
+    const supabase = createClient();
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) throw new Error("Unauthorized");
+
     const room = await prisma.room.update({
       where: { id: roomId },
       data: {

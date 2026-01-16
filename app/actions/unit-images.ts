@@ -2,9 +2,14 @@
 
 import { prisma } from "@/lib/prisma";
 import { revalidatePath } from "next/cache";
+import { createClient } from "@/lib/supabase-server";
 
 export async function createUnitImage(unitId: string, url: string, description?: string) {
   try {
+    const supabase = createClient();
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) throw new Error("Unauthorized");
+
     const image = await prisma.unitImage.create({
       data: {
         unitId,
@@ -22,6 +27,10 @@ export async function createUnitImage(unitId: string, url: string, description?:
 
 export async function deleteUnitImage(id: string, unitId: string) {
   try {
+    const supabase = createClient();
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) throw new Error("Unauthorized");
+
     await prisma.unitImage.delete({
       where: { id },
     });

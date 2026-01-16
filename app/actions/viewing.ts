@@ -3,6 +3,7 @@
 import { prisma } from "@/lib/prisma";
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
+import { createClient } from "@/lib/supabase-server";
 
 const createViewingSchema = z.object({
   unitId: z.string(),
@@ -12,6 +13,10 @@ const createViewingSchema = z.object({
 
 export async function createViewing(data: z.infer<typeof createViewingSchema>) {
   try {
+    const supabase = createClient();
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) throw new Error("Unauthorized");
+
     const viewing = await prisma.viewing.create({
       data: {
         unitId: data.unitId,
@@ -54,6 +59,10 @@ export async function updateViewingChecklist(id: string, checklist: Record<strin
 
 export async function deleteViewing(id: string, unitId: string) {
     try {
+        const supabase = createClient();
+        const { data: { user } } = await supabase.auth.getUser();
+        if (!user) throw new Error("Unauthorized");
+
         await prisma.viewing.delete({
             where: { id }
         });

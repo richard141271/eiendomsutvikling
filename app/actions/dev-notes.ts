@@ -2,9 +2,14 @@
 
 import { prisma } from "@/lib/prisma";
 import { revalidatePath } from "next/cache";
+import { createClient } from "@/lib/supabase-server";
 
 export async function createDevNote(content: string, author: string = "Anonym") {
   try {
+    const supabase = createClient();
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) throw new Error("Unauthorized");
+
     const note = await prisma.devNote.create({
       data: {
         content,
@@ -35,6 +40,10 @@ export async function getDevNotes() {
 
 export async function deleteDevNote(id: string) {
   try {
+    const supabase = createClient();
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) throw new Error("Unauthorized");
+
     await prisma.devNote.delete({
       where: { id },
     });
@@ -62,6 +71,10 @@ export async function getUnresolvedDevNotesCount() {
 
 export async function toggleDevNoteResolved(id: string, isResolved: boolean) {
   try {
+    const supabase = createClient();
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) throw new Error("Unauthorized");
+
     const note = await prisma.devNote.update({
       where: { id },
       data: { isResolved },
