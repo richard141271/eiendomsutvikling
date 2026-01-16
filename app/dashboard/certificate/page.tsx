@@ -2,6 +2,7 @@ import { createClient } from "@/lib/supabase-server";
 import { prisma } from "@/lib/prisma";
 import { redirect } from "next/navigation";
 import CertificateClient from "./certificate-client";
+import { headers } from "next/headers";
 
 export default async function CertificatePage() {
   const supabase = createClient();
@@ -45,6 +46,11 @@ export default async function CertificatePage() {
   const id = certificate ? certificate.id : `CERT-${user.id}`;
   const memberSince = earliestContract?.startDate || user.createdAt;
 
+  const headersList = headers();
+  const host = headersList.get("host");
+  const protocol = process.env.NODE_ENV === "production" ? "https" : "http";
+  const baseUrl = host ? `${protocol}://${host}` : process.env.NEXT_PUBLIC_APP_URL || "";
+
   return (
     <CertificateClient 
       name={user.name}
@@ -52,6 +58,7 @@ export default async function CertificatePage() {
       issueDate={issueDate}
       score={score}
       memberSince={memberSince}
+      baseUrl={baseUrl}
     />
   );
 }

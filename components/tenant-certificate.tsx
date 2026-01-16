@@ -6,27 +6,36 @@ import { cn } from '@/lib/utils';
 interface TenantCertificateProps {
   name: string;
   issueDate: Date;
-  score?: number; // 1-10
-  id: string; // Certificate ID for verification
-  variant?: 'digital' | 'print'; // Card vs A4
+  score?: number;
+  id: string;
+  variant?: "digital" | "print";
   memberSince?: Date;
+  baseUrl?: string;
 }
 
-export function TenantCertificate({ 
-  name, 
-  issueDate, 
-  score = 10, 
+export function TenantCertificate({
+  name,
+  issueDate,
+  score = 10,
   id,
-  variant = 'digital',
-  memberSince
+  variant = "digital",
+  memberSince,
+  baseUrl,
 }: TenantCertificateProps) {
-  
-  const verificationUrl = `${process.env.NEXT_PUBLIC_APP_URL || 'https://halden-eiendom.no'}/verify/${id}`;
+  const resolvedBaseUrl =
+    baseUrl ||
+    (typeof window !== "undefined"
+      ? window.location.origin
+      : process.env.NEXT_PUBLIC_APP_URL || "");
+
+  const verificationUrl = resolvedBaseUrl
+    ? `${resolvedBaseUrl.replace(/\/+$/, "")}/verify/${id}`
+    : `/verify/${id}`;
   const memberSinceYear = memberSince ? memberSince.getFullYear() : issueDate.getFullYear();
   
   if (variant === 'print') {
     return (
-      <div className="w-[210mm] h-[297mm] bg-white text-slate-900 p-12 relative overflow-hidden border-8 border-double border-slate-200 shadow-2xl mx-auto print:border-none print:shadow-none print:m-0 print:w-full print:h-screen">
+      <div className="w-[210mm] h-[280mm] bg-white text-slate-900 p-10 relative overflow-hidden border-8 border-double border-slate-200 shadow-2xl mx-auto print:border-none print:shadow-none print:m-0 print:w-full">
         <style jsx global>{`
           @page {
             size: A4;

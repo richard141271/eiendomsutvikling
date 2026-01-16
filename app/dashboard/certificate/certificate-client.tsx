@@ -12,9 +12,10 @@ interface CertificateClientProps {
   issueDate: Date;
   score: number;
   memberSince?: Date;
+  baseUrl?: string;
 }
 
-export default function CertificateClient({ name, id, issueDate, score, memberSince }: CertificateClientProps) {
+export default function CertificateClient({ name, id, issueDate, score, memberSince, baseUrl }: CertificateClientProps) {
   const handlePrint = () => {
     window.print();
   };
@@ -62,6 +63,7 @@ export default function CertificateClient({ name, id, issueDate, score, memberSi
           id={id}
           variant="print"
           memberSince={memberSince}
+          baseUrl={baseUrl}
         />
       </div>
 
@@ -70,7 +72,7 @@ export default function CertificateClient({ name, id, issueDate, score, memberSi
         <div>
            <h1 className="text-3xl font-bold tracking-tight">Mitt Leietakerbevis</h1>
            <p className="text-muted-foreground mt-2">
-             Din personlige "Bolig-CV". Vis dette til fremtidige utleiere for å bevise din pålitelighet.
+             Din personlige &quot;Bolig-CV&quot;. Vis dette til fremtidige utleiere for å bevise din pålitelighet.
            </p>
         </div>
         <div className="flex gap-2">
@@ -100,6 +102,7 @@ export default function CertificateClient({ name, id, issueDate, score, memberSi
                id={id}
                variant="digital"
                memberSince={memberSince}
+               baseUrl={baseUrl}
              />
            </div>
         </TabsContent>
@@ -113,6 +116,7 @@ export default function CertificateClient({ name, id, issueDate, score, memberSi
                 id={id}
                 variant="print"
                 memberSince={memberSince}
+                baseUrl={baseUrl}
               />
             </div>
         </TabsContent>

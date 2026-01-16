@@ -2,6 +2,7 @@ import { prisma } from "@/lib/prisma";
 import { TenantCertificate } from "@/components/tenant-certificate";
 import { notFound } from "next/navigation";
 import { Metadata } from "next";
+import { headers } from "next/headers";
 
 interface VerifyPageProps {
   params: {
@@ -18,6 +19,10 @@ export async function generateMetadata({ params }: VerifyPageProps): Promise<Met
 
 export default async function VerifyPage({ params }: VerifyPageProps) {
   const { id } = params;
+  const headersList = headers();
+  const host = headersList.get("host");
+  const protocol = process.env.NODE_ENV === "production" ? "https" : "http";
+  const baseUrl = host ? `${protocol}://${host}` : process.env.NEXT_PUBLIC_APP_URL || "";
 
   let user = null;
   let certificate = null;
@@ -72,6 +77,7 @@ export default async function VerifyPage({ params }: VerifyPageProps) {
           id={id}
           variant="digital"
           memberSince={memberSince}
+          baseUrl={baseUrl}
         />
       </div>
 
