@@ -14,12 +14,15 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { createClient } from "@/lib/supabase";
+import { resetUserPassword } from "@/app/actions/user-actions";
 
 export default function EditUserPage({ params }: { params: { id: string } }) {
   const [user, setUser] = useState<any>(null);
   const [currentUser, setCurrentUser] = useState<any>(null); // To check permissions
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [newPassword, setNewPassword] = useState("");
+  const [isResetting, setIsResetting] = useState(false);
   const router = useRouter();
 
   useEffect(() => {
@@ -56,6 +59,29 @@ export default function EditUserPage({ params }: { params: { id: string } }) {
       alert("Noe gikk galt.");
     } finally {
       setSaving(false);
+    }
+  };
+
+  const handlePasswordReset = async () => {
+    if (!newPassword || newPassword.length < 6) {
+      alert("Passordet må være minst 6 tegn.");
+      return;
+    }
+    
+    setIsResetting(true);
+    try {
+      const result = await resetUserPassword(params.id, newPassword);
+      if (result.success) {
+        alert("Passordet er oppdatert!");
+        setNewPassword("");
+      } else {
+        alert("Feil ved oppdatering av passord: " + result.error);
+      }
+    } catch (error) {
+      console.error(error);
+      alert("Noe gikk galt.");
+    } finally {
+      setIsResetting(false);
     }
   };
 
@@ -125,6 +151,32 @@ export default function EditUserPage({ params }: { params: { id: string } }) {
           </Button>
         </div>
       </form>
+
+      <div className="border rounded-md p-6 space-y-4 bg-white border-red-100">
+        <div>
+          <h2 className="text-xl font-bold text-red-900">Sikkerhet</h2>
+          <p className="text-muted-foreground text-sm">Administrer passord for brukeren. (Kun for testing/admin)</p>
+        </div>
+        <div className="flex gap-4 items-end">
+          <div className="grid gap-2 flex-1">
+             <Label htmlFor="new-password">Nytt passord</Label>
+             <Input 
+                id="new-password" 
+                type="text" 
+                placeholder="Skriv nytt passord..." 
+                value={newPassword}
+                onChange={(e) => setNewPassword(e.target.value)}
+             />
+          </div>
+          <Button 
+            variant="destructive" 
+            onClick={handlePasswordReset}
+            disabled={isResetting || !newPassword}
+          >
+            {isResetting ? "Oppdaterer..." : "Oppdater passord"}
+          </Button>
+        </div>
+      </div>
 
       {user.role === 'TENANT' && (
          <div className="border rounded-md p-6 space-y-4 bg-white">

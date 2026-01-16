@@ -72,8 +72,15 @@ export async function PATCH(
     if (!dbUser) return NextResponse.json({ error: "User not found" }, { status: 404 });
 
     const body = await request.json();
-    const { role, ...otherData } = body;
+    const { role, leaseContracts, ...otherData } = body;
 
+    // Remove sensitive/immutable fields and relations that shouldn't be updated directly
+    delete (otherData as any).id;
+    delete (otherData as any).authId;
+    delete (otherData as any).createdAt;
+    delete (otherData as any).updatedAt;
+    delete (otherData as any).email; // Email changes usually require auth flow
+    
     // Only OWNER/ADMIN can change roles
     if (role && dbUser.role !== "OWNER" && dbUser.role !== "ADMIN") {
         return NextResponse.json({ error: "Forbidden: Only admins can change roles" }, { status: 403 });
