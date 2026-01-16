@@ -4,7 +4,7 @@ import { UserNav } from "./components/user-nav"
 import { createClient } from "@/lib/supabase-server"
 import { prisma } from "@/lib/prisma"
 import { Users, UserPlus } from "lucide-react"
-import { getUnresolvedDevNotesCount } from "@/app/actions/dev-notes"
+import { getDevNotesCounts } from "@/app/actions/dev-notes"
 import { Badge } from "@/components/ui/badge"
 
 import Image from "next/image"
@@ -18,11 +18,42 @@ export default async function DashboardLayout({
   const { data: { user: authUser } } = await supabase.auth.getUser();
 
   let role = "TENANT";
+  let dbUser: { id: string; role: string; name: string | null } | null = null;
   if (authUser) {
-    const dbUser = await prisma.user.findUnique({
+    dbUser = await prisma.user.findUnique({
       where: { authId: authUser.id },
-      select: { role: true }
+      select: { id: true, role: true, name: true }
     });
+
+    if (!dbUser && authUser.email) {
+      const email = authUser.email;
+
+      const existingByEmail = await prisma.user.findUnique({
+        where: { email },
+        select: { id: true, role: true, name: true, authId: true }
+      });
+
+      if (existingByEmail) {
+        const updated = await prisma.user.update({
+          where: { id: existingByEmail.id },
+          data: existingByEmail.authId ? {} : { authId: authUser.id },
+          select: { id: true, role: true, name: true }
+        });
+        dbUser = updated;
+      } else {
+        const created = await prisma.user.create({
+          data: {
+            authId: authUser.id,
+            email,
+            name: (authUser.user_metadata as any)?.name || email.split("@")[0] || "Ukjent bruker",
+            role: "TENANT"
+          },
+          select: { id: true, role: true, name: true }
+        });
+        dbUser = created;
+      }
+    }
+
     if (dbUser) role = dbUser.role;
   }
 
@@ -31,8 +62,14 @@ export default async function DashboardLayout({
 
   let unresolvedNotesCount = 0;
   if (isAdmin) {
-    const result = await getUnresolvedDevNotesCount();
-    unresolvedNotesCount = result.count;
+    const result = await getDevNotesCounts();
+    if (result.success) {
+      // Logic to determine which badge to show
+      // Jørn (Dev) sees "forDev" (user requests)
+      // Pål-Martin (Admin) sees "forAdmin" (system notifications/resolved by dev)
+      const isJorn = dbUser?.name?.toLowerCase().includes("jørn");
+      unresolvedNotesCount = isJorn ? result.counts.forDev : result.counts.forAdmin;
+    }
   }
 
   return (

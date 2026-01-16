@@ -56,7 +56,46 @@ export async function deleteDevNote(id: string) {
   }
 }
 
+export async function getDevNotesCounts() {
+  try {
+    const [systemNotesCount, userNotesCount] = await Promise.all([
+      prisma.devNote.count({
+        where: {
+          isResolved: false,
+          author: "Systemvarsel",
+        },
+      }),
+      prisma.devNote.count({
+        where: {
+          isResolved: false,
+          author: {
+            not: "Systemvarsel",
+          },
+        },
+      }),
+    ]);
+    
+    return { 
+      success: true, 
+      counts: {
+        forAdmin: systemNotesCount, // "KLAR FOR TEST" notes
+        forDev: userNotesCount      // User requests
+      }
+    };
+  } catch (error) {
+    console.error("Failed to count dev notes:", error);
+    return { 
+      success: false, 
+      counts: {
+        forAdmin: 0,
+        forDev: 0
+      }
+    };
+  }
+}
+
 export async function getUnresolvedDevNotesCount() {
+  // Deprecated, keeping for backward compatibility but redirecting to total
   try {
     const count = await prisma.devNote.count({
       where: {
@@ -89,7 +128,8 @@ export async function toggleDevNoteResolved(id: string, isResolved: boolean) {
     });
 
     // If resolved, create a notification note for Pål-Martin
-    if (isResolved) {
+    // BUT only if the resolved note is NOT itself a Systemvarsel (to avoid loops)
+    if (isResolved && note.author !== "Systemvarsel") {
         await prisma.devNote.create({
             data: {
                 content: `🚀 KLAR FOR TEST: "${note.content.substring(0, 50)}${note.content.length > 50 ? '...' : ''}" (Utført av ${userName})`,
