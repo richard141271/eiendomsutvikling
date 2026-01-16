@@ -15,6 +15,7 @@ import {
 } from "@/components/ui/select";
 import { createClient } from "@/lib/supabase";
 import { resetUserPassword } from "@/app/actions/user-actions";
+import { fetchCityFromPostalCode } from "@/app/actions/postal-actions";
 
 export default function EditUserPage({ params }: { params: { id: string } }) {
   const [user, setUser] = useState<any>(null);
@@ -37,6 +38,17 @@ export default function EditUserPage({ params }: { params: { id: string } }) {
       .catch((err) => console.error(err))
       .finally(() => setLoading(false));
   }, [params.id]);
+
+  // Auto-fetch city from postal code
+  useEffect(() => {
+    if (user?.postalCode && user.postalCode.length === 4) {
+      fetchCityFromPostalCode(user.postalCode).then(city => {
+        if (city && city !== user.city) {
+          setUser((prev: any) => ({ ...prev, city }));
+        }
+      });
+    }
+  }, [user?.postalCode]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();

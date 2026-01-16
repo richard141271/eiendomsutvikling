@@ -33,7 +33,30 @@ export async function resetUserPassword(userId: string, newPassword: string) {
 
     // 3. Create Admin Client
     // NOTE: This requires SUPABASE_SERVICE_ROLE_KEY to be set in .env
-    const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+    let serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+    
+    // Fallback: Try to read from .env file directly if missing (for dev environment reliability)
+    if (!serviceRoleKey) {
+        try {
+            const fs = require('fs');
+            const path = require('path');
+            const envPath = path.join(process.cwd(), '.env');
+            if (fs.existsSync(envPath)) {
+                const envContent = fs.readFileSync(envPath, 'utf-8');
+                const match = envContent.match(/SUPABASE_SERVICE_ROLE_KEY="([^"]+)"/);
+                if (match && match[1]) {
+                    serviceRoleKey = match[1];
+                    console.log("DEBUG: Manually loaded SUPABASE_SERVICE_ROLE_KEY from .env");
+                }
+            }
+        } catch (error) {
+            console.error("DEBUG: Failed to manually read .env", error);
+        }
+    }
+
+    console.log("DEBUG: Checking SUPABASE_SERVICE_ROLE_KEY:", serviceRoleKey ? "Present" : "Missing");
+    console.log("DEBUG: Key length:", serviceRoleKey ? serviceRoleKey.length : 0);
+    
     if (!serviceRoleKey) {
         return { 
           success: false, 
@@ -53,15 +76,27 @@ export async function resetUserPassword(userId: string, newPassword: string) {
     );
 
     let authId = targetUser.authId;
+    let shouldUpdatePassword = false;
 
-    // If no linked account, try to find or create one
+    // 1. Verify if the user actually exists in Supabase Auth if we have an ID
+    if (authId) {
+      const { data, error } = await adminSupabase.auth.admin.getUserById(authId);
+      if (data?.user) {
+        shouldUpdatePassword = true;
+      } else {
+        console.log(`User ${userId} has authId ${authId} but not found in Supabase Auth. Will attempt to recreate.`);
+        authId = null; // Reset so we enter creation flow
+      }
+    }
+
+    // 2. If not found or no ID, create or find by email
     if (!authId) {
       if (!targetUser.email) {
         return { success: false, error: "User has no email address" };
       }
 
-      console.log(`User ${userId} has no authId. Attempting to create/find auth user for ${targetUser.email}`);
-
+      console.log(`Ensuring auth user exists for ${targetUser.email}`);
+      
       // Try to create the user first
       const { data: createData, error: createError } = await adminSupabase.auth.admin.createUser({
         email: targetUser.email,
@@ -73,12 +108,11 @@ export async function resetUserPassword(userId: string, newPassword: string) {
       if (createData.user) {
         authId = createData.user.id;
         console.log(`Created new auth user: ${authId}`);
+        // Password is set during creation, so we don't strictly need to update it, but it's fine.
       } else if (createError?.message?.includes("already registered") || createError?.status === 422) {
         // User exists, try to find them
         console.log("User already registered, searching for existing auth user...");
         
-        // Note: listUsers is not efficient for large user bases, but fine for this scale
-        // Ideally we would use getUserByEmail if available in admin API
         const { data: listData } = await adminSupabase.auth.admin.listUsers({
           perPage: 1000
         });
@@ -88,6 +122,7 @@ export async function resetUserPassword(userId: string, newPassword: string) {
         if (existingUser) {
           authId = existingUser.id;
           console.log(`Found existing auth user: ${authId}`);
+          shouldUpdatePassword = true;
         } else {
            return { success: false, error: "User exists in Auth but could not be found in list (check case sensitivity or pagination)" };
         }
@@ -96,7 +131,7 @@ export async function resetUserPassword(userId: string, newPassword: string) {
       }
 
       // Link the auth user to the Prisma user
-      if (authId) {
+      if (authId && authId !== targetUser.authId) {
         await prisma.user.update({
           where: { id: userId },
           data: { authId: authId }
@@ -108,15 +143,16 @@ export async function resetUserPassword(userId: string, newPassword: string) {
        return { success: false, error: "Could not resolve Auth ID for user" };
     }
 
-    // 4. Update Password (if we didn't just create them with the new password)
-    // If we just created them, the password is already set. But updating again is harmless.
-    const { error } = await adminSupabase.auth.admin.updateUserById(
-      authId,
-      { password: newPassword }
-    );
+    // 3. Update Password (if needed)
+    if (shouldUpdatePassword) {
+      const { error } = await adminSupabase.auth.admin.updateUserById(
+        authId,
+        { password: newPassword }
+      );
 
-    if (error) {
-      return { success: false, error: error.message };
+      if (error) {
+        return { success: false, error: error.message };
+      }
     }
 
     return { success: true };

@@ -26,7 +26,9 @@ export function SessionTimeout() {
       lastActivityRef.current = parseInt(storedLastActive, 10);
     } else {
       // If no stored time, set it to now (assuming new session)
-      localStorage.setItem('lastActive', Date.now().toString());
+      const now = Date.now();
+      localStorage.setItem('lastActive', now.toString());
+      lastActivityRef.current = now;
     }
 
     const checkActivity = async () => {

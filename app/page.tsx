@@ -26,8 +26,11 @@ export default async function Home() {
             alt="Halden Eiendomsutvikling Logo" 
             className="h-10 w-auto rounded-lg"
           />
-          <span className="font-bold text-xl tracking-tight text-slate-900 dark:text-white">
+          <span className="font-bold text-lg sm:text-xl tracking-tight text-slate-900 dark:text-white hidden sm:inline">
             Halden Eiendomsutvikling
+          </span>
+          <span className="font-bold text-base tracking-tight text-slate-900 dark:text-white sm:hidden">
+            Halden Eiendom
           </span>
         </Link>
         <nav className="ml-auto hidden md:flex gap-8">

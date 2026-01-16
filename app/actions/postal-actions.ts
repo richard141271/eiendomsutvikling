@@ -1,3 +1,5 @@
+"use server";
+
 export async function fetchCityFromPostalCode(postalCode: string): Promise<string | null> {
   if (!postalCode || postalCode.length !== 4) return null;
 
@@ -10,8 +12,6 @@ export async function fetchCityFromPostalCode(postalCode: string): Promise<strin
       const data = await response.json();
       if (data && data.valid && data.result) {
         // Bring returns uppercase, we might want to capitalize nicely (e.g. "HALDEN" -> "Halden")
-        // But official names are often uppercase. Let's keep it or Title Case it.
-        // Let's do Title Case for better UI.
         return toTitleCase(data.result);
       }
     }

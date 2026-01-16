@@ -20,7 +20,7 @@ import { Label } from "@/components/ui/label"
 import { createClient } from "@/lib/supabase"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import { CheckCircle2 } from "lucide-react"
-import { fetchCityFromPostalCode } from "@/lib/postal-service"
+import { fetchCityFromPostalCode } from "@/app/actions/postal-actions"
 import {
   Select,
   SelectContent,

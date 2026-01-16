@@ -237,14 +237,19 @@ export function DevNotesSection() {
                             {note.content}
                         </p>
                         {note.imageUrl && (
-                          <div className="mt-2 relative w-56 h-32 rounded-md overflow-hidden border bg-slate-50">
+                          <a 
+                            href={note.imageUrl} 
+                            target="_blank" 
+                            rel="noopener noreferrer" 
+                            className="block mt-2 relative w-56 h-32 rounded-md overflow-hidden border bg-slate-50 hover:opacity-90 transition-opacity"
+                          >
                             <Image 
                               src={note.imageUrl}
                               alt="Notatbilde"
                               fill
                               className="object-cover"
                             />
-                          </div>
+                          </a>
                         )}
                         <div className="flex gap-2 text-xs text-slate-400 mt-1">
                             <span className="font-medium text-slate-500">{note.author}</span>
