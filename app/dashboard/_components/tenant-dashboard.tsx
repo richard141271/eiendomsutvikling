@@ -1,14 +1,11 @@
 "use client"
 
-import { useState } from "react"
 import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Progress } from "@/components/ui/progress"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import { AlertCircle, FileText, Home, CreditCard, CheckCircle2 } from "lucide-react"
 import Link from "next/link"
-import { Switch } from "@/components/ui/switch"
-import { Label } from "@/components/ui/label"
 import { Badge } from "@/components/ui/badge"
 
 interface TenantDashboardProps {
@@ -16,10 +13,10 @@ interface TenantDashboardProps {
   activeContract: any;
   certificate: any;
   maintenanceRequests?: any[];
+  viewings?: any[];
 }
 
-export function TenantDashboard({ user, activeContract, certificate, maintenanceRequests = [] }: TenantDashboardProps) {
-  const [autoPay, setAutoPay] = useState(false);
+export function TenantDashboard({ user, activeContract, certificate, maintenanceRequests = [], viewings = [] }: TenantDashboardProps) {
   const score = certificate ? certificate.totalScore : 10;
   const statusMap: Record<string, string> = {
     REPORTED: "Registrert",
@@ -146,6 +143,49 @@ export function TenantDashboard({ user, activeContract, certificate, maintenance
         </Card>
       </div>
       
+      <Card>
+        <CardHeader>
+          <CardTitle>Dine planlagte visninger</CardTitle>
+          <CardDescription>Oversikt over kommende visninger av din bolig.</CardDescription>
+        </CardHeader>
+        <CardContent>
+          {viewings.length === 0 ? (
+            <p className="text-sm text-muted-foreground">
+              Ingen planlagte visninger.
+            </p>
+          ) : (
+            <div className="space-y-3">
+              {viewings.map((viewing: any) => (
+                <div
+                  key={viewing.id}
+                  className="flex items-center justify-between border-b pb-2 last:border-0 last:pb-0"
+                >
+                  <div>
+                    <p className="font-medium text-sm">
+                      {new Date(viewing.date).toLocaleString("no-NO")}
+                    </p>
+                    <p className="text-xs text-muted-foreground">
+                      {viewing.notes || "Ingen notater"}
+                    </p>
+                  </div>
+                  {viewing.confirmed ? (
+                    <Badge variant="default">
+                      Bekreftet
+                    </Badge>
+                  ) : (
+                    <Button variant="outline" size="sm" asChild>
+                      <Link href={`/dashboard/viewings/${viewing.id}/confirm`}>
+                        Bekreft tilstedeværelse
+                      </Link>
+                    </Button>
+                  )}
+                </div>
+              ))}
+            </div>
+          )}
+        </CardContent>
+      </Card>
+
       <Card>
         <CardHeader>
           <CardTitle>Vedlikehold i boligen</CardTitle>

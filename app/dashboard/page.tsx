@@ -50,7 +50,7 @@ export default async function DashboardPage() {
       viewings = await prisma.viewing.findMany({
         where: {
           unitId: activeContract.unitId,
-          date: { gte: new Date() }, // Kun fremtidige visninger
+          date: { gte: new Date() },
         },
         orderBy: { date: 'asc' },
       });

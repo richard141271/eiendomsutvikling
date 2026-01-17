@@ -134,7 +134,25 @@ export default function InterestsPage() {
         throw new Error("Kunne ikke opprette visning");
       }
 
+      const statusRes = await fetch(`/api/interests/${selectedInterest.id}`, {
+        method: "PATCH",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ status: "CONTACTED" }),
+      });
+
+      if (statusRes.ok) {
+        const updated = await statusRes.json();
+        setInterests((prev) =>
+          prev.map((i) => (i.id === updated.id ? { ...i, status: updated.status } : i))
+        );
+        setStatusValue("CONTACTED");
+      }
+
       setViewingCreated(true);
+      alert("Visning opprettet, invitasjon sendt, og status satt til 'Tilbudt visning'.");
+      closeDialog();
     } catch (error) {
       console.error(error);
       alert("Noe gikk galt ved opprettelse av visning. Prøv igjen.");
