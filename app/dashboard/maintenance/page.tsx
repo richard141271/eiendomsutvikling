@@ -3,6 +3,8 @@ import { prisma } from "@/lib/prisma";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { updateMaintenanceStatus } from "@/app/actions/maintenance";
+import { createClient } from "@/lib/supabase-server";
 
 const statusMap: Record<string, string> = {
   REPORTED: "Rapportert",
@@ -11,7 +13,25 @@ const statusMap: Record<string, string> = {
 };
 
 export default async function MaintenancePage() {
+  const supabase = createClient();
+  const { data: { user: authUser } } = await supabase.auth.getUser();
+  
+  if (!authUser) {
+    return <div>Du må være logget inn for å se denne siden.</div>;
+  }
+
+  const dbUser = await prisma.user.findUnique({
+    where: { authId: authUser.id },
+  });
+
+  if (!dbUser) {
+    return <div>Bruker ikke funnet.</div>;
+  }
+
   const requests = await prisma.maintenanceRequest.findMany({
+    where: {
+      ...(dbUser.role === "TENANT" ? { tenantId: dbUser.id } : {}),
+    },
     include: {
       Unit: {
         include: {
@@ -63,7 +83,7 @@ export default async function MaintenancePage() {
                       {request.description}
                     </p>
                     <div className="text-xs text-muted-foreground pt-2">
-                      Rapportert av: {request.User.name} ({request.createdAt.toLocaleDateString()})
+                      Rapportert av: {request.User.name} ({request.createdAt.toLocaleDateString("no-NO")})
                     </div>
                   </div>
                   <div className="flex flex-col items-end gap-2">
@@ -75,6 +95,24 @@ export default async function MaintenancePage() {
                     >
                       {statusMap[request.status] || request.status}
                     </Badge>
+                    {request.status === "REPORTED" && (
+                      <form action={updateMaintenanceStatus}>
+                        <input type="hidden" name="id" value={request.id} />
+                        <input type="hidden" name="status" value="IN_PROGRESS" />
+                        <Button size="sm" variant="outline" className="mt-1">
+                          Marker som pågår
+                        </Button>
+                      </form>
+                    )}
+                    {request.status !== "COMPLETED" && (
+                      <form action={updateMaintenanceStatus}>
+                        <input type="hidden" name="id" value={request.id} />
+                        <input type="hidden" name="status" value="COMPLETED" />
+                        <Button size="sm" variant="outline" className="mt-1">
+                          Marker som fullført
+                        </Button>
+                      </form>
+                    )}
                   </div>
                 </div>
               </CardContent>

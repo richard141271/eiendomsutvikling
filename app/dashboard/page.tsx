@@ -29,11 +29,40 @@ export default async function DashboardPage() {
 
   // Show Tenant Dashboard for Tenants
   if (dbUser && dbUser.role === 'TENANT') {
+    const maintenanceRequests = await prisma.maintenanceRequest.findMany({
+      where: { tenantId: dbUser.id },
+      include: {
+        Unit: {
+          include: {
+            property: true,
+          },
+        },
+      },
+      orderBy: {
+        createdAt: "desc",
+      },
+    });
+
+    // Hent visninger for enheten leietakeren bor i (eller har kontrakt for)
+    let viewings: any[] = [];
+    const activeContract = dbUser.leaseContracts[0];
+    if (activeContract) {
+      viewings = await prisma.viewing.findMany({
+        where: {
+          unitId: activeContract.unitId,
+          date: { gte: new Date() }, // Kun fremtidige visninger
+        },
+        orderBy: { date: 'asc' },
+      });
+    }
+
     return (
       <TenantDashboard 
         user={dbUser} 
-        activeContract={dbUser.leaseContracts[0]} 
+        activeContract={activeContract} 
         certificate={dbUser.receivedCertificates[0]} 
+        maintenanceRequests={maintenanceRequests}
+        viewings={viewings}
       />
     );
   }

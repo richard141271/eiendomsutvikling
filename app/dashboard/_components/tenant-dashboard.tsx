@@ -9,16 +9,23 @@ import { AlertCircle, FileText, Home, CreditCard, CheckCircle2 } from "lucide-re
 import Link from "next/link"
 import { Switch } from "@/components/ui/switch"
 import { Label } from "@/components/ui/label"
+import { Badge } from "@/components/ui/badge"
 
 interface TenantDashboardProps {
   user: any;
   activeContract: any;
   certificate: any;
+  maintenanceRequests?: any[];
 }
 
-export function TenantDashboard({ user, activeContract, certificate }: TenantDashboardProps) {
+export function TenantDashboard({ user, activeContract, certificate, maintenanceRequests = [] }: TenantDashboardProps) {
   const [autoPay, setAutoPay] = useState(false);
   const score = certificate ? certificate.totalScore : 10;
+  const statusMap: Record<string, string> = {
+    REPORTED: "Registrert",
+    IN_PROGRESS: "Under arbeid",
+    COMPLETED: "Fullført",
+  };
   
   return (
     <div className="space-y-6">
@@ -119,22 +126,6 @@ export function TenantDashboard({ user, activeContract, certificate }: TenantDas
                     </div>
                     </div>
                 </div>
-
-                <div className="pt-4 border-t">
-                    <div className="flex items-center justify-between space-x-2">
-                        <div className="space-y-1">
-                            <Label htmlFor="autopay" className="font-medium">Automatisk trekk</Label>
-                            <p className="text-xs text-muted-foreground">
-                                Leien trekkes automatisk dagen før forfall.
-                            </p>
-                        </div>
-                        <Switch 
-                            id="autopay" 
-                            checked={autoPay}
-                            onCheckedChange={setAutoPay}
-                        />
-                    </div>
-                </div>
               </>
             ) : (
               <p>Du har ingen aktive leiekontrakter.</p>
@@ -154,6 +145,49 @@ export function TenantDashboard({ user, activeContract, certificate }: TenantDas
           </CardFooter>
         </Card>
       </div>
+      
+      <Card>
+        <CardHeader>
+          <CardTitle>Vedlikehold i boligen</CardTitle>
+          <CardDescription>Her ser du saker du har meldt inn.</CardDescription>
+        </CardHeader>
+        <CardContent>
+          {maintenanceRequests.length === 0 ? (
+            <p className="text-sm text-muted-foreground">
+              Du har ingen registrerte vedlikeholdssaker.
+            </p>
+          ) : (
+            <div className="space-y-3">
+              {maintenanceRequests.map((request: any) => (
+                <div
+                  key={request.id}
+                  className="flex items-center justify-between border-b pb-2 last:border-0 last:pb-0"
+                >
+                  <div>
+                    <p className="font-medium text-sm">{request.title}</p>
+                    <p className="text-xs text-muted-foreground">
+                      Rapportert{" "}
+                      {new Date(request.createdAt).toLocaleDateString("no-NO")}{" "}
+                      – {request.Unit.property.name} - {request.Unit.name}
+                    </p>
+                  </div>
+                  <Badge
+                    variant={
+                      request.status === "COMPLETED"
+                        ? "secondary"
+                        : request.status === "IN_PROGRESS"
+                        ? "default"
+                        : "destructive"
+                    }
+                  >
+                    {statusMap[request.status] || request.status}
+                  </Badge>
+                </div>
+              ))}
+            </div>
+          )}
+        </CardContent>
+      </Card>
     </div>
   );
 }

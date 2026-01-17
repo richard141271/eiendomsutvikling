@@ -45,6 +45,7 @@ export default function InterestsPage() {
   const [statusValue, setStatusValue] = useState<Interest["status"] | "">("");
   const [saving, setSaving] = useState(false);
   const [viewingDate, setViewingDate] = useState("");
+  const [viewingTime, setViewingTime] = useState("");
   const [viewingNotes, setViewingNotes] = useState("");
   const [creatingViewing, setCreatingViewing] = useState(false);
   const [viewingCreated, setViewingCreated] = useState(false);
@@ -71,6 +72,7 @@ export default function InterestsPage() {
     setSelectedInterest(null);
     setStatusValue("");
     setViewingDate("");
+    setViewingTime("");
     setViewingNotes("");
     setViewingCreated(false);
   };
@@ -108,8 +110,8 @@ export default function InterestsPage() {
 
   const handleCreateViewing = async () => {
     if (!selectedInterest) return;
-    if (!viewingDate) {
-      alert("Velg dato for visning.");
+    if (!viewingDate || !viewingTime) {
+      alert("Velg dato og klokkeslett for visning.");
       return;
     }
 
@@ -118,11 +120,14 @@ export default function InterestsPage() {
       const baseNotes = viewingNotes.trim();
       const autoNote = `Visning for ${selectedInterest.name} (${selectedInterest.email})`;
       const notes = baseNotes ? `${baseNotes} – ${autoNote}` : autoNote;
+      const dateTime = `${viewingDate}T${viewingTime}`;
 
       const res = await createViewing({
         unitId: selectedInterest.unitId,
-        date: viewingDate,
+        date: dateTime,
         notes,
+        guestName: selectedInterest.name,
+        guestEmail: selectedInterest.email,
       });
 
       if (!res.success) {
@@ -280,43 +285,54 @@ export default function InterestsPage() {
                   </Button>
                 </div>
 
-                <div className="mt-6 border-t pt-4 space-y-3">
-                  <p className="text-sm font-medium">Planlegg visning direkte</p>
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                    <div className="space-y-1">
-                      <Label htmlFor="viewingDate">Dato</Label>
-                      <Input
-                        id="viewingDate"
-                        type="date"
-                        value={viewingDate}
-                        onChange={(e) => setViewingDate(e.target.value)}
-                      />
+                {statusValue === "CONTACTED" && (
+                  <div className="mt-6 border-t pt-4 space-y-3">
+                    <p className="text-sm font-medium">Planlegg visning direkte</p>
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                      <div className="space-y-1">
+                        <Label htmlFor="viewingDate">Dato</Label>
+                        <Input
+                          id="viewingDate"
+                          type="date"
+                          value={viewingDate}
+                          onChange={(e) => setViewingDate(e.target.value)}
+                        />
+                      </div>
+                      <div className="space-y-1">
+                        <Label htmlFor="viewingTime">Klokkeslett</Label>
+                        <Input
+                          id="viewingTime"
+                          type="time"
+                          value={viewingTime}
+                          onChange={(e) => setViewingTime(e.target.value)}
+                        />
+                      </div>
+                      <div className="space-y-1">
+                        <Label htmlFor="viewingNotes">Notater (valgfritt)</Label>
+                        <Input
+                          id="viewingNotes"
+                          value={viewingNotes}
+                          onChange={(e) => setViewingNotes(e.target.value)}
+                          placeholder="F.eks. kveldvisning"
+                        />
+                      </div>
                     </div>
-                    <div className="space-y-1">
-                      <Label htmlFor="viewingNotes">Notater (valgfritt)</Label>
-                      <Input
-                        id="viewingNotes"
-                        value={viewingNotes}
-                        onChange={(e) => setViewingNotes(e.target.value)}
-                        placeholder="F.eks. kveldvisning kl 18"
-                      />
+                    <div className="flex items-center justify-between gap-3">
+                      <Button
+                        variant="outline"
+                        onClick={handleCreateViewing}
+                        disabled={creatingViewing || !viewingDate || !viewingTime}
+                      >
+                        {creatingViewing ? "Oppretter visning..." : "Opprett visning og send invitasjon"}
+                      </Button>
+                      {viewingCreated && (
+                        <span className="text-xs text-green-600">
+                          Visning opprettet og invitasjon sendt.
+                        </span>
+                      )}
                     </div>
                   </div>
-                  <div className="flex items-center justify-between gap-3">
-                    <Button
-                      variant="outline"
-                      onClick={handleCreateViewing}
-                      disabled={creatingViewing || !viewingDate}
-                    >
-                      {creatingViewing ? "Oppretter visning..." : "Opprett visning"}
-                    </Button>
-                    {viewingCreated && (
-                      <span className="text-xs text-green-600">
-                        Visning opprettet for denne enheten.
-                      </span>
-                    )}
-                  </div>
-                </div>
+                )}
               </div>
               <DialogFooter>
                 <Button variant="outline" onClick={closeDialog}>

@@ -99,6 +99,7 @@ model Viewing {
   date      DateTime
   notes     String?
   checklist Json?    // Stores the state of checklist items
+  confirmed Boolean  @default(false)
   createdAt DateTime @default(now())
   unit      Unit     @relation(fields: [unitId], references: [id], onDelete: Cascade)
 }

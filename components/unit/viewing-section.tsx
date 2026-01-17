@@ -70,7 +70,13 @@ export function ViewingSection({ unitId, viewings: initialViewings }: ViewingSec
       finalNotes = finalNotes ? `${finalNotes} – ${autoNote}` : autoNote;
     }
 
-    const res = await createViewing({ unitId, date, notes: finalNotes });
+    const res = await createViewing({
+      unitId,
+      date,
+      notes: finalNotes,
+      guestName: interest?.name,
+      guestEmail: interest?.email,
+    });
     if (res.success && res.data) {
       setViewings([res.data as unknown as Viewing, ...viewings]);
       setIsCreateOpen(false);
