@@ -10,11 +10,12 @@ import { Badge } from "@/components/ui/badge"
 
 interface MobileNavProps {
   unresolvedNotesCount?: number;
+  maintenanceCount?: number;
   isAdmin?: boolean;
   isTenant?: boolean;
 }
 
-export function MobileNav({ unresolvedNotesCount = 0, isAdmin = false, isTenant = false }: MobileNavProps) {
+export function MobileNav({ unresolvedNotesCount = 0, maintenanceCount = 0, isAdmin = false, isTenant = false }: MobileNavProps) {
   const [isOpen, setIsOpen] = useState(false)
 
   return (
@@ -65,8 +66,13 @@ export function MobileNav({ unresolvedNotesCount = 0, isAdmin = false, isTenant 
                 </>
               )}
 
-              <Link href="/dashboard/maintenance" onClick={() => setIsOpen(false)} className="text-lg font-medium hover:text-primary">
-                Vedlikehold
+              <Link href="/dashboard/maintenance" onClick={() => setIsOpen(false)} className="text-lg font-medium hover:text-primary flex items-center justify-between">
+                <span>Vedlikehold</span>
+                {maintenanceCount > 0 && (
+                  <Badge variant="destructive" className="ml-2 rounded-full px-2">
+                    {maintenanceCount}
+                  </Badge>
+                )}
               </Link>
               <Link href="/dashboard/messages" onClick={() => setIsOpen(false)} className="text-lg font-medium hover:text-primary">
                 Meldinger

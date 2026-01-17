@@ -14,6 +14,7 @@ export default function NewMaintenancePage() {
   const [loading, setLoading] = useState(false);
   const [units, setUnits] = useState<any[]>([]);
   const [tenants, setTenants] = useState<any[]>([]);
+  const [currentUser, setCurrentUser] = useState<any>(null);
   
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
@@ -21,31 +22,43 @@ export default function NewMaintenancePage() {
   const [tenantId, setTenantId] = useState("");
 
   useEffect(() => {
-    // Fetch units for selection
-    const fetchUnits = async () => {
+    const init = async () => {
       try {
-        const res = await fetch("/api/properties"); // This might return properties with units
-        // Or we need a specific endpoint for all units. 
-        // For now let's assume /api/units exists or we fetch properties and extract units.
-        // Actually /api/properties returns properties.
+        // Fetch current user
+        const userRes = await fetch("/api/debug/user-info");
+        const userData = await userRes.json();
+        const user = userData.prismaUserByAuth;
+        setCurrentUser(user);
+
+        if (user?.role === "TENANT") {
+          setTenantId(user.id);
+          setTenants([user]);
+        }
+
+        // Fetch units
+        const res = await fetch("/api/properties");
         const props = await res.json();
         const allUnits = props.flatMap((p: any) => p.units.map((u: any) => ({ ...u, propertyName: p.name })));
         setUnits(allUnits);
+
+        // Auto-select if only one unit
+        if (allUnits.length === 1) {
+          setUnitId(allUnits[0].id);
+        }
       } catch (e) {
-        console.error("Failed to fetch units", e);
+        console.error("Initialization failed", e);
       }
     };
-    fetchUnits();
+    init();
   }, []);
 
-  // When unit changes, find the active tenant
+  // When unit changes, find the active tenant (only if not already set as current user)
   useEffect(() => {
     if (!unitId) return;
     
-    // In a real app we would fetch the tenant for this unit.
-    // Here we can mock or fetch if we had an endpoint.
-    // For MVP admin form, maybe we just list all users or let admin type/select?
-    // Let's assume we can fetch unit details which includes tenant.
+    // If I am the tenant, I don't need to look for myself
+    if (currentUser?.role === "TENANT") return;
+
     const fetchUnitDetails = async () => {
       try {
         const res = await fetch(`/api/units/${unitId}`);
@@ -66,7 +79,7 @@ export default function NewMaintenancePage() {
       }
     };
     fetchUnitDetails();
-  }, [unitId]);
+  }, [unitId, currentUser]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();

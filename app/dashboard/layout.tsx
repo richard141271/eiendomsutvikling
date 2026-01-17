@@ -5,6 +5,7 @@ import { createClient } from "@/lib/supabase-server"
 import { prisma } from "@/lib/prisma"
 import { Users, UserPlus } from "lucide-react"
 import { getDevNotesCounts } from "@/app/actions/dev-notes"
+import { getMaintenanceCounts } from "@/app/actions/maintenance"
 import { Badge } from "@/components/ui/badge"
 
 import Image from "next/image"
@@ -61,6 +62,7 @@ export default async function DashboardLayout({
   const isTenant = role === "TENANT" || role === "PROSPECT";
 
   let unresolvedNotesCount = 0;
+  let maintenanceCount = 0;
   if (isAdmin) {
     const result = await getDevNotesCounts();
     if (result.success) {
@@ -69,6 +71,11 @@ export default async function DashboardLayout({
       // Pål-Martin (Admin) sees "forAdmin" (system notifications/resolved by dev)
       const isJorn = dbUser?.name?.toLowerCase().includes("jørn");
       unresolvedNotesCount = isJorn ? result.counts.forDev : result.counts.forAdmin;
+    }
+
+    const maintResult = await getMaintenanceCounts();
+    if (maintResult.success) {
+      maintenanceCount = maintResult.count;
     }
   }
 
@@ -129,9 +136,14 @@ export default async function DashboardLayout({
 
             <Link
               href="/dashboard/maintenance"
-              className="flex items-center gap-3 rounded-lg px-3 py-2 text-gray-500 transition-all hover:text-gray-900 dark:text-gray-400 dark:hover:text-gray-50"
+              className="flex items-center gap-3 rounded-lg px-3 py-2 text-gray-500 transition-all hover:text-gray-900 dark:text-gray-400 dark:hover:text-gray-50 justify-between"
             >
-              Vedlikehold
+              <span className="flex items-center gap-3">Vedlikehold</span>
+              {maintenanceCount > 0 && (
+                <Badge variant="destructive" className="ml-auto rounded-full px-2 h-5 min-w-5 flex items-center justify-center">
+                  {maintenanceCount}
+                </Badge>
+              )}
             </Link>
             <Link
               href="/dashboard/messages"
@@ -190,7 +202,7 @@ export default async function DashboardLayout({
       <div className="flex flex-col w-full">
 
         <header className="flex h-14 items-center gap-4 border-b bg-gray-100/40 px-6 dark:bg-gray-800/40 print:hidden">
-          <MobileNav unresolvedNotesCount={unresolvedNotesCount} isAdmin={isAdmin} isTenant={isTenant} />
+          <MobileNav unresolvedNotesCount={unresolvedNotesCount} maintenanceCount={maintenanceCount} isAdmin={isAdmin} isTenant={isTenant} />
           <div className="w-full flex-1">
              {/* Breadcrumb or Search */}
           </div>

@@ -33,13 +33,48 @@ export async function GET(request: Request) {
       return NextResponse.json([]);
     }
 
-    const properties = await prisma.property.findMany({
-      where: { ownerId: dbUser.id },
-      include: {
-        units: true,
-      },
-      orderBy: { createdAt: 'desc' }
-    });
+    let properties;
+
+    if (dbUser.role === "TENANT") {
+       properties = await prisma.property.findMany({
+        where: {
+          units: {
+            some: {
+              leaseContracts: {
+                some: {
+                  tenantId: dbUser.id,
+                  // We accept contracts that are signed or sent (maybe they are just moving in)
+                  // But usually only signed ones should grant access.
+                  // For now, let's include active contracts.
+                  status: { in: ["SIGNED", "SENT"] } 
+                }
+              }
+            }
+          }
+        },
+        include: {
+          units: {
+            where: {
+              leaseContracts: {
+                some: {
+                  tenantId: dbUser.id
+                }
+              }
+            }
+          },
+        },
+        orderBy: { createdAt: 'desc' }
+      });
+    } else {
+      // Owner/Admin view
+      properties = await prisma.property.findMany({
+        where: { ownerId: dbUser.id },
+        include: {
+          units: true,
+        },
+        orderBy: { createdAt: 'desc' }
+      });
+    }
 
     return NextResponse.json(properties);
   } catch (error) {
