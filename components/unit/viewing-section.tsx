@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { format } from "date-fns";
 import { nb } from "date-fns/locale";
 import { Calendar as CalendarIcon, CheckSquare, Plus, Trash2, Copy, Check } from "lucide-react";
@@ -14,6 +14,7 @@ import { Calendar } from "@/components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { cn } from "@/lib/utils";
 import { createViewing, updateViewingChecklist, deleteViewing } from "@/app/actions/viewing";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 
 interface Viewing {
   id: string;
@@ -37,16 +38,45 @@ export function ViewingSection({ unitId, viewings: initialViewings }: ViewingSec
   const [notes, setNotes] = useState("");
   const [loading, setLoading] = useState(false);
   const [copiedId, setCopiedId] = useState<string | null>(null);
+  const [interests, setInterests] = useState<any[]>([]);
+  const [selectedInterestId, setSelectedInterestId] = useState<string>("none");
+
+  useEffect(() => {
+    const fetchInterests = async () => {
+      try {
+        const res = await fetch(`/api/interests?unitId=${unitId}`);
+        if (res.ok) {
+          const data = await res.json();
+          setInterests(data);
+        }
+      } catch (e) {
+        console.error("Failed to fetch interests for viewings", e);
+      }
+    };
+    fetchInterests();
+  }, [unitId]);
 
   const handleCreate = async () => {
     if (!date) return;
     setLoading(true);
-    const res = await createViewing({ unitId, date, notes });
+    let finalNotes = notes;
+    const interest =
+      selectedInterestId !== "none"
+        ? interests.find((i) => i.id === selectedInterestId)
+        : null;
+
+    if (interest) {
+      const autoNote = `Interessent: ${interest.name} (${interest.email})`;
+      finalNotes = finalNotes ? `${finalNotes} – ${autoNote}` : autoNote;
+    }
+
+    const res = await createViewing({ unitId, date, notes: finalNotes });
     if (res.success && res.data) {
       setViewings([res.data as unknown as Viewing, ...viewings]);
       setIsCreateOpen(false);
       setNotes("");
       setDate(new Date());
+      setSelectedInterestId("none");
     }
     setLoading(false);
   };
@@ -159,6 +189,27 @@ export function ViewingSection({ unitId, viewings: initialViewings }: ViewingSec
                   placeholder="F.eks. Visning for studentpar"
                 />
               </div>
+              {interests.length > 0 && (
+                <div className="space-y-2">
+                  <Label>Interessent (valgfritt)</Label>
+                  <Select
+                    value={selectedInterestId}
+                    onValueChange={setSelectedInterestId}
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder="Velg interessent" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="none">Ingen valgt</SelectItem>
+                      {interests.map((i) => (
+                        <SelectItem key={i.id} value={i.id}>
+                          {i.name} ({new Date(i.createdAt).toLocaleDateString("no-NO")})
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              )}
               <Button onClick={handleCreate} disabled={loading} className="w-full">
                 {loading ? "Lagrer..." : "Opprett"}
               </Button>

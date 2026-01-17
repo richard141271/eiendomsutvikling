@@ -16,6 +16,8 @@ import { format } from "date-fns";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Input } from "@/components/ui/input";
+import { createViewing } from "@/app/actions/viewing";
 
 interface Interest {
   id: string;
@@ -42,6 +44,10 @@ export default function InterestsPage() {
   const [dialogOpen, setDialogOpen] = useState(false);
   const [statusValue, setStatusValue] = useState<Interest["status"] | "">("");
   const [saving, setSaving] = useState(false);
+  const [viewingDate, setViewingDate] = useState("");
+  const [viewingNotes, setViewingNotes] = useState("");
+  const [creatingViewing, setCreatingViewing] = useState(false);
+  const [viewingCreated, setViewingCreated] = useState(false);
 
   useEffect(() => {
     fetch("/api/interests")
@@ -64,6 +70,9 @@ export default function InterestsPage() {
     setDialogOpen(false);
     setSelectedInterest(null);
     setStatusValue("");
+    setViewingDate("");
+    setViewingNotes("");
+    setViewingCreated(false);
   };
 
   const handleSave = async () => {
@@ -94,6 +103,38 @@ export default function InterestsPage() {
       console.error(error);
     } finally {
       setSaving(false);
+    }
+  };
+
+  const handleCreateViewing = async () => {
+    if (!selectedInterest) return;
+    if (!viewingDate) {
+      alert("Velg dato for visning.");
+      return;
+    }
+
+    setCreatingViewing(true);
+    try {
+      const baseNotes = viewingNotes.trim();
+      const autoNote = `Visning for ${selectedInterest.name} (${selectedInterest.email})`;
+      const notes = baseNotes ? `${baseNotes} – ${autoNote}` : autoNote;
+
+      const res = await createViewing({
+        unitId: selectedInterest.unitId,
+        date: viewingDate,
+        notes,
+      });
+
+      if (!res.success) {
+        throw new Error("Kunne ikke opprette visning");
+      }
+
+      setViewingCreated(true);
+    } catch (error) {
+      console.error(error);
+      alert("Noe gikk galt ved opprettelse av visning. Prøv igjen.");
+    } finally {
+      setCreatingViewing(false);
     }
   };
 
@@ -154,7 +195,7 @@ export default function InterestsPage() {
                       {interest.status === "PENDING"
                         ? "Venter"
                         : interest.status === "CONTACTED"
-                        ? "Kontaktet"
+                        ? "Tilbudt visning"
                         : interest.status === "OFFERED"
                         ? "Tilbudt"
                         : "Avvist"}
@@ -213,7 +254,7 @@ export default function InterestsPage() {
                     </SelectTrigger>
                     <SelectContent>
                       <SelectItem value="PENDING">Venter</SelectItem>
-                      <SelectItem value="CONTACTED">Kontaktet</SelectItem>
+                      <SelectItem value="CONTACTED">Tilbudt visning</SelectItem>
                       <SelectItem value="OFFERED">Tilbudt kontrakt</SelectItem>
                       <SelectItem value="REJECTED">Avvist</SelectItem>
                     </SelectContent>
@@ -237,6 +278,44 @@ export default function InterestsPage() {
                       Opprett kontrakt
                     </Link>
                   </Button>
+                </div>
+
+                <div className="mt-6 border-t pt-4 space-y-3">
+                  <p className="text-sm font-medium">Planlegg visning direkte</p>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                    <div className="space-y-1">
+                      <Label htmlFor="viewingDate">Dato</Label>
+                      <Input
+                        id="viewingDate"
+                        type="date"
+                        value={viewingDate}
+                        onChange={(e) => setViewingDate(e.target.value)}
+                      />
+                    </div>
+                    <div className="space-y-1">
+                      <Label htmlFor="viewingNotes">Notater (valgfritt)</Label>
+                      <Input
+                        id="viewingNotes"
+                        value={viewingNotes}
+                        onChange={(e) => setViewingNotes(e.target.value)}
+                        placeholder="F.eks. kveldvisning kl 18"
+                      />
+                    </div>
+                  </div>
+                  <div className="flex items-center justify-between gap-3">
+                    <Button
+                      variant="outline"
+                      onClick={handleCreateViewing}
+                      disabled={creatingViewing || !viewingDate}
+                    >
+                      {creatingViewing ? "Oppretter visning..." : "Opprett visning"}
+                    </Button>
+                    {viewingCreated && (
+                      <span className="text-xs text-green-600">
+                        Visning opprettet for denne enheten.
+                      </span>
+                    )}
+                  </div>
                 </div>
               </div>
               <DialogFooter>
