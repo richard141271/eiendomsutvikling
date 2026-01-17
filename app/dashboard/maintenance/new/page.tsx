@@ -85,6 +85,14 @@ export default function NewMaintenancePage() {
     e.preventDefault();
     setLoading(true);
 
+    const finalUnitId = unitId || (units.length === 1 ? units[0].id : "");
+
+    if (!finalUnitId || !tenantId) {
+      alert("Velg enhet før du oppretter sak.");
+      setLoading(false);
+      return;
+    }
+
     try {
       const res = await fetch("/api/maintenance", {
         method: "POST",
@@ -92,7 +100,7 @@ export default function NewMaintenancePage() {
         body: JSON.stringify({
           title,
           description,
-          unitId,
+          unitId: finalUnitId,
           tenantId,
         }),
       });
@@ -122,7 +130,11 @@ export default function NewMaintenancePage() {
             <div className="space-y-4">
               <div className="space-y-2">
                 <Label htmlFor="unit">Eiendom / Enhet</Label>
-                <Select onValueChange={setUnitId} value={unitId}>
+                <Select
+                  onValueChange={setUnitId}
+                  value={unitId || (units.length === 1 ? units[0].id : "")}
+                  disabled={currentUser?.role === "TENANT" && units.length === 1}
+                >
                   <SelectTrigger>
                     <SelectValue placeholder="Velg enhet" />
                   </SelectTrigger>
