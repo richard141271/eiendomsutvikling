@@ -12,7 +12,6 @@ import { ContributionType, ContributionStatus } from "@prisma/client";
 import { Loader2, Upload, X, CheckCircle2, Clock, CheckCircle } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import Image from "next/image";
-import { toast } from "sonner";
 import { format } from "date-fns";
 import { nb } from "date-fns/locale";
 

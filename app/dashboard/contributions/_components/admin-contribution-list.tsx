@@ -26,7 +26,6 @@ import { nb } from "date-fns/locale";
 import Image from "next/image";
 import { Dialog, DialogContent, DialogTrigger } from "@/components/ui/dialog";
 import { Loader2, ExternalLink } from "lucide-react";
-import { toast } from "sonner";
 
 interface AdminContributionListProps {
   initialContributions: any[];
