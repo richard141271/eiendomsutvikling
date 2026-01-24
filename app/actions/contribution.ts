@@ -87,7 +87,6 @@ export async function updateContributionStatus(id: string, status: ContributionS
             if (certificate) {
                 await tx.tenantCertificate.update({
                     where: { id: certificate.id },
-                    // @ts-ignore - Prisma types not updating correctly in build env
                     data: { stars: { increment: starDelta } }
                 });
             } else {
@@ -101,7 +100,6 @@ export async function updateContributionStatus(id: string, status: ContributionS
                         noiseScore: 100,
                         paymentScore: 100,
                         cleaningScore: 100,
-                        // @ts-ignore - Prisma types not updating correctly in build env
                         stars: newStars,
                         comment: "Opprettet automatisk via bidrag",
                     }
