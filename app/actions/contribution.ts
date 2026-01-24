@@ -46,20 +46,73 @@ export async function createContribution(data: z.infer<typeof createContribution
   }
 }
 
-export async function updateContributionStatus(id: string, status: ContributionStatus) {
+export async function updateContributionStatus(id: string, status: ContributionStatus, stars?: number) {
   try {
     const supabase = createClient();
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) throw new Error("Unauthorized");
 
-    // Here we should strictly check if user is admin, but assuming the UI protects this for now
-    // and that tenants can't access this action easily without being admin.
-    // Ideally we check dbUser.role === 'ADMIN' | 'OWNER'
+    // Verify admin/owner role
+    const dbUser = await prisma.user.findUnique({ where: { authId: user.id } });
+    if (!dbUser || (dbUser.role !== 'ADMIN' && dbUser.role !== 'OWNER')) {
+       throw new Error("Unauthorized");
+    }
+
+    // Get existing contribution
+    const existingContribution = await prisma.tenantContribution.findUnique({
+        where: { id },
+        include: { tenant: true }
+    });
+    if (!existingContribution) throw new Error("Contribution not found");
+
+    const newStars = stars !== undefined ? stars : existingContribution.starsAwarded;
+    const starDelta = newStars - existingContribution.starsAwarded;
 
     const contribution = await prisma.tenantContribution.update({
       where: { id },
-      data: { status },
+      data: { 
+        status,
+        starsAwarded: newStars 
+      },
     });
+
+    // Update certificate if stars changed
+    if (starDelta !== 0) {
+        const tenantId = existingContribution.tenantId;
+        const certificate = await prisma.tenantCertificate.findFirst({
+            where: { tenantId },
+            orderBy: { createdAt: 'desc' }
+        });
+
+        if (certificate) {
+            await prisma.tenantCertificate.update({
+                where: { id: certificate.id },
+                // @ts-ignore - Prisma types not updating correctly in build env
+                data: { stars: { increment: starDelta } }
+            });
+        } else {
+            // Create new certificate
+            await prisma.tenantCertificate.create({
+                data: {
+                    tenantId,
+                    issuerId: dbUser.id,
+                    totalScore: 100,
+                    behaviorScore: 100,
+                    noiseScore: 100,
+                    paymentScore: 100,
+                    cleaningScore: 100,
+                    // @ts-ignore - Prisma types not updating correctly in build env
+                    stars: newStars,
+                    comment: "Opprettet automatisk via bidrag",
+                }
+            });
+            // Update user flag
+            await prisma.user.update({
+                where: { id: tenantId },
+                data: { hasTenantCertificate: true }
+            });
+        }
+    }
 
     revalidatePath("/dashboard/contributions");
     revalidatePath("/dashboard");

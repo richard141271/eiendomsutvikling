@@ -111,7 +111,7 @@ export function ContributionSection({ unitId, contributions }: ContributionSecti
         <CardHeader>
           <CardTitle>Send inn forslag eller bidrag</CardTitle>
           <CardDescription>
-            Har du forslag til forbedringer, eller har du gjort noe ekstra for fellesskapet? 
+            Har du forslag til forbedringer, gjort noe ekstra for fellesskapet, eller flytter du ut og vil dele erfaringer? 
             Registrer det her for å bygge din status som leietaker!
           </CardDescription>
         </CardHeader>

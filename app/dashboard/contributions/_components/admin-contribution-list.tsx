@@ -35,18 +35,25 @@ export function AdminContributionList({ initialContributions }: AdminContributio
   const [contributions, setContributions] = useState(initialContributions);
   const [updatingId, setUpdatingId] = useState<string | null>(null);
 
-  const handleStatusChange = async (id: string, newStatus: ContributionStatus) => {
+  const handleUpdate = async (id: string, updates: { status?: ContributionStatus, stars?: number }) => {
     setUpdatingId(id);
     try {
-      const res = await updateContributionStatus(id, newStatus);
+      // Find current contribution to get current values if not provided
+      const current = contributions.find(c => c.id === id);
+      if (!current) return;
+
+      const res = await updateContributionStatus(
+        id, 
+        updates.status || current.status, 
+        updates.stars
+      );
+
       if (res.success) {
         setContributions(contributions.map(c => 
-          c.id === id ? { ...c, status: newStatus } : c
+          c.id === id ? { ...c, ...updates, starsAwarded: updates.stars ?? c.starsAwarded } : c
         ));
-        // toast.success("Status oppdatert");
       } else {
-        // toast.error("Kunne ikke oppdatere status");
-        alert("Kunne ikke oppdatere status");
+        alert("Kunne ikke oppdatere");
       }
     } catch (error) {
       console.error(error);
@@ -155,9 +162,28 @@ export function AdminContributionList({ initialContributions }: AdminContributio
                   )}
                 </TableCell>
                 <TableCell>
+                  <Select
+                    value={String(contribution.starsAwarded || 0)}
+                    onValueChange={(val) => handleUpdate(contribution.id, { stars: parseInt(val) })}
+                    disabled={updatingId === contribution.id}
+                  >
+                    <SelectTrigger className="w-[80px]">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="0">0 ★</SelectItem>
+                      <SelectItem value="1">1 ★</SelectItem>
+                      <SelectItem value="2">2 ★</SelectItem>
+                      <SelectItem value="3">3 ★</SelectItem>
+                      <SelectItem value="4">4 ★</SelectItem>
+                      <SelectItem value="5">5 ★</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </TableCell>
+                <TableCell>
                   <Select 
                     value={contribution.status} 
-                    onValueChange={(val) => handleStatusChange(contribution.id, val as ContributionStatus)}
+                    onValueChange={(val) => handleUpdate(contribution.id, { status: val as ContributionStatus })}
                     disabled={updatingId === contribution.id}
                   >
                     <SelectTrigger className={`w-[130px] ${getStatusColor(contribution.status)}`}>

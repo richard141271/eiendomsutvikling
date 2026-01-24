@@ -111,8 +111,9 @@ model TenantContribution {
   type        ContributionType
   description String
   imageUrl    String?
-  status      ContributionStatus @default(PENDING)
-  createdAt   DateTime           @default(now())
+  status             ContributionStatus @default(PENDING)
+  starsAwarded       Int                @default(0)
+  createdAt          DateTime           @default(now())
   updatedAt   DateTime           @updatedAt
   tenantId    String
   unitId      String
