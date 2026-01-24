@@ -32,6 +32,7 @@ model User {
   issuedCertificates   TenantCertificate[]  @relation("IssuedCertificates")
   receivedCertificates TenantCertificate[]  @relation("ReceivedCertificates")
   tenantWarnings       TenantWarning[]
+  contributions        TenantContribution[]
 }
 
 model TenantCertificate {
@@ -91,6 +92,7 @@ model Unit {
   viewings           Viewing[]
   property           Property             @relation(fields: [propertyId], references: [id], onDelete: Cascade)
   unitImages         UnitImage[]
+  contributions      TenantContribution[]
 }
 
 model Viewing {
@@ -102,6 +104,33 @@ model Viewing {
   confirmed Boolean  @default(false)
   createdAt DateTime @default(now())
   unit      Unit     @relation(fields: [unitId], references: [id], onDelete: Cascade)
+}
+
+model TenantContribution {
+  id          String             @id @default(uuid())
+  type        ContributionType
+  description String
+  imageUrl    String?
+  status      ContributionStatus @default(PENDING)
+  createdAt   DateTime           @default(now())
+  updatedAt   DateTime           @updatedAt
+  tenantId    String
+  unitId      String
+
+  tenant User @relation(fields: [tenantId], references: [id])
+  unit   Unit @relation(fields: [unitId], references: [id])
+}
+
+enum ContributionType {
+  IMPROVEMENT_UNIT
+  IMPROVEMENT_PROPERTY
+  OWN_INITIATIVE
+}
+
+enum ContributionStatus {
+  PENDING
+  REVIEWED
+  COMPLETED
 }
 
 model UnitImage {

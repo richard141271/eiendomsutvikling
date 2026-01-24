@@ -45,14 +45,22 @@ export default async function DashboardPage() {
 
     // Hent visninger for enheten leietakeren bor i (eller har kontrakt for)
     let viewings: any[] = [];
+    let contributions: any[] = [];
     const activeContract = dbUser.leaseContracts[0];
     if (activeContract) {
       viewings = await prisma.viewing.findMany({
         where: {
           unitId: activeContract.unitId,
-          date: { gte: new Date() },
+          date: { gte: new Date() }, // Kun fremtidige visninger
         },
         orderBy: { date: 'asc' },
+      });
+      
+      contributions = await prisma.tenantContribution.findMany({
+        where: {
+            tenantId: dbUser.id,
+        },
+        orderBy: { createdAt: 'desc' }
       });
     }
 
@@ -63,6 +71,7 @@ export default async function DashboardPage() {
         certificate={dbUser.receivedCertificates[0]} 
         maintenanceRequests={maintenanceRequests}
         viewings={viewings}
+        contributions={contributions}
       />
     );
   }

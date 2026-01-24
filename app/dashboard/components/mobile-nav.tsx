@@ -84,6 +84,12 @@ export function MobileNav({ unresolvedNotesCount = 0, maintenanceCount = 0, isAd
                 </Link>
               )}
 
+              {isAdmin && (
+                <Link href="/dashboard/contributions" onClick={() => setIsOpen(false)} className="text-lg font-medium hover:text-primary">
+                  Bidrag
+                </Link>
+              )}
+
               <Link href="/dashboard/available" onClick={() => setIsOpen(false)} className="text-lg font-medium hover:text-primary">
                 Ledige boliger
               </Link>

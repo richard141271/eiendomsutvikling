@@ -7,6 +7,7 @@ import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import { AlertCircle, FileText, Home, CreditCard, CheckCircle2 } from "lucide-react"
 import Link from "next/link"
 import { Badge } from "@/components/ui/badge"
+import { ContributionSection } from "./contribution-section"
 
 interface TenantDashboardProps {
   user: any;
@@ -14,9 +15,10 @@ interface TenantDashboardProps {
   certificate: any;
   maintenanceRequests?: any[];
   viewings?: any[];
+  contributions?: any[];
 }
 
-export function TenantDashboard({ user, activeContract, certificate, maintenanceRequests = [], viewings = [] }: TenantDashboardProps) {
+export function TenantDashboard({ user, activeContract, certificate, maintenanceRequests = [], viewings = [], contributions = [] }: TenantDashboardProps) {
   const score = certificate ? certificate.totalScore : 10;
   const statusMap: Record<string, string> = {
     REPORTED: "Registrert",
@@ -228,6 +230,14 @@ export function TenantDashboard({ user, activeContract, certificate, maintenance
           )}
         </CardContent>
       </Card>
+
+      {/* Forslag og Bidrag Section */}
+      {activeContract && (
+        <ContributionSection 
+          unitId={activeContract.unitId} 
+          contributions={contributions} 
+        />
+      )}
     </div>
   );
 }
