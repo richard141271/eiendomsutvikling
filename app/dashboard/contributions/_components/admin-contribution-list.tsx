@@ -53,7 +53,7 @@ export function AdminContributionList({ initialContributions }: AdminContributio
           c.id === id ? { ...c, ...updates, starsAwarded: updates.stars ?? c.starsAwarded } : c
         ));
       } else {
-        alert("Kunne ikke oppdatere");
+        alert(res.error || "Kunne ikke oppdatere");
       }
     } catch (error) {
       console.error(error);

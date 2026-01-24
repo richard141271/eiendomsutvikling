@@ -55,70 +55,72 @@ export async function updateContributionStatus(id: string, status: ContributionS
     // Verify admin/owner role
     const dbUser = await prisma.user.findUnique({ where: { authId: user.id } });
     if (!dbUser || (dbUser.role !== 'ADMIN' && dbUser.role !== 'OWNER')) {
-       throw new Error("Unauthorized");
+       throw new Error("Unauthorized: Mangler rettigheter");
     }
 
-    // Get existing contribution
-    const existingContribution = await prisma.tenantContribution.findUnique({
-        where: { id },
-        include: { tenant: true }
-    });
-    if (!existingContribution) throw new Error("Contribution not found");
+    const result = await prisma.$transaction(async (tx) => {
+        // Get existing contribution
+        const existingContribution = await tx.tenantContribution.findUnique({
+            where: { id },
+        });
+        if (!existingContribution) throw new Error("Bidraget ble ikke funnet");
 
-    const newStars = stars !== undefined ? stars : existingContribution.starsAwarded;
-    const starDelta = newStars - existingContribution.starsAwarded;
+        const newStars = stars !== undefined ? stars : existingContribution.starsAwarded;
+        const starDelta = newStars - existingContribution.starsAwarded;
 
-    const contribution = await prisma.tenantContribution.update({
-      where: { id },
-      data: { 
-        status,
-        starsAwarded: newStars 
-      },
-    });
-
-    // Update certificate if stars changed
-    if (starDelta !== 0) {
-        const tenantId = existingContribution.tenantId;
-        const certificate = await prisma.tenantCertificate.findFirst({
-            where: { tenantId },
-            orderBy: { createdAt: 'desc' }
+        const contribution = await tx.tenantContribution.update({
+          where: { id },
+          data: { 
+            status,
+            starsAwarded: newStars 
+          },
         });
 
-        if (certificate) {
-            await prisma.tenantCertificate.update({
-                where: { id: certificate.id },
-                // @ts-ignore - Prisma types not updating correctly in build env
-                data: { stars: { increment: starDelta } }
+        // Update certificate if stars changed
+        if (starDelta !== 0) {
+            const tenantId = existingContribution.tenantId;
+            const certificate = await tx.tenantCertificate.findFirst({
+                where: { tenantId },
+                orderBy: { createdAt: 'desc' }
             });
-        } else {
-            // Create new certificate
-            await prisma.tenantCertificate.create({
-                data: {
-                    tenantId,
-                    issuerId: dbUser.id,
-                    totalScore: 100,
-                    behaviorScore: 100,
-                    noiseScore: 100,
-                    paymentScore: 100,
-                    cleaningScore: 100,
+
+            if (certificate) {
+                await tx.tenantCertificate.update({
+                    where: { id: certificate.id },
                     // @ts-ignore - Prisma types not updating correctly in build env
-                    stars: newStars,
-                    comment: "Opprettet automatisk via bidrag",
-                }
-            });
-            // Update user flag
-            await prisma.user.update({
-                where: { id: tenantId },
-                data: { hasTenantCertificate: true }
-            });
+                    data: { stars: { increment: starDelta } }
+                });
+            } else {
+                // Create new certificate
+                await tx.tenantCertificate.create({
+                    data: {
+                        tenantId,
+                        issuerId: dbUser.id,
+                        totalScore: 100,
+                        behaviorScore: 100,
+                        noiseScore: 100,
+                        paymentScore: 100,
+                        cleaningScore: 100,
+                        // @ts-ignore - Prisma types not updating correctly in build env
+                        stars: newStars,
+                        comment: "Opprettet automatisk via bidrag",
+                    }
+                });
+                // Update user flag
+                await tx.user.update({
+                    where: { id: tenantId },
+                    data: { hasTenantCertificate: true }
+                });
+            }
         }
-    }
+        return contribution;
+    });
 
     revalidatePath("/dashboard/contributions");
     revalidatePath("/dashboard");
-    return { success: true, data: contribution };
-  } catch (error) {
+    return { success: true, data: result };
+  } catch (error: any) {
     console.error("Failed to update contribution status:", error);
-    return { success: false, error: "Kunne ikke oppdatere status" };
+    return { success: false, error: error.message || "Kunne ikke oppdatere status" };
   }
 }
