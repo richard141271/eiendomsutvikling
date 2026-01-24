@@ -11,11 +11,12 @@ interface CertificateClientProps {
   id: string;
   issueDate: Date;
   score: number;
+  stars?: number;
   memberSince?: Date;
   baseUrl?: string;
 }
 
-export default function CertificateClient({ name, id, issueDate, score, memberSince, baseUrl }: CertificateClientProps) {
+export default function CertificateClient({ name, id, issueDate, score, stars = 0, memberSince, baseUrl }: CertificateClientProps) {
   const handlePrint = () => {
     window.print();
   };
@@ -60,6 +61,7 @@ export default function CertificateClient({ name, id, issueDate, score, memberSi
           name={name} 
           issueDate={issueDate} 
           score={score} 
+          stars={stars}
           id={id}
           variant="print"
           memberSince={memberSince}
@@ -98,7 +100,8 @@ export default function CertificateClient({ name, id, issueDate, score, memberSi
              <TenantCertificate 
                name={name} 
                issueDate={issueDate} 
-               score={score} 
+               score={score}
+               stars={stars}
                id={id}
                variant="digital"
                memberSince={memberSince}

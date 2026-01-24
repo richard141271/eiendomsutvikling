@@ -41,6 +41,7 @@ export default async function CertificatePage() {
 
   // Default values
   const score = certificate ? certificate.totalScore : 10;
+  const stars = certificate ? certificate.stars : 0;
   const issueDate = certificate ? certificate.createdAt : new Date();
   // Use User ID as fallback, prefixed to look like a cert ID
   const id = certificate ? certificate.id : `CERT-${user.id}`;
@@ -57,6 +58,7 @@ export default async function CertificatePage() {
       id={id}
       issueDate={issueDate}
       score={score}
+      stars={stars}
       memberSince={memberSince}
       baseUrl={baseUrl}
     />
