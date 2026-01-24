@@ -24,7 +24,7 @@ import { ContributionStatus, ContributionType } from "@prisma/client";
 import { format } from "date-fns";
 import { nb } from "date-fns/locale";
 import Image from "next/image";
-import { Dialog, DialogContent, DialogTrigger } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogTrigger, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { Loader2, ExternalLink } from "lucide-react";
 
 interface AdminContributionListProps {
@@ -113,8 +113,25 @@ export function AdminContributionList({ initialContributions }: AdminContributio
                 <TableCell>
                   <Badge variant="outline">{getTypeLabel(contribution.type)}</Badge>
                 </TableCell>
-                <TableCell className="max-w-xs truncate" title={contribution.description}>
-                  {contribution.description}
+                <TableCell className="max-w-xs">
+                  <Dialog>
+                    <DialogTrigger asChild>
+                      <span className="truncate block cursor-pointer hover:underline" title="Klikk for å lese hele beskrivelsen">
+                        {contribution.description}
+                      </span>
+                    </DialogTrigger>
+                    <DialogContent>
+                      <DialogHeader>
+                        <DialogTitle>Beskrivelse av bidrag</DialogTitle>
+                        <DialogDescription>
+                          Fra {contribution.tenant.name} - {getTypeLabel(contribution.type)}
+                        </DialogDescription>
+                      </DialogHeader>
+                      <div className="mt-4 whitespace-pre-wrap">
+                        {contribution.description}
+                      </div>
+                    </DialogContent>
+                  </Dialog>
                 </TableCell>
                 <TableCell>
                   {contribution.imageUrl && (
