@@ -53,21 +53,30 @@ export function TenantCertificate({
         border: "border-yellow-500/50",
         iconColor: "text-yellow-400"
     };
-    // Default to Silver (Standard)
-    return { 
+    if (s >= 1) return { 
         name: "Sølv", 
         color: "text-slate-300", 
         bg: "bg-slate-500/20", 
         border: "border-slate-500/50",
         iconColor: "text-slate-300"
     };
+    // Default to Standard (Green) for 0 stars
+    return { 
+        name: "Standard", 
+        color: "text-emerald-300", 
+        bg: "bg-emerald-500/20", 
+        border: "border-emerald-500/50",
+        iconColor: "text-emerald-300"
+    };
   };
 
   const tier = getTier(stars);
 
   // Document Text Logic
-  let certText = "Denne leietakeren har gjennom eget initiativ og positive bidrag under leieforholdet oppnådd status som Sølv-leietaker.";
-  if (tier.name === "Gull") {
+  let certText = "Denne leietakeren har gjennomført et leieforhold i henhold til standard vilkår.";
+  if (tier.name === "Sølv") {
+    certText = "Denne leietakeren har gjennom eget initiativ og positive bidrag under leieforholdet oppnådd status som Sølv-leietaker.";
+  } else if (tier.name === "Gull") {
     certText = "Denne leietakeren har gjennom eget initiativ og ekstraordinære positive bidrag under leieforholdet oppnådd status som Gull-leietaker.";
   } else if (tier.name === "Diamant") {
     certText = "Denne leietakeren har gjennom vedvarende initiativ og betydelige positive bidrag under leieforholdet oppnådd status som Diamant-leietaker.";
@@ -118,7 +127,7 @@ export function TenantCertificate({
              <div className="flex justify-between items-center border-b pb-2 mb-4">
                <h3 className="font-bold text-lg uppercase tracking-wide">Totalvurdering</h3>
                <span className="font-bold text-lg text-yellow-600 flex items-center gap-1">
-                 {score}/10 <Star className="w-4 h-4 fill-current" />
+                 {stars}/50 <Star className="w-4 h-4 fill-current" />
                </span>
              </div>
              <div className="flex justify-between items-center mb-2">
@@ -211,13 +220,16 @@ export function TenantCertificate({
            </div>
            <div>
              <p className="text-xs text-slate-400 uppercase">Navn</p>
-             <p className="text-xl font-medium tracking-wide font-mono shadow-black drop-shadow-md">{name}</p>
-             <p className="text-[10px] text-slate-400 italic mt-1">Dokumentert leieforhold med fremragende resultater</p>
+             <p className="text-xl font-medium tracking-wide font-mono shadow-black drop-shadow-md leading-tight">{name}</p>
+             <div className="text-[9px] text-slate-400 italic mt-1 leading-tight">
+               <p>Dokumentert leieforhold med</p>
+               <p>fremragende resultater</p>
+             </div>
            </div>
         </div>
 
         {/* Footer Info */}
-        <div className="flex justify-between items-end">
+        <div className="flex justify-between items-end pb-2">
           <div>
             <div className="flex gap-4 mb-1">
               <div>
@@ -227,7 +239,7 @@ export function TenantCertificate({
               <div>
                 <p className="text-[10px] text-slate-400 uppercase">Totalvurdering</p>
                 <div className={cn("flex items-center gap-1", tier.color)}>
-                  <span className="text-sm font-bold">{score}/10</span>
+                  <span className="text-sm font-bold">{stars}/50</span>
                   <Star className="w-3 h-3 fill-current" />
                 </div>
               </div>
@@ -236,7 +248,7 @@ export function TenantCertificate({
           
           <div className="flex flex-col items-center">
              <div className="bg-white p-1 rounded">
-                <QRCodeSVG value={verificationUrl} size={48} />
+                <QRCodeSVG value={verificationUrl} size={60} />
              </div>
              <p className="text-[8px] text-slate-400 text-center mt-1 w-20 leading-tight">Scan for å verifisere ekthet</p>
           </div>
