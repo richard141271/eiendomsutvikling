@@ -46,10 +46,10 @@ export async function ensureBucketExists(bucketName: string) {
     }
   } else {
     // Bucket exists, ensure configuration is correct (update limit)
-    console.log(`Bucket '${bucketName}' exists. Updating configuration to 100MB limit...`);
+    console.log(`Bucket '${bucketName}' exists. Updating configuration to UNLIMITED limit...`);
     const { data, error: updateError } = await supabase.storage.updateBucket(bucketName, {
       public: true,
-      fileSizeLimit: 104857600, // 100MB
+      fileSizeLimit: null, // Unlimited
       allowedMimeTypes: ['application/pdf', 'image/png', 'image/jpeg']
     });
     
