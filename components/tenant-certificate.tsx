@@ -35,7 +35,14 @@ export function TenantCertificate({
   const verificationUrl = resolvedBaseUrl
     ? `${resolvedBaseUrl.replace(/\/+$/, "")}/verify/${id}`
     : `/verify/${id}`;
-  const memberSinceYear = memberSince ? memberSince.getFullYear() : issueDate.getFullYear();
+  
+  const getYear = (date: any) => {
+    if (!date) return new Date().getFullYear();
+    if (typeof date.getFullYear === 'function') return date.getFullYear();
+    return new Date(date).getFullYear();
+  };
+
+  const memberSinceYear = getYear(memberSince || issueDate);
 
   // Tier Logic
   const getTier = (s: number) => {
@@ -87,6 +94,17 @@ export function TenantCertificate({
     statusLabel = "DIAMANT-LEIETAKER (VERIFISERT)";
   }
   
+  const getPrintColor = (tierName: string) => {
+    switch (tierName) {
+      case 'Diamant': return 'text-cyan-700';
+      case 'Gull': return 'text-yellow-600';
+      case 'Sølv': return 'text-slate-600';
+      default: return 'text-emerald-700'; // Standard
+    }
+  };
+
+  const printColor = getPrintColor(tier.name);
+
   if (variant === 'print') {
     return (
       <div className="w-full max-w-4xl mx-auto bg-white p-12 shadow-xl print:shadow-none print:p-0">
@@ -107,7 +125,7 @@ export function TenantCertificate({
                <ShieldCheck className="w-12 h-12 text-slate-800" />
             </div>
             <h1 className="text-5xl font-serif font-bold text-slate-900 mb-4 tracking-tight">LEIETAKERBEVIS</h1>
-            <div className="text-3xl font-bold uppercase tracking-widest text-yellow-600 flex items-center gap-2">
+            <div className={cn("text-3xl font-bold uppercase tracking-widest flex items-center gap-2", printColor)}>
               <Star className="fill-current w-8 h-8" />
               {statusLabel}
               <Star className="fill-current w-8 h-8" />
@@ -134,7 +152,7 @@ export function TenantCertificate({
               </div>
               <div>
                 <p className="text-slate-500 uppercase tracking-widest text-xs mb-1">Totalvurdering</p>
-                <span className="font-bold text-lg text-yellow-600 flex items-center gap-1">
+                <span className={cn("font-bold text-lg flex items-center gap-1", printColor)}>
                   {stars}/50
                 </span>
               </div>
@@ -160,7 +178,7 @@ export function TenantCertificate({
       <div className="absolute bottom-0 left-0 w-32 h-32 bg-blue-500/10 blur-3xl rounded-full pointer-events-none"></div>
 
       {/* Content */}
-      <div className="relative z-10 p-6 flex flex-col justify-between h-full border border-white/10 rounded-xl bg-white/5 backdrop-blur-sm">
+      <div className="relative z-10 px-6 pt-6 pb-9 flex flex-col justify-between h-full border border-white/10 rounded-xl bg-white/5 backdrop-blur-sm">
         
         {/* Header */}
         <div className="flex justify-between items-start">
@@ -174,8 +192,8 @@ export function TenantCertificate({
           
           {/* Verified Badge & Tier */}
           <div className="flex flex-col items-end">
-             <div className={cn("px-3 py-1 rounded-full border mb-1", tier.bg, tier.border)}>
-               <span className={cn("text-[10px] font-bold uppercase tracking-wider", tier.color)}>Verifisert</span>
+             <div className={cn("px-2 py-0.5 rounded-full border mb-1 mr-[-2px]", tier.bg, tier.border)}>
+               <span className={cn("text-[9px] font-bold uppercase tracking-wider", tier.color)}>Verifisert</span>
              </div>
           </div>
         </div>

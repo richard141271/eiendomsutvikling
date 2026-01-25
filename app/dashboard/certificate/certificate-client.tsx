@@ -116,6 +116,7 @@ export default function CertificateClient({ name, id, issueDate, score, stars = 
                 name={name} 
                 issueDate={issueDate} 
                 score={score} 
+                stars={stars}
                 id={id}
                 variant="print"
                 memberSince={memberSince}
