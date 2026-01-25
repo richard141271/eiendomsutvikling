@@ -30,7 +30,7 @@ export default async function ProjectPage({ params }: { params: { id: string } }
       <div className="mb-6">
         <h1 className="text-2xl font-bold">{project.title}</h1>
         <p className="text-slate-500 text-sm">
-           {project.property.name}
+           {project.property?.name || "Tilfeldig prosjekt"}
            {project.unit && ` • Enhet ${project.unit.unitNumber || project.unit.name}`}
         </p>
       </div>

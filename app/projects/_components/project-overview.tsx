@@ -4,9 +4,10 @@
 import { archiveProject } from "@/app/actions/projects";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Archive, FileText, Download, Loader2 } from "lucide-react";
+import { Archive, FileText, Download, Loader2, MapPin } from "lucide-react";
 import { useState } from "react";
 import { useRouter } from "next/navigation";
+import Link from "next/link";
 
 interface ProjectOverviewProps {
   project: any; // Using any for simplicity here, but should be typed
@@ -53,10 +54,16 @@ export default function ProjectOverview({ project }: ProjectOverviewProps) {
   return (
     <div className="space-y-6">
       <Card>
-        <CardHeader>
+        <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
           <CardTitle>Prosjektdetaljer</CardTitle>
+          <Link href="/tasks">
+            <Button variant="outline" size="sm">
+              <MapPin className="mr-2 h-4 w-4" />
+              Gå til Stedsbaserte Oppgaver
+            </Button>
+          </Link>
         </CardHeader>
-        <CardContent className="space-y-4">
+        <CardContent className="space-y-4 pt-4">
           <div>
             <span className="text-sm font-medium text-slate-500 block">Tittel</span>
             <span className="text-lg">{project.title}</span>
@@ -68,7 +75,7 @@ export default function ProjectOverview({ project }: ProjectOverviewProps) {
           <div className="grid grid-cols-2 gap-4">
              <div>
                 <span className="text-sm font-medium text-slate-500 block">Eiendom</span>
-                <span>{project.property.name}</span>
+                <span>{project.property?.name || project.customPropertyName || "Tilfeldig prosjekt"}</span>
              </div>
              {project.unit && (
                <div>

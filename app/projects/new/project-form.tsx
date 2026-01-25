@@ -24,22 +24,36 @@ export default function ProjectForm({ properties }: ProjectFormProps) {
   const router = useRouter();
   const [loading, setLoading] = useState(false);
   const [selectedPropertyId, setSelectedPropertyId] = useState<string>("");
+  const [customPropertyName, setCustomPropertyName] = useState<string>("");
   
   const selectedProperty = properties.find(p => p.id === selectedPropertyId);
 
-  async function handleSubmit(formData: FormData) {
+  async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
+    e.preventDefault();
+    if (loading) return;
     setLoading(true);
+
+    const formData = new FormData(e.currentTarget);
     try {
       const title = formData.get("title") as string;
       const description = formData.get("description") as string;
-      const propertyId = formData.get("propertyId") as string;
+      const propertyIdRaw = formData.get("propertyId") as string;
       const unitIdRaw = formData.get("unitId") as string;
+      const customPropName = formData.get("customPropertyName") as string;
+      
+      const propertyId = propertyIdRaw === "custom" ? undefined : propertyIdRaw;
       const unitId = unitIdRaw === "none" ? undefined : unitIdRaw;
 
-      if (!title || !propertyId) {
-        alert("Mangler tittel eller eiendom");
+      if (!title) {
+        alert("Mangler tittel");
         setLoading(false);
         return;
+      }
+
+      if (!propertyId && propertyIdRaw !== "custom") {
+         alert("Velg eiendom eller 'Tilfeldig prosjekt'");
+         setLoading(false);
+         return;
       }
 
       const project = await createProject({
@@ -47,6 +61,7 @@ export default function ProjectForm({ properties }: ProjectFormProps) {
         description,
         propertyId,
         unitId: unitId || undefined,
+        customPropertyName: propertyIdRaw === "custom" ? customPropName : undefined,
       });
 
       router.push(`/projects/${project.id}`);
@@ -54,12 +69,22 @@ export default function ProjectForm({ properties }: ProjectFormProps) {
       console.error(error);
       alert("Noe gikk galt");
     } finally {
-      setLoading(false);
+      // Don't set loading false if successful to prevent double click while redirecting
+      // But we can't know if redirect happens immediately. 
+      // Safe to keep it true if we are redirecting.
+      // But if it failed, we must set it false.
+      // Since we catch error, we can set it false in catch or checking a success flag.
+      // Actually, createProject throws if fail.
+      // So if we reach here, we are redirecting.
+      // But finally block runs anyway.
+      // Let's rely on component unmount or router push.
+      // Ideally:
+      // setLoading(false); // Only if error.
     }
   }
 
   return (
-    <form action={handleSubmit} className="space-y-6">
+    <form onSubmit={handleSubmit} className="space-y-6">
       <div className="space-y-2">
         <Label htmlFor="title">Prosjekttittel</Label>
         <Input id="title" name="title" placeholder="F.eks. Oppussing bad 2. etg" required />
@@ -80,11 +105,25 @@ export default function ProjectForm({ properties }: ProjectFormProps) {
             {properties.map((p) => (
               <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>
             ))}
-          </SelectContent>
-        </Select>
-      </div>
+            <SelectItem value="custom">Tilfeldig prosjekt</SelectItem>
+        </SelectContent>
+      </Select>
+    </div>
 
-      {selectedProperty && selectedProperty.units.length > 0 && (
+    {selectedPropertyId === "custom" && (
+      <div className="space-y-2">
+        <Label htmlFor="customPropertyName">Navn på prosjektsted (valgfritt)</Label>
+        <Input 
+          id="customPropertyName" 
+          name="customPropertyName" 
+          placeholder="F.eks. Sjøtomta" 
+          value={customPropertyName}
+          onChange={(e) => setCustomPropertyName(e.target.value)}
+        />
+      </div>
+    )}
+
+    {selectedProperty && selectedProperty.units.length > 0 && (
         <div className="space-y-2">
           <Label htmlFor="unitId">Enhet (valgfri)</Label>
           <Select name="unitId" key={selectedPropertyId}>

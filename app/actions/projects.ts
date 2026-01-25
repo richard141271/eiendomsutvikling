@@ -9,8 +9,9 @@ import { revalidatePath } from "next/cache";
 export async function createProject(data: {
   title: string;
   description?: string;
-  propertyId: string;
+  propertyId?: string;
   unitId?: string;
+  customPropertyName?: string;
 }) {
   const supabase = createClient();
   const { data: { user } } = await supabase.auth.getUser();
@@ -22,11 +23,14 @@ export async function createProject(data: {
       description: data.description,
       propertyId: data.propertyId,
       unitId: data.unitId,
+      customPropertyName: data.customPropertyName,
     },
   });
 
   revalidatePath("/projects");
-  revalidatePath(`/properties/${data.propertyId}`);
+  if (data.propertyId) {
+    revalidatePath(`/properties/${data.propertyId}`);
+  }
   if (data.unitId) revalidatePath(`/units/${data.unitId}`);
 
   return project;

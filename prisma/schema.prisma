@@ -366,9 +366,11 @@ model Project {
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
   
-  propertyId  String
-  property    Property @relation(fields: [propertyId], references: [id], onDelete: Cascade)
+  propertyId  String?
+  property    Property? @relation(fields: [propertyId], references: [id], onDelete: Cascade)
   
+  customPropertyName String? // For projects without a property (Tilfeldig prosjekt)
+
   unitId      String?
   unit        Unit?    @relation(fields: [unitId], references: [id], onDelete: Cascade)
 

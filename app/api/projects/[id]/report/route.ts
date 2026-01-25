@@ -60,7 +60,7 @@ export async function POST(
     const { fileName, pdfHash } = await generateProjectReportPDF({
       projectId: project.id,
       title: project.title,
-      propertyName: project.property.name,
+      propertyName: project.property?.name || project.customPropertyName || "Tilfeldig prosjekt",
       unitName: project.unit?.unitNumber || project.unit?.name,
       date: new Date().toLocaleDateString("no-NO"),
       startDate: project.createdAt.toLocaleDateString("no-NO"),

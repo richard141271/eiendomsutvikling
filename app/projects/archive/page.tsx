@@ -38,7 +38,7 @@ export default async function ArchivedProjectsPage() {
                     </span>
                   </div>
                   <CardDescription>
-                    {project.property.name}
+                    {project.property?.name || "Tilfeldig prosjekt"}
                     {project.unit && ` • Enhet ${project.unit.unitNumber || project.unit.name}`}
                   </CardDescription>
                 </CardHeader>
