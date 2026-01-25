@@ -277,10 +277,8 @@ export default async function TenantPage({ params }: TenantPageProps) {
                             {cert.comment || "-"}
                           </TableCell>
                           <TableCell className="text-right">
-                            {/* @ts-ignore: pdfUrl exists in schema but type is stale */}
                             {cert.pdfUrl ? (
                               <Button variant="outline" size="sm" asChild>
-                                {/* @ts-ignore: pdfUrl exists in schema but type is stale */}
                                 <a href={`/api/certificates/${cert.id}/pdf`} target="_blank" rel="noopener noreferrer">
                                   <FileText className="h-4 w-4 mr-2" />
                                   Vis PDF

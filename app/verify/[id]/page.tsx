@@ -50,9 +50,7 @@ export default async function VerifyPage({ params }: VerifyPageProps) {
   }
 
   // Check for PDF availability
-  // @ts-ignore: pdfUrl and pdfHash exist in schema but types are stale
   const pdfUrl = certificate?.pdfUrl;
-  // @ts-ignore
   const pdfHash = certificate?.pdfHash;
 
   if (pdfUrl) {
