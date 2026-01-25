@@ -124,7 +124,7 @@ export function TenantCertificate({
             body { margin: 0; padding: 0; }
           `}
         </style>
-        <div className="w-[210mm] h-[297mm] mx-auto bg-white shadow-xl print:shadow-none print:w-[210mm] print:h-[297mm] print:overflow-hidden font-serif flex flex-col p-[15mm] print:p-0 print:scale-[0.98] print:origin-top">
+        <div className="w-[210mm] h-[297mm] mx-auto bg-white shadow-xl print:shadow-none print:w-[210mm] print:h-[297mm] print:overflow-hidden font-serif flex flex-col p-[15mm] print:p-0 print:scale-[0.95] print:origin-top">
           {/* Border Frame */}
           <div className={cn("border-[3px] p-1 h-full flex flex-col items-center text-center relative flex-grow", printBorderColor)}>
             <div className={cn("border border-slate-300 w-full h-full flex flex-col items-center p-12 flex-grow", printBorderColor)}>
@@ -205,20 +205,20 @@ export function TenantCertificate({
           </div>
 
           {/* Footer Signature */}
-          <div className="flex justify-between items-end w-full px-4 mt-12 mb-4 relative z-10 font-sans">
-             <div className="text-center w-1/3">
+          <div className="flex justify-between items-center w-full px-4 mt-12 mb-4 relative z-10 font-sans">
+             <div className="text-center w-1/3 mb-4">
                 <div className="h-px bg-slate-400 w-full mb-2"></div>
                 <div className="text-slate-500 text-xs uppercase tracking-widest">
                   DATO: {issueDate ? new Date(issueDate).toLocaleDateString('no-NO') : new Date().toLocaleDateString('no-NO')}
                 </div>
              </div>
              
-             <div className="flex items-center gap-2 text-slate-900 mx-auto">
+             <div className="flex items-center gap-2 text-slate-900 mx-auto mt-2">
                 <ShieldCheck className="w-10 h-10 stroke-[1.5]" />
                 <span className="text-xl font-bold tracking-tight whitespace-nowrap">Halden Eiendomsutvikling</span>
              </div>
 
-             <div className="text-center w-1/3">
+             <div className="text-center w-1/3 mb-4">
                 <div className="text-xl text-slate-900 mb-1">Signert Digitalt</div>
                 <div className="h-px bg-slate-400 w-full mb-2"></div>
                 <div className="text-slate-500 text-xs uppercase tracking-widest">SIGNATUR</div>
