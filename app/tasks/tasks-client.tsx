@@ -192,7 +192,8 @@ export default function TasksClient({ tasks }: TasksClientProps) {
   }
 
   // Sort tasks: Nearby first if location known
-  const sortedTasks = [...tasks].sort((a, b) => {
+  const safeTasks = Array.isArray(tasks) ? tasks : [];
+  const sortedTasks = [...safeTasks].sort((a, b) => {
     if (a.done === b.done) {
       if (userLocation) {
         const distA = getDistanceFromLatLonInKm(userLocation.lat, userLocation.lng, a.latitude, a.longitude);
@@ -208,8 +209,9 @@ export default function TasksClient({ tasks }: TasksClientProps) {
     <div className="space-y-6 pb-24">
       <div className="flex justify-between items-center">
         <h1 className="text-2xl font-bold">Stedsbaserte Oppgaver</h1>
-        <Button size="icon" variant="outline" onClick={refreshLocation} disabled={gpsLoading}>
+        <Button variant="outline" onClick={refreshLocation} disabled={gpsLoading} className="flex gap-2">
           <Navigation className={cn("h-4 w-4", gpsLoading && "animate-spin")} />
+          <span className="sr-only sm:not-sr-only sm:inline-block">Oppdater posisjon</span>
         </Button>
       </div>
 
@@ -283,7 +285,14 @@ export default function TasksClient({ tasks }: TasksClientProps) {
                           // Optionally reverse geocode here if we had an API
                         }} 
                       />
-                      <p className="text-xs text-slate-500 mt-1">Trykk i kartet for å velge posisjon.</p>
+                      <div className="flex justify-between items-center mt-1">
+                        <p className="text-xs text-slate-500">Trykk i kartet for å velge posisjon.</p>
+                        {newLat && newLng && (
+                           <p className="text-xs text-slate-400">
+                             {newLat.toFixed(4)}, {newLng.toFixed(4)}
+                           </p>
+                        )}
+                      </div>
                     </div>
                   )}
 
