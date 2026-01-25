@@ -35,8 +35,7 @@ export default async function ProjectPage({ params }: { params: { id: string } }
         </p>
       </div>
 
-      <ProjectClient project={project} />
-      <ProjectAuditLogs logs={auditLogs} />
+      <ProjectClient project={project} auditLogs={auditLogs} />
     </div>
   );
 }

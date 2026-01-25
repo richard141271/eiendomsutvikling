@@ -149,22 +149,26 @@ export default async function DashboardPage() {
             <div className="text-2xl font-bold">{pendingMaintenanceCount}</div>
           </CardContent>
         </Card>
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Aktive Prosjekter</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{activeProjectCount}</div>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Stedsbaserte Oppgaver</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{pendingLocationTaskCount}</div>
-          </CardContent>
-        </Card>
+        <Link href="/projects" className="block transition-transform hover:scale-105">
+          <Card>
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium">Aktive Prosjekter</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold">{activeProjectCount}</div>
+            </CardContent>
+          </Card>
+        </Link>
+        <Link href="/tasks" className="block transition-transform hover:scale-105">
+          <Card>
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium">Stedsbaserte Oppgaver</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold">{pendingLocationTaskCount}</div>
+            </CardContent>
+          </Card>
+        </Link>
       </div>
       
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">

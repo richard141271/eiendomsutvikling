@@ -6,12 +6,14 @@ import { FileText, CheckSquare, Info } from "lucide-react";
 import ProjectLog from "../_components/project-log";
 import ProjectTasks from "../_components/project-tasks";
 import ProjectOverview from "../_components/project-overview";
+import ProjectAuditLogs from "../_components/project-audit-logs";
 
 interface ProjectClientProps {
   project: any; // Full project object with relations
+  auditLogs: any[];
 }
 
-export default function ProjectClient({ project }: ProjectClientProps) {
+export default function ProjectClient({ project, auditLogs }: ProjectClientProps) {
   return (
     <Tabs defaultValue="log" className="w-full">
       <TabsList className="grid w-full grid-cols-3 h-14 mb-6">
@@ -39,6 +41,9 @@ export default function ProjectClient({ project }: ProjectClientProps) {
       
       <TabsContent value="overview">
         <ProjectOverview project={project} />
+        <div className="mt-8">
+          <ProjectAuditLogs logs={auditLogs} />
+        </div>
       </TabsContent>
     </Tabs>
   );
