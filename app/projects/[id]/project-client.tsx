@@ -18,7 +18,7 @@ interface ProjectClientProps {
 export default function ProjectClient({ project, auditLogs }: ProjectClientProps) {
   return (
     <Tabs defaultValue="log" className="w-full">
-      <TabsList className="grid w-full grid-cols-3 h-14 mb-6">
+      <TabsList className="grid w-full grid-cols-4 h-14 mb-6">
         <TabsTrigger value="log" className="flex flex-col gap-1 py-2">
           <FileText className="h-4 w-4" />
           <span className="text-xs">Logg</span>
@@ -31,6 +31,12 @@ export default function ProjectClient({ project, auditLogs }: ProjectClientProps
           <Info className="h-4 w-4" />
           <span className="text-xs">Oversikt</span>
         </TabsTrigger>
+        <Link href="/tasks" className="w-full">
+          <div className="inline-flex items-center justify-center whitespace-nowrap rounded-sm px-3 py-1.5 text-sm font-medium ring-offset-background transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 hover:bg-background/50 hover:text-accent-foreground h-full w-full flex-col gap-1">
+            <MapPin className="h-4 w-4" />
+            <span className="text-xs">Stedsbaserte</span>
+          </div>
+        </Link>
       </TabsList>
       
       <TabsContent value="log">

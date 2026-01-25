@@ -56,12 +56,6 @@ export default function ProjectOverview({ project }: ProjectOverviewProps) {
       <Card>
         <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
           <CardTitle>Prosjektdetaljer</CardTitle>
-          <Link href="/tasks">
-            <Button variant="outline" size="sm">
-              <MapPin className="mr-2 h-4 w-4" />
-              Gå til Stedsbaserte Oppgaver
-            </Button>
-          </Link>
         </CardHeader>
         <CardContent className="space-y-4 pt-4">
           <div>
