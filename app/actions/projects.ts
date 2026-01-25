@@ -114,6 +114,65 @@ export async function addProjectEntry(data: {
   return entry;
 }
 
+export async function deleteProjectEntry(entryId: string) {
+  const supabase = createClient();
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) throw new Error("Unauthorized");
+
+  const entry = await prisma.projectEntry.findUnique({
+    where: { id: entryId },
+    include: { project: true }
+  });
+
+  if (!entry) throw new Error("Entry not found");
+
+  // Find DB User for logging
+  const dbUser = await prisma.user.findUnique({ where: { authId: user.id } });
+  
+  if (dbUser) {
+    // Create Audit Log
+    await prisma.projectAuditLog.create({
+      data: {
+        projectId: entry.projectId,
+        userId: dbUser.id,
+        action: "DELETE",
+        entityType: entry.type,
+        entityId: entry.id,
+        details: `Deleted ${entry.type.toLowerCase()}: ${entry.content?.substring(0, 50) || "Image"}`,
+      }
+    });
+  }
+
+  await prisma.projectEntry.delete({
+    where: { id: entryId },
+  });
+
+  revalidatePath(`/projects/${entry.projectId}`);
+}
+
+export async function getProjectAuditLogs(projectId: string) {
+  const supabase = createClient();
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) return [];
+
+  const dbUser = await prisma.user.findUnique({ where: { authId: user.id } });
+  
+  // Only allow OWNER or the property owner to see logs
+  // For simplicity, we check if role is OWNER
+  if (!dbUser || dbUser.role !== "OWNER") {
+    // Alternatively, check if dbUser.id === project.property.ownerId
+    // But we need to fetch project first.
+    // Let's stick to role check as requested "EIER status"
+    return []; 
+  }
+
+  return await prisma.projectAuditLog.findMany({
+    where: { projectId },
+    include: { user: { select: { name: true, email: true } } },
+    orderBy: { createdAt: "desc" },
+  });
+}
+
 export async function toggleEntryReportStatus(entryId: string, include: boolean) {
   const supabase = createClient();
   const { data: { user } } = await supabase.auth.getUser();

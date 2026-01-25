@@ -1,14 +1,14 @@
 
 "use client";
 
-import { addProjectEntry, toggleEntryReportStatus } from "@/app/actions/projects";
+import { addProjectEntry, deleteProjectEntry, toggleEntryReportStatus } from "@/app/actions/projects";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Label } from "@/components/ui/label";
 import { ImageUpload } from "@/components/image-upload"; // Using existing component
 import { useState, useRef } from "react";
-import { Loader2, Camera, Send, FileText, Image as ImageIcon } from "lucide-react";
+import { Loader2, Camera, Send, FileText, Image as ImageIcon, Trash2 } from "lucide-react";
 import Image from "next/image";
 import { cn } from "@/lib/utils";
 
@@ -114,7 +114,18 @@ export default function ProjectLog({ projectId, entries }: ProjectLogProps) {
 
   async function handleToggleReport(id: string, current: boolean) {
     await toggleEntryReportStatus(id, !current);
-    // Optimistic update handled by server action revalidate, but for instant feedback we rely on props update
+    router.refresh();
+  }
+
+  async function handleDelete(id: string) {
+    if (confirm("Er du sikker på at du vil slette denne loggføringen? Dette blir loggført.")) {
+      try {
+        await deleteProjectEntry(id);
+        router.refresh();
+      } catch (error) {
+        alert("Kunne ikke slette loggføring");
+      }
+    }
   }
 
   return (
@@ -140,6 +151,14 @@ export default function ProjectLog({ projectId, entries }: ProjectLogProps) {
                   {new Date(entry.createdAt).toLocaleString("no-NO")}
                 </span>
                 <div className="flex items-center space-x-2">
+                   <Button 
+                     variant="ghost" 
+                     size="icon" 
+                     className="h-6 w-6 text-slate-400 hover:text-red-500"
+                     onClick={() => handleDelete(entry.id)}
+                   >
+                     <Trash2 className="h-4 w-4" />
+                   </Button>
                    <Checkbox 
                      id={`include-${entry.id}`} 
                      checked={entry.includeInReport} 

@@ -36,7 +36,7 @@ export async function POST(
     }
 
     // Generate Entries HTML
-    const entriesHtml = project.entries.map(entry => `
+    const entriesHtml = project.entries.map((entry: any) => `
       <div class="entry">
         <div class="entry-header">
           <span class="entry-date">${entry.createdAt.toLocaleDateString("no-NO")} ${entry.createdAt.toLocaleTimeString("no-NO", {hour: '2-digit', minute:'2-digit'})}</span>
@@ -48,7 +48,7 @@ export async function POST(
     `).join("");
 
     // Generate Tasks HTML
-    const tasksHtml = project.tasks.map(task => `
+    const tasksHtml = project.tasks.map((task: any) => `
       <div class="task-item">
         <div class="checkbox ${task.done ? 'checked' : ''}"></div>
         <span class="task-text ${task.done ? 'done' : ''}">${task.task}</span>
@@ -56,6 +56,7 @@ export async function POST(
     `).join("");
 
     // Generate PDF
+    console.log("Generating report for project:", project.id);
     const { fileName, pdfHash } = await generateProjectReportPDF({
       projectId: project.id,
       title: project.title,
@@ -67,10 +68,12 @@ export async function POST(
       entriesHtml,
       tasksHtml,
     });
+    console.log("PDF generated:", fileName);
 
     const relativePath = `storage/reports/${fileName}`;
 
     // Save to DB
+    console.log("Saving report to DB");
     const report = await prisma.projectReport.create({
       data: {
         projectId: project.id,
@@ -87,6 +90,10 @@ export async function POST(
 
   } catch (error) {
     console.error("Error generating report:", error);
+    // Log details
+    if (error instanceof Error) {
+        console.error(error.stack);
+    }
     return NextResponse.json(
       { error: "Intern serverfeil", details: error instanceof Error ? error.message : String(error) },
       { status: 500 }
