@@ -1,6 +1,7 @@
 
 "use client";
 
+import { Dialog, DialogContent } from "@/components/ui/dialog";
 import { addProjectEntry, deleteProjectEntry, updateProjectEntry, toggleEntryReportStatus } from "@/app/actions/projects";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
@@ -114,6 +115,7 @@ export default function ProjectLog({ projectId, entries }: ProjectLogProps) {
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editContent, setEditContent] = useState("");
   const [loading, setLoading] = useState(false);
+  const [fullScreenImage, setFullScreenImage] = useState<string | null>(null);
 
   async function handleToggleReport(id: string, current: boolean) {
     await toggleEntryReportStatus(id, !current);
@@ -160,6 +162,22 @@ export default function ProjectLog({ projectId, entries }: ProjectLogProps) {
     <div>
       <LogForm projectId={projectId} onEntryAdded={() => router.refresh()} />
 
+      <Dialog open={!!fullScreenImage} onOpenChange={(open) => !open && setFullScreenImage(null)}>
+        <DialogContent className="max-w-4xl w-full p-0 overflow-hidden bg-transparent border-none shadow-none">
+          <div className="relative h-[80vh] w-full bg-black/50 rounded-lg flex items-center justify-center">
+             {fullScreenImage && (
+               <Image 
+                 src={fullScreenImage} 
+                 alt="Full screen" 
+                 fill 
+                 className="object-contain" 
+                 sizes="100vw"
+               />
+             )}
+          </div>
+        </DialogContent>
+      </Dialog>
+
       <div className="space-y-4">
         {entries.length === 0 && <p className="text-center text-slate-500 py-8">Ingen loggføringer enda.</p>}
         
@@ -167,7 +185,12 @@ export default function ProjectLog({ projectId, entries }: ProjectLogProps) {
           <div key={entry.id} className="border rounded-lg p-4 bg-white shadow-sm flex gap-4">
             <div className="flex-shrink-0 mt-1">
               {entry.type === "IMAGE" ? (
-                <div className="bg-blue-100 p-2 rounded-full text-blue-600"><ImageIcon className="w-4 h-4" /></div>
+                <div 
+                  className={cn("bg-blue-100 p-2 rounded-full text-blue-600", entry.imageUrl && "cursor-pointer hover:bg-blue-200")}
+                  onClick={() => entry.imageUrl && setFullScreenImage(entry.imageUrl)}
+                >
+                  <ImageIcon className="w-4 h-4" />
+                </div>
               ) : (
                 <div className="bg-slate-100 p-2 rounded-full text-slate-600"><FileText className="w-4 h-4" /></div>
               )}
@@ -186,7 +209,6 @@ export default function ProjectLog({ projectId, entries }: ProjectLogProps) {
                          size="icon" 
                          className="h-6 w-6 text-slate-400 hover:text-blue-500"
                          onClick={() => startEditing(entry)}
-                         disabled={entry.type === "IMAGE" && !entry.content} 
                        >
                          <Pencil className="h-3 w-3" />
                        </Button>
@@ -231,7 +253,10 @@ export default function ProjectLog({ projectId, entries }: ProjectLogProps) {
                   {entry.content && <p className="text-sm text-slate-800 whitespace-pre-wrap mb-2">{entry.content}</p>}
                   
                   {entry.imageUrl && (
-                    <div className="relative h-48 w-full rounded-md overflow-hidden bg-slate-100 border">
+                    <div 
+                      className="relative h-48 w-full rounded-md overflow-hidden bg-slate-100 border cursor-pointer hover:opacity-95 transition-opacity"
+                      onClick={() => setFullScreenImage(entry.imageUrl)}
+                    >
                       <Image src={entry.imageUrl} alt="Log image" fill className="object-cover" />
                     </div>
                   )}
