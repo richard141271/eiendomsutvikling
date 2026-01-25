@@ -87,7 +87,7 @@ export async function POST(
 
     if (uploadError) {
       console.error("Supabase upload error:", uploadError);
-      throw new Error("Kunne ikke laste opp rapport til skyen");
+      throw new Error(`Kunne ikke laste opp rapport til skyen: ${uploadError.message} (Code: ${uploadError.name})`);
     }
 
     // Get public URL
