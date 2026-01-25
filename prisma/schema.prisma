@@ -411,13 +411,26 @@ model LocationTask {
   title            String
   description      String?  
   locationName     String
+  address          String?
   latitude         Float
   longitude        Float
   radius           Int      @default(150)
+  type             String   @default("SIMPLE") // SIMPLE, CHECKLIST
   
   relatedProjectId String?
   project          Project? @relation(fields: [relatedProjectId], references: [id])
   
+  items            LocationTaskItem[]
+  
   done             Boolean  @default(false)
   createdAt        DateTime @default(now())
+}
+
+model LocationTaskItem {
+  id             String       @id @default(uuid())
+  locationTaskId String
+  locationTask   LocationTask @relation(fields: [locationTaskId], references: [id], onDelete: Cascade)
+  content        String
+  done           Boolean      @default(false)
+  createdAt      DateTime     @default(now())
 }
