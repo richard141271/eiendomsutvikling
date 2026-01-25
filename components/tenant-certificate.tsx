@@ -107,57 +107,97 @@ export function TenantCertificate({
 
   if (variant === 'print') {
     return (
-      <div className="w-full max-w-4xl mx-auto bg-white p-12 shadow-xl print:shadow-none print:p-0">
+      <div className="w-full max-w-4xl mx-auto bg-white p-16 shadow-xl print:shadow-none print:p-0 font-serif">
         {/* Border Frame */}
-        <div className="border-8 border-double border-slate-200 p-8 h-full flex flex-col items-center text-center relative overflow-hidden">
+        <div className="border border-slate-300 p-12 h-full flex flex-col items-center text-center relative">
           
-          {/* Background Pattern */}
-          <div className="absolute inset-0 opacity-5 pointer-events-none">
-            <div className="absolute inset-0" style={{
-              backgroundImage: 'radial-gradient(circle at 2px 2px, black 1px, transparent 0)',
-              backgroundSize: '24px 24px'
-            }}></div>
-          </div>
-
           {/* Header */}
-          <div className="mb-12 relative z-10">
-            <div className="w-24 h-24 bg-slate-100 rounded-full flex items-center justify-center mx-auto mb-6 border-4 border-slate-200">
-               <ShieldCheck className="w-12 h-12 text-slate-800" />
-            </div>
-            <h1 className="text-5xl font-serif font-bold text-slate-900 mb-4 tracking-tight">LEIETAKERBEVIS</h1>
-            <div className={cn("text-3xl font-bold uppercase tracking-widest flex items-center gap-2", printColor)}>
-              <Star className="fill-current w-8 h-8" />
-              {statusLabel}
-              <Star className="fill-current w-8 h-8" />
+          <div className="mb-10">
+            <h1 className="text-5xl font-serif text-slate-900 mb-2 tracking-wide uppercase">LEIETAKERBEVIS</h1>
+            <p className="text-slate-500 italic text-xl font-serif">Utstedt av Halden Eiendomsutvikling</p>
+          </div>
+
+          <div className="w-3/4 h-px bg-slate-300 mb-12"></div>
+
+          {/* Main Content */}
+          <div className="space-y-6 mb-12">
+            <p className="text-slate-700 text-lg">Det bekreftes herved at</p>
+            <h2 className="text-5xl font-serif font-bold text-slate-900 py-4">{name}</h2>
+            <div className="max-w-2xl mx-auto">
+               <p className="text-slate-700 text-lg leading-relaxed">
+                 har gjennomført et leieforhold med fremragende resultater og har oppnådd status som
+               </p>
             </div>
           </div>
 
-          {/* Content */}
-          <div className="max-w-2xl mx-auto space-y-8 relative z-10">
-            <div className="space-y-2">
-              <p className="text-slate-500 uppercase tracking-widest text-sm">Tildelt til</p>
-              <h2 className="text-4xl font-serif font-bold text-slate-900">{name}</h2>
-            </div>
-
-            <div className="py-8 border-t border-b border-slate-200">
-              <p className="text-xl leading-relaxed text-slate-700 font-serif italic">
-                {certText}
-              </p>
-            </div>
-
-            <div className="grid grid-cols-2 gap-12 text-left">
-              <div>
-                <p className="text-slate-500 uppercase tracking-widest text-xs mb-1">Medlem siden</p>
-                <p className="font-bold text-lg text-slate-900">{memberSinceYear}</p>
-              </div>
-              <div>
-                <p className="text-slate-500 uppercase tracking-widest text-xs mb-1">Totalvurdering</p>
-                <span className={cn("font-bold text-lg flex items-center gap-1", printColor)}>
-                  {stars}/50
-                </span>
-              </div>
+          {/* Status Badge */}
+          <div className="mb-16 relative">
+            <div className="absolute inset-0 bg-slate-50 opacity-50 blur-xl rounded-full transform -translate-y-2"></div>
+            <div className={cn("relative text-3xl font-bold uppercase tracking-widest flex items-center justify-center gap-3", printColor)}>
+              <Star className="fill-current w-6 h-6" />
+              {tier.name === 'Standard' ? 'VERIFISERT LEIETAKER' : `${tier.name.toUpperCase()} LEIETAKER`}
+              <Star className="fill-current w-6 h-6" />
             </div>
           </div>
+
+          {/* Assessment & QR Section */}
+          <div className="flex justify-between items-end w-full max-w-3xl px-8 mb-16">
+             {/* Left: Assessment Box */}
+             <div className="bg-slate-50 p-6 rounded-sm w-80">
+                <div className="flex justify-between items-center mb-4 pb-2 border-b border-slate-200">
+                   <span className="font-bold text-slate-900 uppercase tracking-wider text-sm">VURDERING</span>
+                   <span className={cn("font-bold flex items-center gap-1", printColor)}>
+                     {stars}/10 <Star className="w-3 h-3 fill-current" />
+                   </span>
+                </div>
+                <div className="space-y-2 text-sm">
+                   <div className="flex justify-between items-center text-slate-700">
+                      <span>Betalingsevne</span>
+                      <div className="flex text-slate-900">★★★★★</div>
+                   </div>
+                   <div className="flex justify-between items-center text-slate-700">
+                      <span>Orden & Renhold</span>
+                      <div className="flex text-slate-900">★★★★★</div>
+                   </div>
+                   <div className="flex justify-between items-center text-slate-700">
+                      <span>Naboforhold</span>
+                      <div className="flex text-slate-900">★★★★★</div>
+                   </div>
+                </div>
+             </div>
+
+             {/* Right: QR Code */}
+             <div className="flex flex-col items-center">
+                <div className="border-4 border-slate-900 p-2 mb-2">
+                   <QRCodeSVG value={verificationUrl} size={100} />
+                </div>
+                <p className="text-[10px] uppercase tracking-widest text-slate-500 mb-1">SCAN FOR Å VERIFISERE</p>
+                <p className="text-[8px] font-mono text-slate-400 max-w-[150px] truncate text-center">{id}</p>
+             </div>
+          </div>
+
+          {/* Footer Line */}
+          <div className="w-full h-px bg-slate-200 mb-8"></div>
+
+          {/* Footer Signature */}
+          <div className="flex justify-between items-end w-full px-4 text-slate-500 text-xs uppercase tracking-widest">
+             <div className="text-left w-1/3">
+                <div className="h-px bg-slate-300 w-full mb-2"></div>
+                DATO: {issueDate ? new Date(issueDate).toLocaleDateString('no-NO') : new Date().toLocaleDateString('no-NO')}
+             </div>
+             
+             <div className="flex items-center gap-2 text-slate-900 font-bold text-sm">
+                <ShieldCheck className="w-5 h-5" />
+                Halden Eiendomsutvikling
+             </div>
+
+             <div className="text-right w-1/3">
+                <div className="text-xl font-handwriting normal-case text-slate-900 mb-1 font-serif italic">Signert Digitalt</div>
+                <div className="h-px bg-slate-300 w-full mb-2"></div>
+                SIGNATUR
+             </div>
+          </div>
+
         </div>
       </div>
     );
@@ -192,14 +232,11 @@ export function TenantCertificate({
             </div>
           </div>
           
-          {/* Verified Badge & Tier Name */}
+          {/* Verified Badge */}
           <div className="flex flex-col items-end gap-1">
-             <div className={cn("px-3 py-1 rounded-full border border-opacity-50", tier.bg, tier.border)}>
-               <span className={cn("text-[10px] font-bold uppercase tracking-widest", tier.color)}>Verifisert</span>
+             <div className={cn("px-2.5 py-0.5 rounded-full border border-opacity-50 mr-[-4px]", tier.bg, tier.border)}>
+               <span className={cn("text-[9px] font-bold uppercase tracking-widest", tier.color)}>Verifisert</span>
              </div>
-             {tier.name !== 'Standard' && (
-               <span className={cn("text-xs font-medium tracking-wide", tier.color)}>{tier.name}-leietaker</span>
-             )}
           </div>
         </div>
 
@@ -228,11 +265,11 @@ export function TenantCertificate({
         <div className="flex justify-between items-end mt-4">
           <div className="flex gap-10">
             <div>
-              <p className="text-[10px] text-slate-400 uppercase tracking-widest mb-1">Medlem siden</p>
+              <p className="text-[10px] text-slate-400 uppercase tracking-widest mb-1">Leietaker siden</p>
               <p className="text-lg font-medium text-white">{memberSinceYear}</p>
             </div>
             <div>
-              <p className="text-[10px] text-slate-400 uppercase tracking-widest mb-1">Score</p>
+              <p className="text-[10px] text-slate-400 uppercase tracking-widest mb-1">Totalvurdering</p>
               <div className="flex items-center gap-1.5">
                 <span className={cn("text-lg font-bold", tier.color)}>{stars}/50</span>
                 <Star className={cn("w-4 h-4 fill-current", tier.iconColor)} />
