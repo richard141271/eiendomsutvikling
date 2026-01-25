@@ -165,77 +165,83 @@ export function TenantCertificate({
 
   // Digital "Card" Variant
   return (
-    <div className="relative w-full max-w-md aspect-[1.586] rounded-xl overflow-hidden shadow-2xl text-white transform transition-all hover:scale-[1.02] duration-300 mx-auto">
+    <div className="relative w-full max-w-md aspect-[1.586] rounded-xl overflow-hidden shadow-2xl text-white transform transition-all hover:scale-[1.02] duration-300 mx-auto font-sans">
       {/* Background Gradient */}
-      <div className="absolute inset-0 bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 z-0"></div>
+      <div className="absolute inset-0 bg-slate-900 z-0">
+        <div className="absolute inset-0 bg-gradient-to-br from-slate-800/50 to-slate-900/50"></div>
+      </div>
       
-      {/* Gold/Color Accents based on Tier */}
-      <div className={cn("absolute top-0 right-0 w-32 h-32 blur-3xl rounded-full pointer-events-none opacity-20", 
+      {/* Color Accents based on Tier */}
+      <div className={cn("absolute -top-10 -right-10 w-40 h-40 blur-3xl rounded-full pointer-events-none opacity-20", 
           tier.name === 'Diamant' ? 'bg-cyan-500' : 
           (tier.name === 'Gull' ? 'bg-yellow-500' : 
           (tier.name === 'Standard' ? 'bg-emerald-500' : 'bg-slate-400'))
       )}></div>
-      <div className="absolute bottom-0 left-0 w-32 h-32 bg-blue-500/10 blur-3xl rounded-full pointer-events-none"></div>
+      <div className="absolute -bottom-10 -left-10 w-40 h-40 bg-blue-500/10 blur-3xl rounded-full pointer-events-none"></div>
 
       {/* Content */}
-      <div className="relative z-10 px-8 py-8 flex flex-col justify-between h-full border border-white/10 rounded-xl bg-white/5 backdrop-blur-sm">
+      <div className="relative z-10 p-8 flex flex-col justify-between h-full border border-white/5 rounded-xl bg-white/5 backdrop-blur-sm shadow-inner">
         
         {/* Header */}
         <div className="flex justify-between items-start">
-          <div className="flex items-center gap-2">
-            <ShieldCheck className={cn("w-8 h-8", tier.iconColor)} />
-            <div>
-              <h3 className="text-xs uppercase tracking-widest text-slate-400">Offisielt Dokument</h3>
-              <h2 className="font-bold text-lg tracking-wide text-white">LEIETAKERBEVIS</h2>
+          <div className="flex items-start gap-3">
+            <ShieldCheck className={cn("w-10 h-10 mt-1", tier.iconColor)} />
+            <div className="flex flex-col">
+              <h3 className="text-[10px] uppercase tracking-[0.2em] text-slate-400 font-medium">Offisielt Dokument</h3>
+              <h2 className="text-xl font-bold tracking-wide text-white leading-tight">LEIETAKERBEVIS</h2>
             </div>
           </div>
           
-          {/* Verified Badge & Tier */}
-          <div className="flex flex-col items-end">
-             <div className={cn("px-2 py-0.5 rounded-full border mb-1 mr-[-6px]", tier.bg, tier.border)}>
-               <span className={cn("text-[8px] font-bold uppercase tracking-wider", tier.color)}>Verifisert</span>
+          {/* Verified Badge & Tier Name */}
+          <div className="flex flex-col items-end gap-1">
+             <div className={cn("px-3 py-1 rounded-full border border-opacity-50", tier.bg, tier.border)}>
+               <span className={cn("text-[10px] font-bold uppercase tracking-widest", tier.color)}>Verifisert</span>
              </div>
+             {tier.name !== 'Standard' && (
+               <span className={cn("text-xs font-medium tracking-wide", tier.color)}>{tier.name}-leietaker</span>
+             )}
           </div>
         </div>
 
         {/* Chip & User Info */}
-        <div className="flex items-center gap-4 my-4">
-           <div className={cn("w-12 h-9 rounded bg-gradient-to-br shadow-inner opacity-80 flex items-center justify-center", 
-              tier.name === 'Diamant' ? 'from-cyan-200 to-cyan-400' : 
-              (tier.name === 'Gull' ? 'from-yellow-200 to-yellow-400' : 
-              (tier.name === 'Standard' ? 'from-emerald-200 to-emerald-400' : 'from-slate-200 to-slate-400'))
+        <div className="flex items-center gap-5 mt-2">
+           <div className={cn("w-14 h-10 rounded-md bg-gradient-to-br shadow-lg flex items-center justify-center relative overflow-hidden", 
+              tier.name === 'Diamant' ? 'from-cyan-200 to-cyan-500' : 
+              (tier.name === 'Gull' ? 'from-yellow-200 to-yellow-500' : 
+              (tier.name === 'Standard' ? 'from-emerald-200 to-emerald-500' : 'from-slate-200 to-slate-400'))
            )}>
-              <div className="w-8 h-5 border border-black/10 rounded-sm grid grid-cols-2 gap-[1px]">
-                <div className="border border-black/10 rounded-[1px]"></div>
-                <div className="border border-black/10 rounded-[1px]"></div>
-                <div className="border border-black/10 rounded-[1px]"></div>
-                <div className="border border-black/10 rounded-[1px]"></div>
+              <div className="absolute inset-0 opacity-30 bg-[radial-gradient(circle_at_center,_var(--tw-gradient-stops))] from-white via-transparent to-transparent"></div>
+              <div className="w-8 h-5 border border-black/20 rounded-sm grid grid-cols-2 gap-[1px] opacity-60">
+                <div className="border border-black/20 rounded-[1px]"></div>
+                <div className="border border-black/20 rounded-[1px]"></div>
+                <div className="border border-black/20 rounded-[1px]"></div>
+                <div className="border border-black/20 rounded-[1px]"></div>
               </div>
            </div>
-           <div>
-              <p className="text-[10px] text-slate-400 uppercase tracking-wider">Navn</p>
-              <p className="text-xl font-mono text-white tracking-wide">{name}</p>
+           <div className="flex flex-col">
+              <p className="text-[10px] text-slate-400 uppercase tracking-widest mb-0.5">Navn</p>
+              <p className="text-2xl font-mono text-white tracking-wide font-medium">{name}</p>
            </div>
         </div>
 
         {/* Footer Info */}
-        <div className="flex justify-between items-end">
-          <div className="flex gap-8">
+        <div className="flex justify-between items-end mt-4">
+          <div className="flex gap-10">
             <div>
-              <p className="text-[9px] text-slate-400 uppercase tracking-wider mb-0.5">Leietaker siden</p>
-              <p className="font-mono text-white">{memberSinceYear}</p>
+              <p className="text-[10px] text-slate-400 uppercase tracking-widest mb-1">Medlem siden</p>
+              <p className="text-lg font-medium text-white">{memberSinceYear}</p>
             </div>
             <div>
-              <p className="text-[9px] text-slate-400 uppercase tracking-wider mb-0.5">Totalvurdering</p>
-              <div className="flex items-center gap-1">
-                <span className={cn("font-bold font-mono", tier.color)}>{stars}/50</span>
-                <Star className={cn("w-3 h-3 fill-current", tier.iconColor)} />
+              <p className="text-[10px] text-slate-400 uppercase tracking-widest mb-1">Score</p>
+              <div className="flex items-center gap-1.5">
+                <span className={cn("text-lg font-bold", tier.color)}>{stars}/50</span>
+                <Star className={cn("w-4 h-4 fill-current", tier.iconColor)} />
               </div>
             </div>
           </div>
           
-          <div className="bg-white p-1 rounded-lg">
-            <QRCodeSVG value={verificationUrl} size={60} />
+          <div className="bg-white p-1.5 rounded-lg shadow-lg">
+            <QRCodeSVG value={verificationUrl} size={55} />
           </div>
         </div>
       </div>
