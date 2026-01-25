@@ -1,5 +1,6 @@
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { prisma } from "@/lib/prisma"
+import Link from "next/link"
 import { createClient } from "@/lib/supabase-server"
 import { TenantDashboard } from "./_components/tenant-dashboard"
 
@@ -92,6 +93,20 @@ export default async function DashboardPage() {
     }
   });
 
+  const activeProjectCount = await prisma.project.count({
+    where: { status: "ACTIVE" }
+  });
+  const pendingLocationTaskCount = await prisma.locationTask.count({
+    where: { done: false }
+  });
+
+  const recentProjects = await prisma.project.findMany({
+    take: 5,
+    orderBy: { updatedAt: 'desc' },
+    where: { status: "ACTIVE" },
+    include: { property: true }
+  });
+
   const recentProperties = await prisma.property.findMany({
     take: 5,
     orderBy: { createdAt: 'desc' },
@@ -134,10 +149,51 @@ export default async function DashboardPage() {
             <div className="text-2xl font-bold">{pendingMaintenanceCount}</div>
           </CardContent>
         </Card>
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">Aktive Prosjekter</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">{activeProjectCount}</div>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">Stedsbaserte Oppgaver</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">{pendingLocationTaskCount}</div>
+          </CardContent>
+        </Card>
       </div>
       
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-        <Card className="col-span-4">
+        <Card className="col-span-2">
+          <CardHeader>
+            <CardTitle>Siste Prosjekter</CardTitle>
+          </CardHeader>
+          <CardContent>
+            {recentProjects.length > 0 ? (
+              <div className="space-y-4">
+                {recentProjects.map((project: any) => (
+                  <div key={project.id} className="flex items-center justify-between border-b pb-2 last:border-0 last:pb-0">
+                    <div>
+                      <Link href={`/projects/${project.id}`} className="font-medium hover:underline">{project.title}</Link>
+                      <p className="text-sm text-muted-foreground">{project.property.name}</p>
+                    </div>
+                    <div className="text-sm text-muted-foreground">
+                      {new Date(project.updatedAt).toLocaleDateString("no-NO")}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <p className="text-sm text-muted-foreground">Ingen aktive prosjekter.</p>
+            )}
+          </CardContent>
+        </Card>
+
+        <Card className="col-span-2">
           <CardHeader>
             <CardTitle>Siste Eiendommer</CardTitle>
           </CardHeader>

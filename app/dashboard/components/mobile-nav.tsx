@@ -3,7 +3,7 @@
 import { useState } from "react"
 import Link from "next/link"
 import Image from "next/image"
-import { Menu, X } from "lucide-react"
+import { Menu, X, FolderKanban, MapPin } from "lucide-react"
 import { Button } from "@/components/ui/button"
 
 import { Badge } from "@/components/ui/badge"
@@ -54,10 +54,12 @@ export function MobileNav({ unresolvedNotesCount = 0, maintenanceCount = 0, isAd
                   <Link href="/dashboard/properties" onClick={() => setIsOpen(false)} className="text-lg font-medium hover:text-primary">
                     Eiendommer
                   </Link>
-                  <Link href="/projects" onClick={() => setIsOpen(false)} className="text-lg font-medium hover:text-primary">
+                  <Link href="/projects" onClick={() => setIsOpen(false)} className="text-lg font-medium hover:text-primary flex items-center gap-2">
+                    <FolderKanban className="h-5 w-5" />
                     Prosjekter
                   </Link>
-                  <Link href="/tasks" onClick={() => setIsOpen(false)} className="text-lg font-medium hover:text-primary">
+                  <Link href="/tasks" onClick={() => setIsOpen(false)} className="text-lg font-medium hover:text-primary flex items-center gap-2">
+                    <MapPin className="h-5 w-5" />
                     Oppgaver
                   </Link>
                   <Link href="/dashboard/contracts" onClick={() => setIsOpen(false)} className="text-lg font-medium hover:text-primary">
