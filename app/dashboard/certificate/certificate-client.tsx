@@ -1,10 +1,11 @@
 "use client";
 
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import { TenantCertificate } from '@/components/tenant-certificate';
 import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Printer, Share2 } from 'lucide-react';
+import { useSearchParams } from 'next/navigation';
 
 interface CertificateClientProps {
   name: string;
@@ -17,6 +18,28 @@ interface CertificateClientProps {
 }
 
 export default function CertificateClient({ name, id, issueDate, score, stars = 0, memberSince, baseUrl }: CertificateClientProps) {
+  const searchParams = useSearchParams();
+  const [activeTab, setActiveTab] = useState("digital");
+
+  useEffect(() => {
+    const view = searchParams.get('view');
+    if (view === 'print') {
+      setActiveTab('print');
+    }
+  }, [searchParams]);
+
+  const handleTabChange = (value: string) => {
+    setActiveTab(value);
+    const params = new URLSearchParams(window.location.search);
+    if (value === 'print') {
+      params.set('view', 'print');
+    } else {
+      params.delete('view');
+    }
+    const newUrl = `${window.location.pathname}?${params.toString()}`;
+    window.history.replaceState({}, '', newUrl);
+  };
+
   const handlePrint = () => {
     window.print();
   };
@@ -89,7 +112,7 @@ export default function CertificateClient({ name, id, issueDate, score, stars = 
         </div>
       </div>
 
-      <Tabs defaultValue="digital" className="w-full">
+      <Tabs value={activeTab} onValueChange={handleTabChange} className="w-full">
         <TabsList className="grid w-full max-w-[400px] grid-cols-2 mb-8">
           <TabsTrigger value="digital">Digitalt Kort</TabsTrigger>
           <TabsTrigger value="print">A4 Diplom</TabsTrigger>
