@@ -30,9 +30,11 @@ export default function ProjectOverview({ project }: ProjectOverviewProps) {
         method: "POST",
       });
       
-      if (!res.ok) throw new Error("Generering feilet");
-      
       const data = await res.json();
+
+      if (!res.ok) {
+        throw new Error(data.details || "Generering feilet");
+      }
       
       // Open PDF in new tab
       if (data.pdfUrl) {
@@ -42,7 +44,7 @@ export default function ProjectOverview({ project }: ProjectOverviewProps) {
       router.refresh();
     } catch (error) {
       console.error(error);
-      alert("Kunne ikke generere rapport");
+      alert(`Kunne ikke generere rapport: ${error instanceof Error ? error.message : String(error)}`);
     } finally {
       setGenerating(false);
     }

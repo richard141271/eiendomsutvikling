@@ -114,6 +114,44 @@ export async function addProjectEntry(data: {
   return entry;
 }
 
+export async function updateProjectEntry(entryId: string, newContent: string) {
+  const supabase = createClient();
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) throw new Error("Unauthorized");
+
+  const entry = await prisma.projectEntry.findUnique({
+    where: { id: entryId },
+    include: { project: true }
+  });
+
+  if (!entry) throw new Error("Entry not found");
+
+  // Find DB User for logging
+  const dbUser = await prisma.user.findUnique({ where: { authId: user.id } });
+  
+  if (dbUser) {
+    // Create Audit Log
+    await prisma.projectAuditLog.create({
+      data: {
+        projectId: entry.projectId,
+        userId: dbUser.id,
+        action: "EDIT",
+        entityType: entry.type,
+        entityId: entry.id,
+        details: `Edited ${entry.type.toLowerCase()}. Previous: "${entry.content?.substring(0, 50) || "Image"}..."`,
+      }
+    });
+  }
+
+  const updatedEntry = await prisma.projectEntry.update({
+    where: { id: entryId },
+    data: { content: newContent },
+  });
+
+  revalidatePath(`/projects/${entry.projectId}`);
+  return updatedEntry;
+}
+
 export async function deleteProjectEntry(entryId: string) {
   const supabase = createClient();
   const { data: { user } } = await supabase.auth.getUser();
@@ -212,6 +250,24 @@ export async function toggleProjectTask(taskId: string, done: boolean) {
   const task = await prisma.projectTask.update({
     where: { id: taskId },
     data: { done },
+  });
+
+  revalidatePath(`/projects/${task.projectId}`);
+}
+
+export async function deleteProjectTask(taskId: string) {
+  const supabase = createClient();
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) throw new Error("Unauthorized");
+
+  const task = await prisma.projectTask.findUnique({
+    where: { id: taskId },
+  });
+
+  if (!task) throw new Error("Task not found");
+
+  await prisma.projectTask.delete({
+    where: { id: taskId },
   });
 
   revalidatePath(`/projects/${task.projectId}`);

@@ -1,7 +1,7 @@
 
 "use client";
 
-import { addProjectTask, toggleProjectTask } from "@/app/actions/projects";
+import { addProjectTask, toggleProjectTask, deleteProjectTask } from "@/app/actions/projects";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -45,6 +45,17 @@ export default function ProjectTasks({ projectId, tasks }: ProjectTasksProps) {
     router.refresh();
   }
 
+  async function handleDelete(id: string) {
+    if (confirm("Er du sikker på at du vil slette denne oppgaven?")) {
+      try {
+        await deleteProjectTask(id);
+        router.refresh();
+      } catch (error) {
+        alert("Kunne ikke slette oppgave");
+      }
+    }
+  }
+
   return (
     <div className="space-y-6">
       <div className="flex gap-2">
@@ -66,7 +77,7 @@ export default function ProjectTasks({ projectId, tasks }: ProjectTasksProps) {
           <div 
             key={task.id} 
             className={cn(
-              "flex items-center gap-3 p-3 rounded-lg border transition-colors",
+              "flex items-center gap-3 p-3 rounded-lg border transition-colors group",
               task.done ? "bg-slate-50 border-slate-100" : "bg-white border-slate-200"
             )}
           >
@@ -78,6 +89,14 @@ export default function ProjectTasks({ projectId, tasks }: ProjectTasksProps) {
             <span className={cn("flex-1", task.done && "text-slate-400 line-through")}>
               {task.task}
             </span>
+            <Button 
+              variant="ghost" 
+              size="icon" 
+              className="h-6 w-6 text-slate-400 hover:text-red-500 opacity-0 group-hover:opacity-100 transition-opacity"
+              onClick={() => handleDelete(task.id)}
+            >
+              <Trash2 className="h-4 w-4" />
+            </Button>
           </div>
         ))}
       </div>

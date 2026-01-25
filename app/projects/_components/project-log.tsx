@@ -1,16 +1,17 @@
 
 "use client";
 
-import { addProjectEntry, deleteProjectEntry, toggleEntryReportStatus } from "@/app/actions/projects";
+import { addProjectEntry, deleteProjectEntry, updateProjectEntry, toggleEntryReportStatus } from "@/app/actions/projects";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Label } from "@/components/ui/label";
 import { ImageUpload } from "@/components/image-upload"; // Using existing component
-import { useState, useRef } from "react";
-import { Loader2, Camera, Send, FileText, Image as ImageIcon, Trash2 } from "lucide-react";
+import { useState } from "react";
+import { Loader2, Camera, Send, FileText, Image as ImageIcon, Trash2, Pencil, X, Check } from "lucide-react";
 import Image from "next/image";
 import { cn } from "@/lib/utils";
+import { useRouter } from "next/navigation";
 
 interface Entry {
   id: string;
@@ -107,10 +108,12 @@ function LogForm({ projectId, onEntryAdded }: { projectId: string, onEntryAdded:
 }
 
 // Main Log Component
-import { useRouter } from "next/navigation";
 
 export default function ProjectLog({ projectId, entries }: ProjectLogProps) {
   const router = useRouter();
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [editContent, setEditContent] = useState("");
+  const [loading, setLoading] = useState(false);
 
   async function handleToggleReport(id: string, current: boolean) {
     await toggleEntryReportStatus(id, !current);
@@ -125,6 +128,31 @@ export default function ProjectLog({ projectId, entries }: ProjectLogProps) {
       } catch (error) {
         alert("Kunne ikke slette loggføring");
       }
+    }
+  }
+
+  function startEditing(entry: Entry) {
+    setEditingId(entry.id);
+    setEditContent(entry.content || "");
+  }
+
+  function cancelEditing() {
+    setEditingId(null);
+    setEditContent("");
+  }
+
+  async function saveEditing(id: string) {
+    if (!editContent.trim()) return;
+    setLoading(true);
+    try {
+      await updateProjectEntry(id, editContent);
+      setEditingId(null);
+      setEditContent("");
+      router.refresh();
+    } catch (error) {
+      alert("Kunne ikke oppdatere loggføring");
+    } finally {
+      setLoading(false);
     }
   }
 
@@ -151,14 +179,27 @@ export default function ProjectLog({ projectId, entries }: ProjectLogProps) {
                   {new Date(entry.createdAt).toLocaleString("no-NO")}
                 </span>
                 <div className="flex items-center space-x-2">
-                   <Button 
-                     variant="ghost" 
-                     size="icon" 
-                     className="h-6 w-6 text-slate-400 hover:text-red-500"
-                     onClick={() => handleDelete(entry.id)}
-                   >
-                     <Trash2 className="h-4 w-4" />
-                   </Button>
+                   {!editingId && (
+                     <>
+                       <Button 
+                         variant="ghost" 
+                         size="icon" 
+                         className="h-6 w-6 text-slate-400 hover:text-blue-500"
+                         onClick={() => startEditing(entry)}
+                         disabled={entry.type === "IMAGE" && !entry.content} 
+                       >
+                         <Pencil className="h-3 w-3" />
+                       </Button>
+                       <Button 
+                         variant="ghost" 
+                         size="icon" 
+                         className="h-6 w-6 text-slate-400 hover:text-red-500"
+                         onClick={() => handleDelete(entry.id)}
+                       >
+                         <Trash2 className="h-4 w-4" />
+                       </Button>
+                     </>
+                   )}
                    <Checkbox 
                      id={`include-${entry.id}`} 
                      checked={entry.includeInReport} 
@@ -168,12 +209,33 @@ export default function ProjectLog({ projectId, entries }: ProjectLogProps) {
                 </div>
               </div>
               
-              {entry.content && <p className="text-sm text-slate-800 whitespace-pre-wrap mb-2">{entry.content}</p>}
-              
-              {entry.imageUrl && (
-                <div className="relative h-48 w-full rounded-md overflow-hidden bg-slate-100 border">
-                  <Image src={entry.imageUrl} alt="Log image" fill className="object-cover" />
+              {editingId === entry.id ? (
+                <div className="mt-2 space-y-2">
+                  <Textarea 
+                    value={editContent} 
+                    onChange={(e) => setEditContent(e.target.value)} 
+                    className="min-h-[100px]"
+                  />
+                  <div className="flex justify-end gap-2">
+                    <Button variant="ghost" size="sm" onClick={cancelEditing} disabled={loading}>
+                      <X className="w-4 h-4 mr-1" /> Avbryt
+                    </Button>
+                    <Button size="sm" onClick={() => saveEditing(entry.id)} disabled={loading}>
+                      {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Check className="w-4 h-4 mr-1" />}
+                      Lagre
+                    </Button>
+                  </div>
                 </div>
+              ) : (
+                <>
+                  {entry.content && <p className="text-sm text-slate-800 whitespace-pre-wrap mb-2">{entry.content}</p>}
+                  
+                  {entry.imageUrl && (
+                    <div className="relative h-48 w-full rounded-md overflow-hidden bg-slate-100 border">
+                      <Image src={entry.imageUrl} alt="Log image" fill className="object-cover" />
+                    </div>
+                  )}
+                </>
               )}
             </div>
           </div>
