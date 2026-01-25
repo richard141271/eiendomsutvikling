@@ -20,7 +20,7 @@ interface CertificateData {
 
 interface GeneratedCertificate {
   pdfBuffer: Buffer;
-  pdfPath: string;
+  pdfPath?: string;
   pdfHash: string;
   fileName: string;
 }
@@ -70,18 +70,10 @@ export async function generateCertificatePDF(data: CertificateData): Promise<Gen
 
     await page.setContent(html, { waitUntil: 'networkidle0' });
 
-    // Ensure storage directory exists
-    const storageDir = path.join(process.cwd(), 'storage', 'certificates');
-    if (!fs.existsSync(storageDir)) {
-      fs.mkdirSync(storageDir, { recursive: true });
-    }
-
     const fileName = `${data.certificateId}.pdf`;
-    const pdfPath = path.join(storageDir, fileName);
 
     // Generate PDF
     const pdfBuffer = await page.pdf({
-      path: pdfPath, // Saves directly to disk
       format: 'A4',
       printBackground: true,
     });
@@ -91,7 +83,6 @@ export async function generateCertificatePDF(data: CertificateData): Promise<Gen
 
     return {
       pdfBuffer: Buffer.from(pdfBuffer),
-      pdfPath,
       pdfHash,
       fileName,
     };
@@ -154,18 +145,10 @@ export async function generateProjectReportPDF(data: ProjectReportData): Promise
 
     await page.setContent(html, { waitUntil: 'networkidle0' });
 
-    // Ensure storage directory exists
-    const storageDir = path.join(process.cwd(), 'storage', 'reports');
-    if (!fs.existsSync(storageDir)) {
-      fs.mkdirSync(storageDir, { recursive: true });
-    }
-
     const fileName = `report-${data.projectId}-${Date.now()}.pdf`;
-    const pdfPath = path.join(storageDir, fileName);
 
     // Generate PDF
     const pdfBuffer = await page.pdf({
-      path: pdfPath,
       format: 'A4',
       printBackground: true,
       margin: {
@@ -180,7 +163,6 @@ export async function generateProjectReportPDF(data: ProjectReportData): Promise
 
     return {
       pdfBuffer: Buffer.from(pdfBuffer),
-      pdfPath,
       pdfHash,
       fileName,
     };

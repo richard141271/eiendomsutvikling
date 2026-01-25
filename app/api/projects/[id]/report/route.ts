@@ -57,7 +57,7 @@ export async function POST(
 
     // Generate PDF
     console.log("Generating report for project:", project.id);
-    const { fileName, pdfHash } = await generateProjectReportPDF({
+    const { fileName, pdfHash, pdfBuffer } = await generateProjectReportPDF({
       projectId: project.id,
       title: project.title,
       propertyName: project.property?.name || project.customPropertyName || "Tilfeldig prosjekt",
@@ -70,22 +70,40 @@ export async function POST(
     });
     console.log("PDF generated:", fileName);
 
-    const relativePath = `storage/reports/${fileName}`;
+    // Upload to Supabase Storage
+    const { data: uploadData, error: uploadError } = await supabase.storage
+      .from('reports')
+      .upload(`reports/${fileName}`, pdfBuffer, {
+        contentType: 'application/pdf',
+        upsert: true,
+      });
+
+    if (uploadError) {
+      console.error("Supabase upload error:", uploadError);
+      throw new Error("Kunne ikke laste opp rapport til skyen");
+    }
+
+    // Get public URL
+    const { data: { publicUrl } } = supabase
+      .storage
+      .from('reports')
+      .getPublicUrl(`reports/${fileName}`);
 
     // Save to DB
-    console.log("Saving report to DB");
+    console.log("Saving report to DB:", publicUrl);
     const report = await prisma.projectReport.create({
       data: {
         projectId: project.id,
-        pdfUrl: relativePath,
+        pdfUrl: publicUrl,
         pdfHash: pdfHash,
       },
     });
 
-    return NextResponse.json({
-      success: true,
-      pdfUrl: `/api/projects/reports/${report.id}`, // Helper route to serve file
-      reportId: report.id
+    return new NextResponse(new Blob([new Uint8Array(pdfBuffer)]), {
+      headers: {
+        "Content-Type": "application/pdf",
+        "Content-Disposition": `attachment; filename="${fileName}"`,
+      },
     });
 
   } catch (error) {

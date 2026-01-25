@@ -93,18 +93,31 @@ export async function POST(req: NextRequest) {
     };
 
     // Generate PDF
-    const { pdfPath, pdfHash, fileName } = await generateCertificatePDF(pdfData);
+    const { pdfPath, pdfHash, fileName, pdfBuffer } = await generateCertificatePDF(pdfData);
 
-    // Update Certificate with PDF info
-    // Storing relative path or API URL? 
-    // User said "pdfUrl path" and "Lagring: /storage/...". 
-    // We will store the relative path for internal use, and maybe a public URL helper later.
-    const relativePath = `storage/certificates/${fileName}`;
+    // Upload to Supabase Storage
+    const { data: uploadData, error: uploadError } = await supabase.storage
+      .from('reports') // User specified 'reports' bucket in example, assuming shared or same bucket logic
+      .upload(`certificates/${fileName}`, pdfBuffer, {
+        contentType: 'application/pdf',
+        upsert: true,
+      });
+
+    if (uploadError) {
+      console.error("Supabase upload error:", uploadError);
+      throw new Error("Kunne ikke laste opp sertifikat til skyen");
+    }
+
+    // Get public URL
+    const { data: { publicUrl } } = supabase
+      .storage
+      .from('reports')
+      .getPublicUrl(`certificates/${fileName}`);
 
     const updatedCertificate = await prisma.tenantCertificate.update({
       where: { id: certificate.id },
       data: {
-        pdfUrl: relativePath,
+        pdfUrl: publicUrl,
         pdfHash: pdfHash,
       },
     });

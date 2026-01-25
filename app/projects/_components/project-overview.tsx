@@ -31,16 +31,18 @@ export default function ProjectOverview({ project }: ProjectOverviewProps) {
         method: "POST",
       });
       
-      const data = await res.json();
-
       if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
         throw new Error(data.details || "Generering feilet");
       }
       
-      // Open PDF in new tab
-      if (data.pdfUrl) {
-         window.open(data.pdfUrl, "_blank");
-      }
+      // Handle PDF blob
+      const blob = await res.blob();
+      const url = window.URL.createObjectURL(blob);
+      window.open(url, "_blank");
+      
+      // Clean up URL after use
+      setTimeout(() => window.URL.revokeObjectURL(url), 1000);
       
       router.refresh();
     } catch (error) {

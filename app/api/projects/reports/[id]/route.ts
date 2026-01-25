@@ -31,10 +31,16 @@ export async function GET(
     // For now, let's assume if you have the ID and are logged in, it's ok-ish for MVP, 
     // but ideally we check: report.project.property.ownerId === user.id
 
+    // Redirect to the stored public URL
+    if (report.pdfUrl.startsWith('http')) {
+        return NextResponse.redirect(report.pdfUrl);
+    }
+    
+    // Fallback for old local files (if any exist and we are in an env that supports it)
     const filePath = path.join(process.cwd(), report.pdfUrl);
 
     if (!fs.existsSync(filePath)) {
-      return NextResponse.json({ error: "Fil ikke funnet på server" }, { status: 404 });
+      return NextResponse.json({ error: "Fil ikke funnet" }, { status: 404 });
     }
 
     const fileBuffer = fs.readFileSync(filePath);

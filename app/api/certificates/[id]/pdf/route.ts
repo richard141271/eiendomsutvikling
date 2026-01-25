@@ -15,7 +15,12 @@ export async function GET(req: NextRequest, { params }: { params: { id: string }
       return NextResponse.json({ error: 'Certificate PDF not found' }, { status: 404 });
     }
 
-    // Construct absolute path
+    // Redirect if it's a full URL (Supabase Storage)
+    if (certificate.pdfUrl.startsWith('http')) {
+        return NextResponse.redirect(certificate.pdfUrl);
+    }
+
+    // Construct absolute path (Fallback for old local files)
     const filePath = path.join(process.cwd(), certificate.pdfUrl);
 
     if (!fs.existsSync(filePath)) {
