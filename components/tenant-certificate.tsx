@@ -124,7 +124,7 @@ export function TenantCertificate({
             body { margin: 0; padding: 0; }
           `}
         </style>
-        <div className="w-[210mm] h-[297mm] mx-auto bg-white shadow-xl print:shadow-none print:w-[210mm] print:h-[297mm] print:overflow-hidden font-serif flex flex-col p-[15mm] print:p-0">
+        <div className="w-[210mm] h-[297mm] mx-auto bg-white shadow-xl print:shadow-none print:w-[210mm] print:h-[297mm] print:overflow-hidden font-serif flex flex-col p-[15mm] print:p-0 print:scale-[0.98] print:origin-top">
           {/* Border Frame */}
           <div className={cn("border-[3px] p-1 h-full flex flex-col items-center text-center relative flex-grow", printBorderColor)}>
             <div className={cn("border border-slate-300 w-full h-full flex flex-col items-center p-12 flex-grow", printBorderColor)}>
@@ -153,7 +153,7 @@ export function TenantCertificate({
 
             <div className="max-w-2xl mx-auto pt-8">
                <p className="text-slate-700 text-xl leading-relaxed">
-                 Har gjennomført et leieforhold med fremragende resultater og har oppnådd status&nbsp;som
+                 Har gjennomført et leieforhold med fremragende resultater og har oppnådd<br/>status som
                </p>
             </div>
           </div>
@@ -161,7 +161,7 @@ export function TenantCertificate({
           {/* Status Badge */}
           <div className="mb-16 relative">
             <div className="absolute inset-0 bg-slate-50 opacity-50 blur-xl rounded-full transform -translate-y-2"></div>
-            <div className={cn("relative text-4xl font-bold uppercase tracking-widest flex items-center justify-center gap-4", printColor)}>
+            <div className={cn("relative text-4xl font-bold uppercase tracking-widest flex items-center justify-center gap-4 whitespace-nowrap", printColor)}>
               <Star className="fill-current w-8 h-8" />
               {tier.name === 'Standard' ? 'VERIFISERT LEIETAKER' : `${tier.name.toUpperCase()} LEIETAKER`}
               <Star className="fill-current w-8 h-8" />
@@ -215,7 +215,7 @@ export function TenantCertificate({
              
              <div className="flex items-center gap-2 text-slate-900 mx-auto">
                 <ShieldCheck className="w-10 h-10 stroke-[1.5]" />
-                <span className="text-xl font-bold tracking-tight">Halden Eiendomsutvikling</span>
+                <span className="text-xl font-bold tracking-tight whitespace-nowrap">Halden Eiendomsutvikling</span>
              </div>
 
              <div className="text-center w-1/3">
@@ -234,7 +234,7 @@ export function TenantCertificate({
 
   // Digital "Card" Variant
   return (
-    <div className="relative w-full max-w-md aspect-[1.586] rounded-xl overflow-hidden shadow-2xl text-white transform transition-all hover:scale-[1.02] duration-300 mx-auto font-sans">
+    <div className="relative w-full max-w-md aspect-[1.586] rounded-xl overflow-hidden shadow-2xl text-white mx-auto font-sans">
       {/* Background Gradient */}
       <div className="absolute inset-0 bg-slate-900 z-0">
         <div className="absolute inset-0 bg-gradient-to-br from-slate-800/50 to-slate-900/50"></div>
