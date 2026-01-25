@@ -4,6 +4,27 @@ import { createClient } from "@/lib/supabase-server";
 import { createAdminClient, ensureBucketExists } from "@/lib/supabase-admin";
 import { NextResponse } from "next/server";
 import { generateProjectReportPDF } from "@/lib/pdf-generator";
+import sharp from "sharp";
+import fetch from "node-fetch";
+
+// Optimize image function
+async function optimizeImage(url: string) {
+  try {
+    const res = await fetch(url);
+    if (!res.ok) throw new Error(`Failed to fetch image: ${res.statusText}`);
+    const arrayBuffer = await res.arrayBuffer();
+
+    const optimized = await sharp(Buffer.from(arrayBuffer))
+      .resize({ width: 1200, withoutEnlargement: true })
+      .jpeg({ quality: 60 })
+      .toBuffer();
+
+    return `data:image/jpeg;base64,${optimized.toString("base64")}`;
+  } catch (error) {
+    console.error("Image optimization failed, using original url:", error);
+    return url; // Fallback to original URL if optimization fails
+  }
+}
 
 export async function POST(
   request: Request,
@@ -43,7 +64,19 @@ export async function POST(
     }
 
     // Generate Entries HTML
-    const entriesHtml = project.entries.map((entry: any) => `
+    // Optimize images first
+    const processedEntries = await Promise.all(project.entries.map(async (entry: any) => {
+      let imageUrl = entry.imageUrl;
+      if (imageUrl) {
+        // Check if it's already a data URL or external URL that needs optimization
+        if (!imageUrl.startsWith('data:')) {
+           imageUrl = await optimizeImage(imageUrl);
+        }
+      }
+      return { ...entry, imageUrl };
+    }));
+
+    const entriesHtml = processedEntries.map((entry: any) => `
       <div class="entry">
         <div class="entry-header">
           <span class="entry-date">${entry.createdAt.toLocaleDateString("no-NO")} ${entry.createdAt.toLocaleTimeString("no-NO", {hour: '2-digit', minute:'2-digit'})}</span>
