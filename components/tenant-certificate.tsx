@@ -117,10 +117,17 @@ export function TenantCertificate({
 
   if (variant === 'print') {
     return (
-      <div className="w-[210mm] min-h-[297mm] mx-auto bg-white shadow-xl print:shadow-none print:w-[210mm] print:h-[297mm] print:overflow-hidden font-serif flex flex-col p-[15mm] print:p-0">
-        {/* Border Frame */}
-        <div className={cn("border-[3px] p-1 h-full flex flex-col items-center text-center relative flex-grow", printBorderColor)}>
-          <div className={cn("border border-slate-300 w-full h-full flex flex-col items-center p-12 flex-grow", printBorderColor)}>
+      <>
+        <style type="text/css" media="print">
+          {`
+            @page { size: A4 portrait; margin: 0; }
+            body { margin: 0; padding: 0; }
+          `}
+        </style>
+        <div className="w-[210mm] h-[297mm] mx-auto bg-white shadow-xl print:shadow-none print:w-[210mm] print:h-[297mm] print:overflow-hidden font-serif flex flex-col p-[15mm] print:p-0">
+          {/* Border Frame */}
+          <div className={cn("border-[3px] p-1 h-full flex flex-col items-center text-center relative flex-grow", printBorderColor)}>
+            <div className={cn("border border-slate-300 w-full h-full flex flex-col items-center p-12 flex-grow", printBorderColor)}>
           
           {/* Header */}
           <div className="mb-10 mt-4">
@@ -221,6 +228,7 @@ export function TenantCertificate({
           </div>
         </div>
       </div>
+      </>
     );
   }
 
@@ -255,8 +263,8 @@ export function TenantCertificate({
           
           {/* Verified Badge */}
           <div className="flex flex-col items-end gap-1">
-             <div className={cn("px-2.5 py-0.5 rounded-full border border-opacity-50 mr-[-4px]", tier.bg, tier.border)}>
-               <span className={cn("text-[9px] font-bold uppercase tracking-widest", tier.color)}>Verifisert</span>
+             <div className={cn("px-2.5 py-0.5 rounded-full border border-opacity-50 mr-[-6px]", tier.bg, tier.border)}>
+               <span className={cn("text-[8px] font-bold uppercase tracking-widest", tier.color)}>Verifisert</span>
              </div>
              {tier.name !== 'Standard' && (
                <span className={cn("text-[10px] font-medium tracking-wide uppercase mr-[-2px]", tier.color)}>{tier.name}-leietaker</span>
