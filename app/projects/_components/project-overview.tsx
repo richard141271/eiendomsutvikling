@@ -1,0 +1,131 @@
+
+"use client";
+
+import { archiveProject } from "@/app/actions/projects";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Archive, FileText, Download, Loader2 } from "lucide-react";
+import { useState } from "react";
+import { useRouter } from "next/navigation";
+
+interface ProjectOverviewProps {
+  project: any; // Using any for simplicity here, but should be typed
+}
+
+export default function ProjectOverview({ project }: ProjectOverviewProps) {
+  const router = useRouter();
+  const [generating, setGenerating] = useState(false);
+
+  async function handleArchive() {
+    if (confirm("Er du sikker på at du vil arkivere prosjektet? Det vil bli låst for endringer.")) {
+      await archiveProject(project.id);
+      router.push("/projects");
+    }
+  }
+
+  async function handleGenerateReport() {
+    setGenerating(true);
+    try {
+      const res = await fetch(`/api/projects/${project.id}/report`, {
+        method: "POST",
+      });
+      
+      if (!res.ok) throw new Error("Generering feilet");
+      
+      const data = await res.json();
+      
+      // Open PDF in new tab
+      if (data.pdfUrl) {
+         window.open(data.pdfUrl, "_blank");
+      }
+      
+      router.refresh();
+    } catch (error) {
+      console.error(error);
+      alert("Kunne ikke generere rapport");
+    } finally {
+      setGenerating(false);
+    }
+  }
+
+  return (
+    <div className="space-y-6">
+      <Card>
+        <CardHeader>
+          <CardTitle>Prosjektdetaljer</CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div>
+            <span className="text-sm font-medium text-slate-500 block">Tittel</span>
+            <span className="text-lg">{project.title}</span>
+          </div>
+          <div>
+            <span className="text-sm font-medium text-slate-500 block">Beskrivelse</span>
+            <p className="text-slate-700 whitespace-pre-wrap">{project.description || "-"}</p>
+          </div>
+          <div className="grid grid-cols-2 gap-4">
+             <div>
+                <span className="text-sm font-medium text-slate-500 block">Eiendom</span>
+                <span>{project.property.name}</span>
+             </div>
+             {project.unit && (
+               <div>
+                  <span className="text-sm font-medium text-slate-500 block">Enhet</span>
+                  <span>{project.unit.unitNumber || project.unit.name}</span>
+               </div>
+             )}
+             <div>
+                <span className="text-sm font-medium text-slate-500 block">Opprettet</span>
+                <span>{new Date(project.createdAt).toLocaleDateString("no-NO")}</span>
+             </div>
+             <div>
+                <span className="text-sm font-medium text-slate-500 block">Status</span>
+                <span className={project.status === "ACTIVE" ? "text-emerald-600 font-bold" : "text-slate-500"}>
+                  {project.status === "ACTIVE" ? "Aktiv" : "Arkivert"}
+                </span>
+             </div>
+          </div>
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle>Rapporter</CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <Button onClick={handleGenerateReport} disabled={generating} className="w-full" variant="outline">
+            {generating ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : <FileText className="w-4 h-4 mr-2" />}
+            Generer Prosjektrapport (PDF)
+          </Button>
+
+          {project.reports && project.reports.length > 0 && (
+            <div className="space-y-2 mt-4">
+              <h4 className="text-sm font-medium text-slate-500">Tidligere rapporter</h4>
+              {project.reports.map((report: any) => (
+                <a 
+                  key={report.id} 
+                  href={`/api/projects/reports/${report.id}`}
+                  target="_blank"
+                  className="flex items-center p-3 rounded-lg border hover:bg-slate-50 transition-colors text-sm"
+                >
+                  <FileText className="w-4 h-4 mr-2 text-slate-400" />
+                  <span className="flex-1">Rapport {new Date(report.createdAt).toLocaleString("no-NO")}</span>
+                  <Download className="w-4 h-4 text-slate-400" />
+                </a>
+              ))}
+            </div>
+          )}
+        </CardContent>
+      </Card>
+
+      <div className="pt-8 border-t">
+        <Button variant="destructive" className="w-full" onClick={handleArchive}>
+          <Archive className="w-4 h-4 mr-2" /> Arkiver Prosjekt
+        </Button>
+        <p className="text-xs text-center text-slate-500 mt-2">
+          Arkiverte prosjekter låses for redigering men kan fortsatt leses.
+        </p>
+      </div>
+    </div>
+  );
+}

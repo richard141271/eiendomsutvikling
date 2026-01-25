@@ -54,6 +54,12 @@ export function MobileNav({ unresolvedNotesCount = 0, maintenanceCount = 0, isAd
                   <Link href="/dashboard/properties" onClick={() => setIsOpen(false)} className="text-lg font-medium hover:text-primary">
                     Eiendommer
                   </Link>
+                  <Link href="/projects" onClick={() => setIsOpen(false)} className="text-lg font-medium hover:text-primary">
+                    Prosjekter
+                  </Link>
+                  <Link href="/tasks" onClick={() => setIsOpen(false)} className="text-lg font-medium hover:text-primary">
+                    Oppgaver
+                  </Link>
                   <Link href="/dashboard/contracts" onClick={() => setIsOpen(false)} className="text-lg font-medium hover:text-primary">
                     Kontrakter
                   </Link>

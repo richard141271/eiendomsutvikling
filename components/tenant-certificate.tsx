@@ -4,6 +4,7 @@ import React from 'react';
 import { QRCodeSVG } from 'qrcode.react';
 import { ShieldCheck, Star } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { getCertificateContent } from '@/lib/certificate-utils';
 
 interface TenantCertificateProps {
   name: string;
@@ -44,55 +45,15 @@ export function TenantCertificate({
 
   const memberSinceYear = getYear(memberSince || issueDate);
 
-  // Tier Logic
-  const getTier = (s: number) => {
-    if (s >= 10) return { 
-        name: "Diamant", 
-        color: "text-cyan-300", 
-        bg: "bg-cyan-500/20", 
-        border: "border-cyan-500/50",
-        iconColor: "text-cyan-300"
-    };
-    if (s >= 6) return { 
-        name: "Gull", 
-        color: "text-yellow-400", 
-        bg: "bg-yellow-500/20", 
-        border: "border-yellow-500/50",
-        iconColor: "text-yellow-400"
-    };
-    if (s >= 1) return { 
-        name: "Sølv", 
-        color: "text-slate-300", 
-        bg: "bg-slate-500/20", 
-        border: "border-slate-500/50",
-        iconColor: "text-slate-300"
-    };
-    // Default to Standard (Green) for 0 stars
-    return { 
-        name: "Standard", 
-        color: "text-emerald-300", 
-        bg: "bg-emerald-500/20", 
-        border: "border-emerald-500/50",
-        iconColor: "text-emerald-300"
-    };
-  };
-
-  const tier = getTier(stars);
-
-  // Document Text Logic
-  let certText = "Har gjennomført et leieforhold med fremragende resultater og har oppnådd status som";
-  let statusLabel = "VERIFISERT LEIETAKER";
-
-  if (tier.name === "Sølv") {
-    certText = "Denne leietakeren har gjennom eget initiativ og positive bidrag under leieforholdet oppnådd status som";
-    statusLabel = "SØLV-LEIETAKER (VERIFISERT)";
-  } else if (tier.name === "Gull") {
-    certText = "Denne leietakeren har gjennom eget initiativ og ekstraordinære positive bidrag under leieforholdet oppnådd status som";
-    statusLabel = "GULL-LEIETAKER (VERIFISERT)";
-  } else if (tier.name === "Diamant") {
-    certText = "Denne leietakeren har gjennom vedvarende initiativ og betydelige positive bidrag under leieforholdet oppnådd status som";
-    statusLabel = "DIAMANT-LEIETAKER (VERIFISERT)";
-  }
+  // Use centralized logic
+  const { tier, certText, statusLabel } = getCertificateContent(stars);
+  
+  const printColor = `text-[${tier.printColorHex}]`; // Tailwind JIT
+  // Since we can't rely on JIT for dynamic hex in component unless configured, 
+  // we'll stick to the original Tailwind class mapping which is safe, 
+  // BUT we will verify it matches the utils logic.
+  // Actually, let's keep the Tailwind classes logic here for now to ensure we don't break the UI,
+  // but we are now using the same text content.
   
   const getPrintColor = (tierName: string) => {
     switch (tierName) {
@@ -112,8 +73,8 @@ export function TenantCertificate({
     }
   };
 
-  const printColor = getPrintColor(tier.name);
-  const printBorderColor = getPrintBorderColor(tier.name);
+  const safePrintColor = getPrintColor(tier.name);
+  const safePrintBorderColor = getPrintBorderColor(tier.name);
 
   if (variant === 'print') {
     return (
@@ -126,8 +87,8 @@ export function TenantCertificate({
         </style>
         <div className="w-[210mm] h-[297mm] mx-auto bg-white shadow-xl print:shadow-none print:w-[210mm] print:h-[297mm] print:overflow-hidden font-serif flex flex-col p-[15mm] print:p-0 print:scale-[0.95] print:origin-top">
           {/* Border Frame */}
-          <div className={cn("border-[3px] p-1 h-full flex flex-col items-center text-center relative flex-grow", printBorderColor)}>
-            <div className={cn("border border-slate-300 w-full h-full flex flex-col items-center p-12 flex-grow", printBorderColor)}>
+          <div className={cn("border-[3px] p-1 h-full flex flex-col items-center text-center relative flex-grow", safePrintBorderColor)}>
+            <div className={cn("border border-slate-300 w-full h-full flex flex-col items-center p-12 flex-grow", safePrintBorderColor)}>
           
           {/* Header */}
           <div className="mb-10 mt-4">
@@ -153,7 +114,12 @@ export function TenantCertificate({
 
             <div className="max-w-2xl mx-auto pt-8">
                <p className="text-slate-700 text-xl leading-relaxed">
-                 Har gjennomført et leieforhold med fremragende resultater og har oppnådd<br/>status som
+                 {/* Explicit break for visual consistency */}
+                 {certText.includes("fremragende resultater") ? (
+                    <>Har gjennomført et leieforhold med fremragende resultater og har oppnådd<br/>status som</>
+                 ) : (
+                    certText
+                 )}
                </p>
             </div>
           </div>
@@ -161,9 +127,9 @@ export function TenantCertificate({
           {/* Status Badge */}
           <div className="mb-16 relative">
             <div className="absolute inset-0 bg-slate-50 opacity-50 blur-xl rounded-full transform -translate-y-2"></div>
-            <div className={cn("relative text-4xl font-bold uppercase tracking-widest flex items-center justify-center gap-4 whitespace-nowrap", printColor)}>
+            <div className={cn("relative text-4xl font-bold uppercase tracking-widest flex items-center justify-center gap-4 whitespace-nowrap", safePrintColor)}>
               <Star className="fill-current w-8 h-8" />
-              {tier.name === 'Standard' ? 'VERIFISERT LEIETAKER' : `${tier.name.toUpperCase()} LEIETAKER`}
+              {statusLabel}
               <Star className="fill-current w-8 h-8" />
             </div>
           </div>
@@ -174,8 +140,8 @@ export function TenantCertificate({
              <div className="bg-slate-50 p-6 rounded-sm w-80 shadow-sm border border-slate-100">
                 <div className="flex justify-between items-center mb-4 pb-2 border-b border-slate-200">
                    <span className="font-bold text-slate-900 uppercase tracking-wider text-sm">VURDERING</span>
-                   <span className={cn("font-bold flex items-center gap-1", printColor)}>
-                     {stars}/50 <Star className="w-3 h-3 fill-current" />
+                   <span className={cn("font-bold flex items-center gap-1", safePrintColor)}>
+                     {score}/50 <Star className="w-3 h-3 fill-current" />
                    </span>
                 </div>
                 <div className="space-y-3 text-sm">

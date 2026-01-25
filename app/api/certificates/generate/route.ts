@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { generateCertificatePDF } from '@/lib/pdf-generator';
 import { createClient } from '@/lib/supabase-server';
+import { getCertificateContent } from '@/lib/certificate-utils';
 import path from 'path';
 
 export async function POST(req: NextRequest) {
@@ -35,15 +36,28 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Tenant not found' }, { status: 404 });
     }
 
-    // Determine Status Text
-    let statusText = "VERIFISERT LEIETAKER";
+    // Use centralized logic
+    const { tier, certText, statusLabel } = getCertificateContent(stars || 0);
+
+    // Determine Status Text (allow override)
+    let statusText = statusLabel;
     if (statusTextOverride) {
       statusText = statusTextOverride;
-    } else {
-        // Fallback logic if not provided
-        if (stars >= 10) statusText = "DIAMANT LEIETAKER";
-        else if (stars >= 6) statusText = "GULL LEIETAKER";
-        else if (stars >= 1) statusText = "SØLV LEIETAKER";
+    }
+    
+    // Determine Theme Class
+    const themeClassMap: Record<string, string> = {
+      "Diamant": "diamond",
+      "Gull": "gold",
+      "Sølv": "silver",
+      "Standard": "standard"
+    };
+    const themeClass = themeClassMap[tier.name] || "standard";
+
+    // Format body text with explicit break if needed (matching React component)
+    let formattedBodyText = certText;
+    if (certText.includes("fremragende resultater")) {
+        formattedBodyText = "Har gjennomført et leieforhold med fremragende resultater og har oppnådd<br/>status som";
     }
 
     // Create Certificate Record FIRST to get the ID
@@ -73,6 +87,9 @@ export async function POST(req: NextRequest) {
       date: new Date().toLocaleDateString('no-NO'),
       verificationUrl: verificationUrl,
       stars: stars || 0,
+      score: totalScore || 0,
+      themeClass: themeClass,
+      bodyText: formattedBodyText,
     };
 
     // Generate PDF

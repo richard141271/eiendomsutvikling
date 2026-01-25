@@ -3,7 +3,7 @@ import { MobileNav } from "./components/mobile-nav"
 import { UserNav } from "./components/user-nav"
 import { createClient } from "@/lib/supabase-server"
 import { prisma } from "@/lib/prisma"
-import { Users, UserPlus } from "lucide-react"
+import { Users, UserPlus, FolderKanban, MapPin } from "lucide-react"
 import { getDevNotesCounts } from "@/app/actions/dev-notes"
 import { getMaintenanceCounts } from "@/app/actions/maintenance"
 import { Badge } from "@/components/ui/badge"
@@ -106,11 +106,25 @@ export default async function DashboardLayout({
             {isAdmin && (
               <>
                 <Link
-                  href="/dashboard/properties"
-                  className="flex items-center gap-3 rounded-lg px-3 py-2 text-gray-500 transition-all hover:text-gray-900 dark:text-gray-400 dark:hover:text-gray-50"
-                >
-                  Eiendommer
-                </Link>
+                href="/dashboard/properties"
+                className="flex items-center gap-3 rounded-lg px-3 py-2 text-gray-500 transition-all hover:text-gray-900 dark:text-gray-400 dark:hover:text-gray-50"
+              >
+                Eiendommer
+              </Link>
+              <Link
+                href="/projects"
+                className="flex items-center gap-3 rounded-lg px-3 py-2 text-gray-500 transition-all hover:text-gray-900 dark:text-gray-400 dark:hover:text-gray-50"
+              >
+                <FolderKanban className="h-4 w-4" />
+                Prosjekter
+              </Link>
+              <Link
+                href="/tasks"
+                className="flex items-center gap-3 rounded-lg px-3 py-2 text-gray-500 transition-all hover:text-gray-900 dark:text-gray-400 dark:hover:text-gray-50"
+              >
+                <MapPin className="h-4 w-4" />
+                Oppgaver
+              </Link>
                 <Link
                   href="/dashboard/contracts"
                   className="flex items-center gap-3 rounded-lg px-3 py-2 text-gray-500 transition-all hover:text-gray-900 dark:text-gray-400 dark:hover:text-gray-50"

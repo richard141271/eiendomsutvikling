@@ -71,6 +71,7 @@ model Property {
   Property       Property?      @relation("PropertyToProperty", fields: [parentId], references: [id])
   other_Property Property[]     @relation("PropertyToProperty")
   units          Unit[]
+  projects       Project[]
 }
 
 model Unit {
@@ -96,6 +97,7 @@ model Unit {
   property           Property             @relation(fields: [propertyId], references: [id], onDelete: Cascade)
   unitImages         UnitImage[]
   contributions      TenantContribution[]
+  projects           Project[]
 }
 
 model Viewing {
@@ -353,4 +355,69 @@ enum InterestStatus {
   CONTACTED
   REJECTED
   OFFERED
+}
+
+model Project {
+  id          String   @id @default(uuid())
+  title       String
+  description String?  
+  status      String   @default("ACTIVE") // ACTIVE, ARCHIVED
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  
+  propertyId  String
+  property    Property @relation(fields: [propertyId], references: [id], onDelete: Cascade)
+  
+  unitId      String?
+  unit        Unit?    @relation(fields: [unitId], references: [id], onDelete: Cascade)
+
+  entries     ProjectEntry[]
+  tasks       ProjectTask[]
+  reports     ProjectReport[]
+  locationTasks LocationTask[]
+}
+
+model ProjectEntry {
+  id              String   @id @default(uuid())
+  projectId       String
+  project         Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  type            String   // NOTE, IMAGE, MEASUREMENT
+  content         String?  
+  imageUrl        String?
+  includeInReport Boolean  @default(false)
+  createdAt       DateTime @default(now())
+}
+
+model ProjectTask {
+  id        String   @id @default(uuid())
+  projectId String
+  project   Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  task      String
+  done      Boolean  @default(false)
+  createdAt DateTime @default(now())
+}
+
+model ProjectReport {
+  id        String   @id @default(uuid())
+  projectId String
+  project   Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  pdfUrl    String
+  pdfHash   String?
+  createdAt DateTime @default(now())
+}
+
+model LocationTask {
+  id               String   @id @default(uuid())
+  title            String
+  description      String?  
+  locationName     String
+  latitude         Float
+  longitude        Float
+  radius           Int      @default(150)
+  
+  relatedProjectId String?
+  project          Project? @relation(fields: [relatedProjectId], references: [id])
+  
+  done             Boolean  @default(false)
+  createdAt        DateTime @default(now())
 }
