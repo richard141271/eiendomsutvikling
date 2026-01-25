@@ -46,14 +46,17 @@ export async function ensureBucketExists(bucketName: string) {
     }
   } else {
     // Bucket exists, ensure configuration is correct (update limit)
-    const { error: updateError } = await supabase.storage.updateBucket(bucketName, {
+    console.log(`Bucket '${bucketName}' exists. Updating configuration to 100MB limit...`);
+    const { data, error: updateError } = await supabase.storage.updateBucket(bucketName, {
       public: true,
-      fileSizeLimit: 52428800, // 50MB
+      fileSizeLimit: 104857600, // 100MB
       allowedMimeTypes: ['application/pdf', 'image/png', 'image/jpeg']
     });
     
     if (updateError) {
       console.error(`Error updating bucket '${bucketName}':`, updateError);
+    } else {
+      console.log(`Bucket '${bucketName}' updated successfully. New config:`, data);
     }
   }
 }

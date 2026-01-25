@@ -75,7 +75,7 @@ export async function POST(
       entriesHtml,
       tasksHtml,
     });
-    console.log("PDF generated:", fileName);
+    console.log(`PDF generated: ${fileName}, Size: ${(pdfBuffer.length / 1024 / 1024).toFixed(2)} MB`);
 
     // Upload to Supabase Storage
     const { data: uploadData, error: uploadError } = await adminSupabase.storage
