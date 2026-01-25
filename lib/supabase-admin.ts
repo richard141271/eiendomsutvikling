@@ -35,7 +35,7 @@ export async function ensureBucketExists(bucketName: string) {
     console.log(`Bucket '${bucketName}' not found. Creating...`);
     const { data, error: createError } = await supabase.storage.createBucket(bucketName, {
       public: true,
-      fileSizeLimit: 5242880, // 5MB
+      fileSizeLimit: 52428800, // 50MB
       allowedMimeTypes: ['application/pdf', 'image/png', 'image/jpeg']
     });
 
@@ -43,6 +43,17 @@ export async function ensureBucketExists(bucketName: string) {
       console.error(`Error creating bucket '${bucketName}':`, createError);
     } else {
       console.log(`Bucket '${bucketName}' created successfully.`);
+    }
+  } else {
+    // Bucket exists, ensure configuration is correct (update limit)
+    const { error: updateError } = await supabase.storage.updateBucket(bucketName, {
+      public: true,
+      fileSizeLimit: 52428800, // 50MB
+      allowedMimeTypes: ['application/pdf', 'image/png', 'image/jpeg']
+    });
+    
+    if (updateError) {
+      console.error(`Error updating bucket '${bucketName}':`, updateError);
     }
   }
 }
