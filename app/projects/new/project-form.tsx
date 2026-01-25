@@ -33,7 +33,8 @@ export default function ProjectForm({ properties }: ProjectFormProps) {
       const title = formData.get("title") as string;
       const description = formData.get("description") as string;
       const propertyId = formData.get("propertyId") as string;
-      const unitId = formData.get("unitId") as string;
+      const unitIdRaw = formData.get("unitId") as string;
+      const unitId = unitIdRaw === "none" ? undefined : unitIdRaw;
 
       if (!title || !propertyId) {
         alert("Mangler tittel eller eiendom");
@@ -66,7 +67,12 @@ export default function ProjectForm({ properties }: ProjectFormProps) {
 
       <div className="space-y-2">
         <Label htmlFor="propertyId">Eiendom</Label>
-        <Select name="propertyId" onValueChange={setSelectedPropertyId} required>
+        <Select 
+          name="propertyId" 
+          value={selectedPropertyId} 
+          onValueChange={setSelectedPropertyId} 
+          required
+        >
           <SelectTrigger>
             <SelectValue placeholder="Velg eiendom" />
           </SelectTrigger>
@@ -81,12 +87,12 @@ export default function ProjectForm({ properties }: ProjectFormProps) {
       {selectedProperty && selectedProperty.units.length > 0 && (
         <div className="space-y-2">
           <Label htmlFor="unitId">Enhet (valgfri)</Label>
-          <Select name="unitId">
+          <Select name="unitId" key={selectedPropertyId}>
             <SelectTrigger>
               <SelectValue placeholder="Gjelder hele eiendommen" />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="">Gjelder hele eiendommen</SelectItem>
+              <SelectItem value="none">Gjelder hele eiendommen</SelectItem>
               {selectedProperty.units.map((u) => (
                 <SelectItem key={u.id} value={u.id}>
                   {u.unitNumber ? `${u.unitNumber} - ${u.name}` : u.name}
