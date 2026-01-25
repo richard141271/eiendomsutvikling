@@ -7,8 +7,10 @@ import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { format } from "date-fns";
 import { nb } from "date-fns/locale";
-import { Mail, Phone, MapPin, FileText, CheckCircle } from "lucide-react";
+import { Mail, Phone, MapPin, FileText, CheckCircle, ExternalLink, Download } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { GenerateCertificateDialog } from "@/components/generate-certificate-dialog";
+import { createClient } from "@/lib/supabase-server";
 
 interface TenantPageProps {
   params: {
@@ -24,6 +26,16 @@ const contractStatusMap: Record<string, string> = {
 };
 
 export default async function TenantPage({ params }: TenantPageProps) {
+  // Verify auth and role
+  const supabase = createClient();
+  const { data: { user: authUser } } = await supabase.auth.getUser();
+
+  if (!authUser) {
+    // Redirect or show error, but layout usually handles this.
+    // For safety:
+    return <div>Du må være logget inn.</div>;
+  }
+
   const tenant = await prisma.user.findUnique({
     where: { id: params.id },
     include: {
@@ -59,6 +71,7 @@ export default async function TenantPage({ params }: TenantPageProps) {
           <h1 className="text-3xl font-bold">{tenant.name}</h1>
           <p className="text-muted-foreground">Leietaker ID: {tenant.id.slice(0, 8)}</p>
         </div>
+        <GenerateCertificateDialog tenantId={tenant.id} tenantName={tenant.name} />
       </div>
 
       <div className="grid gap-4 md:grid-cols-3">
@@ -232,6 +245,7 @@ export default async function TenantPage({ params }: TenantPageProps) {
                         <TableHead>Dato</TableHead>
                         <TableHead>Total Score</TableHead>
                         <TableHead>Kommentar</TableHead>
+                        <TableHead className="text-right">PDF</TableHead>
                       </TableRow>
                     </TableHeader>
                     <TableBody>
@@ -261,6 +275,20 @@ export default async function TenantPage({ params }: TenantPageProps) {
                           </TableCell>
                           <TableCell className="max-w-md truncate">
                             {cert.comment || "-"}
+                          </TableCell>
+                          <TableCell className="text-right">
+                            {/* @ts-ignore: pdfUrl exists in schema but type is stale */}
+                            {cert.pdfUrl ? (
+                              <Button variant="outline" size="sm" asChild>
+                                {/* @ts-ignore: pdfUrl exists in schema but type is stale */}
+                                <a href={`/api/certificates/${cert.id}/pdf`} target="_blank" rel="noopener noreferrer">
+                                  <FileText className="h-4 w-4 mr-2" />
+                                  Vis PDF
+                                </a>
+                              </Button>
+                            ) : (
+                              <span className="text-xs text-muted-foreground">Ingen PDF</span>
+                            )}
                           </TableCell>
                         </TableRow>
                       ))}

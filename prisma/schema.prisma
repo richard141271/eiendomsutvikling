@@ -46,6 +46,8 @@ model TenantCertificate {
   cleaningScore Int
   stars         Int      @default(0)
   comment       String?
+  pdfUrl        String?
+  pdfHash       String?
   createdAt     DateTime @default(now())
   issuer        User     @relation("IssuedCertificates", fields: [issuerId], references: [id])
   tenant        User     @relation("ReceivedCertificates", fields: [tenantId], references: [id])

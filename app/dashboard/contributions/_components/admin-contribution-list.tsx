@@ -48,9 +48,11 @@ export function AdminContributionList({ initialContributions }: AdminContributio
         updates.stars
       );
 
-      if (res.success) {
+      if (res.success && res.data) {
+        // Update with the actual returned data from server (which includes auto-awarded stars)
+        // @ts-ignore - Prisma return type mismatch with simple state
         setContributions(contributions.map(c => 
-          c.id === id ? { ...c, ...updates, starsAwarded: updates.stars ?? c.starsAwarded } : c
+          c.id === id ? { ...c, ...res.data } : c
         ));
       } else {
         alert(res.error || "Kunne ikke oppdatere");

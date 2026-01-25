@@ -1,0 +1,442 @@
+<!DOCTYPE html>
+<html lang="no">
+<head>
+<meta charset="UTF-8" />
+<title>Leietakerbevis</title>
+<style>
+  @page {
+    size: A4 portrait;
+    margin: 0;
+  }
+  
+  * {
+    box-sizing: border-box;
+  }
+
+  body {
+    margin: 0;
+    padding: 0;
+    font-family: 'Georgia', 'Times New Roman', serif;
+    background: white;
+    width: 210mm;
+    height: 297mm;
+    -webkit-print-color-adjust: exact;
+  }
+
+  .container {
+    width: 100%;
+    height: 100%;
+    padding: 15mm;
+    display: flex;
+    flex-direction: column;
+  }
+
+  /* Dynamic Colors based on status class on body */
+  body.gold .theme-border { border-color: #ca8a04; } /* yellow-600 */
+  body.gold .theme-text { color: #ca8a04; }
+  
+  body.silver .theme-border { border-color: #475569; } /* slate-600 */
+  body.silver .theme-text { color: #475569; }
+
+  body.diamond .theme-border { border-color: #0e7490; } /* cyan-700 */
+  body.diamond .theme-text { color: #0e7490; }
+
+  body.standard .theme-border { border-color: #047857; } /* emerald-700 */
+  body.standard .theme-text { color: #047857; }
+
+  .outer-frame {
+    border-width: 3px;
+    border-style: solid;
+    padding: 4px;
+    height: 100%;
+    display: flex;
+    flex-direction: column;
+    position: relative;
+  }
+
+  .inner-frame {
+    border: 1px solid #cbd5e1; /* slate-300 */
+    width: 100%;
+    height: 100%;
+    padding: 48px; /* p-12 */
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    position: relative;
+  }
+
+  .header {
+    margin-top: 16px; /* mt-4 */
+    margin-bottom: 40px; /* mb-10 */
+    text-align: center;
+  }
+
+  h1 {
+    font-size: 48px; /* 5xl approx */
+    color: #0f172a; /* slate-900 */
+    margin: 0 0 12px 0;
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
+    font-weight: normal; /* serif usually not bold for this look */
+  }
+
+  .subtitle {
+    font-size: 24px; /* 2xl */
+    color: #64748b; /* slate-500 */
+    font-style: italic;
+    margin: 0;
+  }
+
+  .divider {
+    width: 75%;
+    height: 4px;
+    border-bottom: 4px double #cbd5e1; /* slate-300 */
+    margin-bottom: 48px; /* mb-12 */
+  }
+
+  .watermark {
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 0;
+    pointer-events: none;
+  }
+
+  .watermark svg {
+    width: 500px;
+    height: 500px;
+    color: #e2e8f0; /* slate-200 */
+    opacity: 0.4; /* Slightly more visible than 0.2 because print */
+  }
+
+  .content {
+    position: relative;
+    z-index: 10;
+    width: 100%;
+    text-align: center;
+    margin-bottom: 48px; /* mb-12 */
+  }
+
+  .intro-text {
+    color: #334155; /* slate-700 */
+    font-size: 20px; /* xl */
+    margin-bottom: 32px;
+  }
+
+  .name-container {
+    display: inline-block;
+    border-bottom: 1px solid #0f172a; /* slate-900 */
+    padding: 0 40px 8px 40px; /* px-10 pb-2 */
+    margin-bottom: 32px;
+  }
+
+  .name {
+    font-size: 48px; /* 5xl */
+    font-weight: bold;
+    color: #0f172a; /* slate-900 */
+    margin: 0;
+  }
+
+  .body-text {
+    max-width: 600px; /* Reduced from 672px to force 3-line wrap like Admin view */
+    margin: 0 auto;
+    color: #334155; /* slate-700 */
+    font-size: 20px; /* xl */
+    line-height: 1.625; /* leading-relaxed */
+  }
+
+  .status-badge {
+    position: relative;
+    margin-bottom: 64px; /* mb-16 */
+    z-index: 10;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 16px;
+    font-size: 36px; /* 4xl */
+    font-weight: bold;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    white-space: nowrap;
+  }
+
+  .star-icon {
+    width: 32px;
+    height: 32px;
+    fill: currentColor;
+  }
+
+  .bottom-section {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-end;
+    width: 100%;
+    max-width: 800px; /* max-w-3xl */
+    padding: 0 32px;
+    margin-top: auto; /* Push to bottom */
+    margin-bottom: 48px;
+    position: relative;
+    z-index: 10;
+  }
+
+  .rating-box {
+    background: #f8fafc; /* slate-50 */
+    padding: 24px;
+    border-radius: 2px;
+    width: 320px; /* w-80 */
+    box-shadow: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
+    border: 1px solid #f1f5f9; /* slate-100 */
+    font-family: sans-serif; /* Rating box usually sans */
+  }
+
+  .rating-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 16px;
+    padding-bottom: 8px;
+    border-bottom: 1px solid #e2e8f0; /* slate-200 */
+  }
+
+  .rating-title {
+    font-weight: bold;
+    color: #0f172a;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    font-size: 14px;
+  }
+
+  .rating-score {
+    font-weight: bold;
+    display: flex;
+    align-items: center;
+    gap: 4px;
+  }
+
+  .rating-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    color: #334155; /* slate-700 */
+    font-size: 14px;
+    margin-bottom: 8px;
+  }
+
+  .stars {
+    color: #0f172a; /* slate-900 */
+    letter-spacing: 2px;
+  }
+
+  .qr-section {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+  }
+
+  .qr-frame {
+    border: 4px solid #0f172a; /* slate-900 */
+    padding: 8px;
+    margin-bottom: 8px;
+    background: white;
+  }
+
+  .qr-text {
+    font-size: 10px;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    color: #64748b; /* slate-500 */
+    margin-bottom: 4px;
+    font-family: sans-serif;
+  }
+
+  .qr-id {
+    font-size: 8px;
+    font-family: monospace;
+    color: #94a3b8; /* slate-400 */
+    max-width: 150px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  .footer {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-end;
+    width: 100%;
+    padding: 0 16px;
+    margin-top: 48px;
+    font-family: sans-serif;
+    position: relative;
+    z-index: 10;
+  }
+
+  .footer-col {
+    width: 33%;
+    text-align: center;
+  }
+
+  .footer-line {
+    height: 1px;
+    background: #94a3b8; /* slate-400 */
+    width: 100%;
+    margin-bottom: 8px;
+  }
+
+  .footer-label {
+    color: #64748b; /* slate-500 */
+    font-size: 12px;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+  }
+
+  .logo-section {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    color: #0f172a;
+    margin-bottom: 8px;
+  }
+
+  .logo-text {
+    font-size: 20px;
+    font-weight: bold;
+    letter-spacing: -0.025em;
+  }
+
+</style>
+</head>
+<body>
+
+<div class="container">
+  <!-- Outer Frame with dynamic border color -->
+  <div class="outer-frame theme-border">
+    <!-- Inner Frame -->
+    <div class="inner-frame theme-border">
+
+      <div class="watermark">
+        <!-- ShieldCheck SVG -->
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
+          <path d="m9 12 2 2 4-4"/>
+        </svg>
+      </div>
+
+      <div class="header">
+        <h1>LEIETAKERBEVIS</h1>
+        <p class="subtitle">Utstedt av {{issuer}}</p>
+      </div>
+
+      <div class="divider"></div>
+
+      <div class="content">
+        <p class="intro-text">Det bekreftes herved at</p>
+        
+        <div class="name-container">
+          <div class="name">{{tenantName}}</div>
+        </div>
+
+        <div class="body-text">
+          <!-- Text forced to break as per design -->
+          Har gjennomført et leieforhold med fremragende resultater og har oppnådd<br/>status som
+        </div>
+      </div>
+
+      <div class="status-badge theme-text">
+        <svg class="star-icon" viewBox="0 0 24 24"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/></svg>
+        <span>{{statusText}}</span>
+        <svg class="star-icon" viewBox="0 0 24 24"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/></svg>
+      </div>
+
+      <div class="bottom-section">
+        <div class="rating-box">
+          <div class="rating-header">
+            <span class="rating-title">VURDERING</span>
+            <span class="rating-score theme-text">
+              <!-- Score will be dynamically set or defaulted to 50/50 -->
+              <span id="score-val">{{stars}}/50</span>
+              <svg style="width:12px;height:12px;fill:currentColor" viewBox="0 0 24 24"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/></svg>
+            </span>
+          </div>
+          <div class="rating-row">
+            <span>Betalingsevne</span>
+            <div class="stars">★★★★★</div>
+          </div>
+          <div class="rating-row">
+            <span>Orden & Renhold</span>
+            <div class="stars">★★★★★</div>
+          </div>
+          <div class="rating-row">
+            <span>Naboforhold</span>
+            <div class="stars">★★★★★</div>
+          </div>
+        </div>
+
+        <div class="qr-section">
+          <div class="qr-frame">
+            <img src="{{qrCodeBase64}}" style="width: 110px; height: 110px; display: block;" />
+          </div>
+          <div class="qr-text">SCAN FOR Å VERIFISERE</div>
+          <div class="qr-id">{{certificateId}}</div>
+        </div>
+      </div>
+
+      <div class="footer">
+        <div class="footer-col">
+          <div class="footer-line"></div>
+          <div class="footer-label">DATO: {{date}}</div>
+        </div>
+        
+        <div class="logo-section">
+          <svg style="width:24px;height:24px;" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
+            <path d="m9 12 2 2 4-4"/>
+          </svg>
+          <span class="logo-text">Halden Eiendomsutvikling</span>
+        </div>
+
+        <div class="footer-col">
+          <div style="font-size: 20px; margin-bottom: 4px; color: #0f172a;">Signert Digitalt</div>
+          <div class="footer-line"></div>
+          <div class="footer-label">SIGNATUR</div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+</div>
+
+<script>
+  // Apply theme based on status text
+  const status = "{{statusText}}".toUpperCase();
+  const body = document.body;
+  
+  if (status.includes("DIAMANT")) {
+    body.classList.add("diamond");
+  } else if (status.includes("GULL")) {
+    body.classList.add("gold");
+  } else if (status.includes("SØLV")) {
+    body.classList.add("silver");
+  } else {
+    body.classList.add("standard");
+  }
+
+  // Adjust text if it's not "Gold" text
+  const bodyText = document.querySelector('.body-text');
+  if (status.includes("SØLV")) {
+    bodyText.innerHTML = "Denne leietakeren har gjennom eget initiativ og positive bidrag under leieforholdet oppnådd status som";
+  } else if (status.includes("GULL")) {
+    bodyText.innerHTML = "Har gjennomført et leieforhold med fremragende resultater og har oppnådd<br/>status som";
+  } else if (status.includes("DIAMANT")) {
+    bodyText.innerHTML = "Denne leietakeren har gjennom vedvarende initiativ og betydelige positive bidrag under leieforholdet oppnådd status som";
+  }
+</script>
+
+</body>
+</html>

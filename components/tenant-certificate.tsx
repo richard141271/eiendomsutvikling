@@ -205,20 +205,20 @@ export function TenantCertificate({
           </div>
 
           {/* Footer Signature */}
-          <div className="flex justify-between items-center w-full px-4 mt-12 mb-4 relative z-10 font-sans">
-             <div className="text-center w-1/3 mb-4">
+          <div className="flex justify-between items-end w-full px-4 mt-12 mb-4 relative z-10 font-sans">
+             <div className="text-center w-1/3 mb-8">
                 <div className="h-px bg-slate-400 w-full mb-2"></div>
                 <div className="text-slate-500 text-xs uppercase tracking-widest">
                   DATO: {issueDate ? new Date(issueDate).toLocaleDateString('no-NO') : new Date().toLocaleDateString('no-NO')}
                 </div>
              </div>
              
-             <div className="flex items-center gap-2 text-slate-900 mx-auto mt-2">
+             <div className="flex items-center gap-2 text-slate-900 mx-auto mb-2">
                 <ShieldCheck className="w-10 h-10 stroke-[1.5]" />
                 <span className="text-xl font-bold tracking-tight whitespace-nowrap">Halden Eiendomsutvikling</span>
              </div>
 
-             <div className="text-center w-1/3 mb-4">
+             <div className="text-center w-1/3 mb-8">
                 <div className="text-xl text-slate-900 mb-1">Signert Digitalt</div>
                 <div className="h-px bg-slate-400 w-full mb-2"></div>
                 <div className="text-slate-500 text-xs uppercase tracking-widest">SIGNATUR</div>

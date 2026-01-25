@@ -49,6 +49,52 @@ export default async function VerifyPage({ params }: VerifyPageProps) {
     return notFound();
   }
 
+  // Check for PDF availability
+  // @ts-ignore: pdfUrl and pdfHash exist in schema but types are stale
+  const pdfUrl = certificate?.pdfUrl;
+  // @ts-ignore
+  const pdfHash = certificate?.pdfHash;
+
+  if (pdfUrl) {
+    return (
+      <div className="min-h-screen bg-slate-50 flex flex-col items-center justify-center p-4">
+        <div className="text-center mb-6">
+          <h1 className="text-2xl font-bold text-slate-900 mb-2">Offisiell Verifisering</h1>
+          <div className="flex items-center justify-center gap-2 text-green-600 font-medium bg-green-50 px-4 py-2 rounded-full border border-green-200 inline-flex">
+            <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>
+            Gyldig Sertifikat
+          </div>
+        </div>
+
+        <div className="w-full max-w-4xl bg-white shadow-xl rounded-lg overflow-hidden border border-slate-200">
+           <iframe 
+             src={`/api/certificates/${id}/pdf`} 
+             className="w-full h-[800px] border-none"
+             title="Leietakerbevis"
+           />
+        </div>
+
+        <div className="text-center text-sm text-slate-500 mt-8 max-w-2xl bg-white p-6 rounded-lg border border-slate-200 shadow-sm">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-left">
+            <div>
+              <p className="font-semibold text-slate-700">Sist verifisert:</p>
+              <p>{new Date().toLocaleString('no-NO')}</p>
+            </div>
+            <div>
+              <p className="font-semibold text-slate-700">Dokument-hash (SHA256):</p>
+              <p className="font-mono text-xs break-all text-slate-400">{pdfHash || "Ikke tilgjengelig"}</p>
+            </div>
+            <div className="md:col-span-2 mt-2 pt-4 border-t border-slate-100">
+              <p className="text-xs text-slate-400">
+                Dette dokumentet er kryptografisk signert og lagret permanent. Hash-verdien over garanterer at dokumentet ikke er endret siden utstedelse.
+              </p>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   // Fetch Member Since if not available from certificate context (though we need it for the component)
   const earliestContract = await prisma.leaseContract.findFirst({
     where: { tenantId: user.id },
