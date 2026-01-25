@@ -1,4 +1,5 @@
-import puppeteer from 'puppeteer';
+import puppeteer from 'puppeteer-core';
+import chromium from '@sparticuz/chromium';
 import fs from 'fs';
 import path from 'path';
 import QRCode from 'qrcode';
@@ -25,9 +26,16 @@ interface GeneratedCertificate {
 }
 
 export async function generateCertificatePDF(data: CertificateData): Promise<GeneratedCertificate> {
+  let executablePath = await chromium.executablePath();
+  if (!executablePath) {
+    // Fallback for local development (macOS)
+    executablePath = "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome";
+  }
+
   const browser = await puppeteer.launch({
+    args: chromium.args,
+    executablePath,
     headless: true,
-    args: ['--no-sandbox', '--disable-setuid-sandbox', '--disable-dev-shm-usage'],
   });
   
   try {
@@ -106,9 +114,16 @@ interface ProjectReportData {
 }
 
 export async function generateProjectReportPDF(data: ProjectReportData): Promise<GeneratedCertificate> {
+  let executablePath = await chromium.executablePath();
+  if (!executablePath) {
+    // Fallback for local development (macOS)
+    executablePath = "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome";
+  }
+
   const browser = await puppeteer.launch({
+    args: chromium.args,
+    executablePath,
     headless: true,
-    args: ['--no-sandbox', '--disable-setuid-sandbox', '--disable-dev-shm-usage'],
   });
   
   try {
