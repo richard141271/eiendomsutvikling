@@ -73,9 +73,19 @@ export function TenantCertificate({
   const tier = getTier(stars);
 
   // Document Text Logic
-  // Diploma Text and Status is now static for all tiers, as requested.
-  const certText = "Har gjennomført et leieforhold med fremragende resultater og har oppnådd status som";
-  const statusLabel = "VERIFISERT LEIETAKER";
+  let certText = "Har gjennomført et leieforhold med fremragende resultater og har oppnådd status som";
+  let statusLabel = "VERIFISERT LEIETAKER";
+
+  if (tier.name === "Sølv") {
+    certText = "Denne leietakeren har gjennom eget initiativ og positive bidrag under leieforholdet oppnådd status som";
+    statusLabel = "SØLV-LEIETAKER (VERIFISERT)";
+  } else if (tier.name === "Gull") {
+    certText = "Denne leietakeren har gjennom eget initiativ og ekstraordinære positive bidrag under leieforholdet oppnådd status som";
+    statusLabel = "GULL-LEIETAKER (VERIFISERT)";
+  } else if (tier.name === "Diamant") {
+    certText = "Denne leietakeren har gjennom vedvarende initiativ og betydelige positive bidrag under leieforholdet oppnådd status som";
+    statusLabel = "DIAMANT-LEIETAKER (VERIFISERT)";
+  }
   
   if (variant === 'print') {
     return (
