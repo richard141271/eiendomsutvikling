@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { generateCertificatePDF } from '@/lib/pdf-generator';
 import { createClient } from '@/lib/supabase-server';
-import { createAdminClient } from '@/lib/supabase-admin';
+import { createAdminClient, ensureBucketExists } from '@/lib/supabase-admin';
 import { getCertificateContent } from '@/lib/certificate-utils';
 import path from 'path';
 
@@ -98,6 +98,9 @@ export async function POST(req: NextRequest) {
 
     // Use admin client for storage operations to bypass RLS
     const adminSupabase = createAdminClient();
+
+    // Ensure bucket exists
+    await ensureBucketExists('reports');
 
     // Upload to Supabase Storage
     const { data: uploadData, error: uploadError } = await adminSupabase.storage

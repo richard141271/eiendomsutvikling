@@ -1,7 +1,7 @@
 
 import { prisma } from "@/lib/prisma";
 import { createClient } from "@/lib/supabase-server";
-import { createAdminClient } from "@/lib/supabase-admin";
+import { createAdminClient, ensureBucketExists } from "@/lib/supabase-admin";
 import { NextResponse } from "next/server";
 import { generateProjectReportPDF } from "@/lib/pdf-generator";
 
@@ -19,6 +19,9 @@ export async function POST(
 
     // Use admin client for storage operations to bypass RLS
     const adminSupabase = createAdminClient();
+
+    // Ensure bucket exists
+    await ensureBucketExists('reports');
 
     const project = await prisma.project.findUnique({
       where: { id: params.id },
