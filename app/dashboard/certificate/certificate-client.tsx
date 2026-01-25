@@ -86,7 +86,7 @@ export default function CertificateClient({ name, id, issueDate, score, stars = 
           score={score} 
           stars={stars}
           id={id}
-          variant="print"
+          variant={activeTab === 'print' ? 'print' : 'digital'}
           memberSince={memberSince}
           baseUrl={baseUrl}
         />
