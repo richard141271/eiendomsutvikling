@@ -1,3 +1,4 @@
+"use client";
 
 import { createProject } from "@/app/actions/projects";
 import { Button } from "@/components/ui/button";
