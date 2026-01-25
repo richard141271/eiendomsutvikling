@@ -25,12 +25,12 @@ interface LocationTask {
   id: string;
   title: string;
   locationName: string;
-  address?: string;
+  address?: string | null;
   latitude: number;
   longitude: number;
   radius: number;
   done: boolean;
-  type?: "SIMPLE" | "CHECKLIST";
+  type?: string;
   items?: LocationTaskItem[];
 }
 
