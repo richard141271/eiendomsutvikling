@@ -65,13 +65,7 @@ export async function updateContributionStatus(id: string, status: ContributionS
         });
         if (!existingContribution) throw new Error("Bidraget ble ikke funnet");
 
-        let newStars = stars !== undefined ? stars : existingContribution.starsAwarded;
-
-        // Auto-award 1 star if marking as COMPLETED and no stars currently awarded or specified
-        if (status === 'COMPLETED' && existingContribution.status !== 'COMPLETED' && stars === undefined && existingContribution.starsAwarded === 0) {
-            newStars = 1;
-        }
-
+        const newStars = stars !== undefined ? stars : existingContribution.starsAwarded;
         const starDelta = newStars - existingContribution.starsAwarded;
 
         const contribution = await tx.tenantContribution.update({

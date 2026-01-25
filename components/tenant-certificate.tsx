@@ -73,14 +73,9 @@ export function TenantCertificate({
   const tier = getTier(stars);
 
   // Document Text Logic
-  let certText = "Denne leietakeren har gjennomført et leieforhold i henhold til standard vilkår.";
-  if (tier.name === "Sølv") {
-    certText = "Denne leietakeren har gjennom eget initiativ og positive bidrag under leieforholdet oppnådd status som Sølv-leietaker.";
-  } else if (tier.name === "Gull") {
-    certText = "Denne leietakeren har gjennom eget initiativ og ekstraordinære positive bidrag under leieforholdet oppnådd status som Gull-leietaker.";
-  } else if (tier.name === "Diamant") {
-    certText = "Denne leietakeren har gjennom vedvarende initiativ og betydelige positive bidrag under leieforholdet oppnådd status som Diamant-leietaker.";
-  }
+  // Diploma Text and Status is now static for all tiers, as requested.
+  const certText = "Har gjennomført et leieforhold med fremragende resultater og har oppnådd status som";
+  const statusLabel = "VERIFISERT LEIETAKER";
   
   if (variant === 'print') {
     return (
@@ -115,9 +110,7 @@ export function TenantCertificate({
             {certText}
           </p>
           <div className="text-3xl font-bold uppercase tracking-widest text-yellow-600 flex items-center gap-2">
-            <Star className="fill-current" />
-            {tier.name}-leietaker (Verifisert)
-            <Star className="fill-current" />
+            {statusLabel}
           </div>
         </div>
 
@@ -126,8 +119,8 @@ export function TenantCertificate({
           <div className="border p-6 bg-slate-50">
              <div className="flex justify-between items-center border-b pb-2 mb-4">
                <h3 className="font-bold text-lg uppercase tracking-wide">Totalvurdering</h3>
-               <span className="font-bold text-lg text-yellow-600 flex items-center gap-1">
-                 {stars}/50 <Star className="w-4 h-4 fill-current" />
+               <span className="font-bold text-lg text-slate-900 flex items-center gap-1">
+                 {stars}/50
                </span>
              </div>
              <div className="flex justify-between items-center mb-2">
@@ -182,7 +175,9 @@ export function TenantCertificate({
       
       {/* Gold/Color Accents based on Tier */}
       <div className={cn("absolute top-0 right-0 w-32 h-32 blur-3xl rounded-full pointer-events-none opacity-20", 
-          tier.name === 'Diamant' ? 'bg-cyan-500' : (tier.name === 'Gull' ? 'bg-yellow-500' : 'bg-slate-400')
+          tier.name === 'Diamant' ? 'bg-cyan-500' : 
+          (tier.name === 'Gull' ? 'bg-yellow-500' : 
+          (tier.name === 'Standard' ? 'bg-emerald-500' : 'bg-slate-400'))
       )}></div>
       <div className="absolute bottom-0 left-0 w-32 h-32 bg-blue-500/10 blur-3xl rounded-full pointer-events-none"></div>
 
@@ -200,9 +195,9 @@ export function TenantCertificate({
           </div>
           
           {/* Verified Badge & Tier */}
-          <div className="flex flex-col items-end">
-             <div className={cn("px-2 py-0.5 rounded-full border mb-1", tier.bg, tier.border)}>
-               <span className={cn("text-[10px] font-bold uppercase tracking-wider", tier.color)}>Verifisert</span>
+          <div className="flex flex-col items-end mr-[-4px]">
+             <div className={cn("px-1.5 py-[2px] rounded-full border mb-1", tier.bg, tier.border)}>
+               <span className={cn("text-[8px] font-bold uppercase tracking-wider", tier.color)}>Verifisert</span>
              </div>
              <span className={cn("text-xs font-medium", tier.color)}>{tier.name}-leietaker</span>
           </div>
@@ -211,7 +206,9 @@ export function TenantCertificate({
         {/* Chip & User Info */}
         <div className="flex items-center gap-4 my-4">
            <div className={cn("w-12 h-9 rounded bg-gradient-to-br shadow-inner opacity-80 flex items-center justify-center", 
-              tier.name === 'Diamant' ? 'from-cyan-200 to-cyan-400' : (tier.name === 'Gull' ? 'from-yellow-200 to-yellow-400' : 'from-slate-200 to-slate-400')
+              tier.name === 'Diamant' ? 'from-cyan-200 to-cyan-400' : 
+              (tier.name === 'Gull' ? 'from-yellow-200 to-yellow-400' : 
+              (tier.name === 'Standard' ? 'from-emerald-200 to-emerald-400' : 'from-slate-200 to-slate-400'))
            )}>
              <div className="w-8 h-5 border border-black/10 rounded-sm grid grid-cols-2 gap-[1px]">
                 <div className="border-r border-black/10"></div>
