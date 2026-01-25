@@ -119,13 +119,18 @@ export function TenantCertificate({
 
           <div className="w-3/4 h-px bg-slate-300 mb-12"></div>
 
+          {/* Watermark */}
+          <div className="absolute inset-0 flex items-center justify-center pointer-events-none z-0 overflow-hidden">
+            <ShieldCheck className="w-[500px] h-[500px] text-slate-100/50 opacity-20" />
+          </div>
+
           {/* Main Content */}
-          <div className="space-y-6 mb-12">
+          <div className="space-y-6 mb-12 relative z-10">
             <p className="text-slate-700 text-lg">Det bekreftes herved at</p>
             <h2 className="text-5xl font-serif font-bold text-slate-900 py-4">{name}</h2>
             <div className="max-w-2xl mx-auto">
                <p className="text-slate-700 text-lg leading-relaxed">
-                 har gjennomført et leieforhold med fremragende resultater og har oppnådd status som
+                 Har gjennomført et leieforhold med fremragende resultater og har oppnådd status som
                </p>
             </div>
           </div>
@@ -237,6 +242,9 @@ export function TenantCertificate({
              <div className={cn("px-2.5 py-0.5 rounded-full border border-opacity-50 mr-[-4px]", tier.bg, tier.border)}>
                <span className={cn("text-[9px] font-bold uppercase tracking-widest", tier.color)}>Verifisert</span>
              </div>
+             {tier.name !== 'Standard' && (
+               <span className={cn("text-[10px] font-medium tracking-wide uppercase mr-[-2px]", tier.color)}>{tier.name}-leietaker</span>
+             )}
           </div>
         </div>
 
