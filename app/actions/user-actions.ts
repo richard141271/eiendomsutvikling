@@ -43,9 +43,10 @@ export async function resetUserPassword(userId: string, newPassword: string) {
             const envPath = path.join(process.cwd(), '.env');
             if (fs.existsSync(envPath)) {
                 const envContent = fs.readFileSync(envPath, 'utf-8');
-                const match = envContent.match(/SUPABASE_SERVICE_ROLE_KEY="([^"]+)"/);
+                // Support both quoted and unquoted values
+                const match = envContent.match(/SUPABASE_SERVICE_ROLE_KEY=(.*)/);
                 if (match && match[1]) {
-                    serviceRoleKey = match[1];
+                    serviceRoleKey = match[1].trim().replace(/^["']|["']$/g, '');
                     console.log("DEBUG: Manually loaded SUPABASE_SERVICE_ROLE_KEY from .env");
                 }
             }
