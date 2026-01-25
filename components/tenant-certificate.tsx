@@ -89,88 +89,56 @@ export function TenantCertificate({
   
   if (variant === 'print') {
     return (
-      <div className="w-[210mm] h-[280mm] bg-white text-slate-900 p-10 relative overflow-hidden border-8 border-double border-slate-200 shadow-2xl mx-auto print:border-none print:shadow-none print:m-0 print:w-full">
-        <style jsx global>{`
-          @page {
-            size: A4;
-            margin: 0;
-          }
-          @media print {
-            body {
-              -webkit-print-color-adjust: exact;
-            }
-          }
-        `}</style>
-        {/* Background Watermark */}
-        <div className="absolute inset-0 flex items-center justify-center opacity-[0.03] pointer-events-none">
-          <ShieldCheck className="w-[500px] h-[500px]" />
-        </div>
-
-        {/* Header */}
-        <div className="text-center border-b-2 border-slate-900 pb-8 mb-12">
-          <h1 className="text-5xl font-serif tracking-wider uppercase mb-2">Leietakerbevis</h1>
-          <p className="text-xl text-slate-500 font-serif italic">Utstedt av Halden Eiendomsutvikling</p>
-        </div>
-
-        {/* Content */}
-        <div className="flex flex-col items-center justify-center space-y-8 mb-16">
-          <p className="text-xl">Det bekreftes herved at</p>
-          <h2 className="text-4xl font-bold font-serif border-b border-slate-300 pb-2 px-8">{name}</h2>
-          <p className="text-xl text-center max-w-2xl leading-relaxed">
-            {certText}
-          </p>
-          <div className="text-3xl font-bold uppercase tracking-widest text-yellow-600 flex items-center gap-2">
-            {statusLabel}
-          </div>
-        </div>
-
-        {/* Score Details */}
-        <div className="grid grid-cols-2 gap-12 max-w-3xl mx-auto mb-16 w-full">
-          <div className="border p-6 bg-slate-50">
-             <div className="flex justify-between items-center border-b pb-2 mb-4">
-               <h3 className="font-bold text-lg uppercase tracking-wide">Totalvurdering</h3>
-               <span className="font-bold text-lg text-slate-900 flex items-center gap-1">
-                 {stars}/50
-               </span>
-             </div>
-             <div className="flex justify-between items-center mb-2">
-               <span>Betalingsevne</span>
-               <div className="flex gap-1">{[1,2,3,4,5].map(i => <Star key={i} className="w-4 h-4 fill-slate-900 text-slate-900" />)}</div>
-             </div>
-             <div className="flex justify-between items-center mb-2">
-               <span>Orden & Renhold</span>
-               <div className="flex gap-1">{[1,2,3,4,5].map(i => <Star key={i} className="w-4 h-4 fill-slate-900 text-slate-900" />)}</div>
-             </div>
-             <div className="flex justify-between items-center mb-2">
-               <span>Naboforhold</span>
-               <div className="flex gap-1">{[1,2,3,4,5].map(i => <Star key={i} className="w-4 h-4 fill-slate-900 text-slate-900" />)}</div>
-             </div>
+      <div className="w-full max-w-4xl mx-auto bg-white p-12 shadow-xl print:shadow-none print:p-0">
+        {/* Border Frame */}
+        <div className="border-8 border-double border-slate-200 p-8 h-full flex flex-col items-center text-center relative overflow-hidden">
+          
+          {/* Background Pattern */}
+          <div className="absolute inset-0 opacity-5 pointer-events-none">
+            <div className="absolute inset-0" style={{
+              backgroundImage: 'radial-gradient(circle at 2px 2px, black 1px, transparent 0)',
+              backgroundSize: '24px 24px'
+            }}></div>
           </div>
 
-          <div className="flex flex-col items-center justify-center">
-             <div className="border-4 border-slate-900 p-2 mb-2">
-                <QRCodeSVG value={verificationUrl} size={100} />
-             </div>
-             <p className="text-xs text-slate-500 uppercase tracking-wide">Scan for å verifisere</p>
-             <p className="text-xs font-mono mt-1">{id}</p>
+          {/* Header */}
+          <div className="mb-12 relative z-10">
+            <div className="w-24 h-24 bg-slate-100 rounded-full flex items-center justify-center mx-auto mb-6 border-4 border-slate-200">
+               <ShieldCheck className="w-12 h-12 text-slate-800" />
+            </div>
+            <h1 className="text-5xl font-serif font-bold text-slate-900 mb-4 tracking-tight">LEIETAKERBEVIS</h1>
+            <div className="text-3xl font-bold uppercase tracking-widest text-yellow-600 flex items-center gap-2">
+              <Star className="fill-current w-8 h-8" />
+              {statusLabel}
+              <Star className="fill-current w-8 h-8" />
+            </div>
           </div>
-        </div>
 
-        {/* Footer */}
-        <div className="absolute bottom-12 left-12 right-12 flex justify-between items-end border-t border-slate-300 pt-8">
-          <div className="text-center">
-            <div className="h-16 border-b border-slate-400 w-48 mb-2"></div>
-            <p className="text-sm uppercase text-slate-500">Dato: {issueDate.toLocaleDateString()}</p>
-          </div>
-          <div className="flex items-center gap-2">
-            <ShieldCheck className="w-8 h-8 text-slate-900" />
-            <span className="font-bold text-lg">Halden Eiendomsutvikling</span>
-          </div>
-          <div className="text-center">
-             <div className="h-16 border-b border-slate-400 w-48 mb-2 flex items-end justify-center pb-2">
-               <span className="font-dancing-script text-2xl">Signert Digitalt</span>
-             </div>
-             <p className="text-sm uppercase text-slate-500">Signatur</p>
+          {/* Content */}
+          <div className="max-w-2xl mx-auto space-y-8 relative z-10">
+            <div className="space-y-2">
+              <p className="text-slate-500 uppercase tracking-widest text-sm">Tildelt til</p>
+              <h2 className="text-4xl font-serif font-bold text-slate-900">{name}</h2>
+            </div>
+
+            <div className="py-8 border-t border-b border-slate-200">
+              <p className="text-xl leading-relaxed text-slate-700 font-serif italic">
+                {certText}
+              </p>
+            </div>
+
+            <div className="grid grid-cols-2 gap-12 text-left">
+              <div>
+                <p className="text-slate-500 uppercase tracking-widest text-xs mb-1">Medlem siden</p>
+                <p className="font-bold text-lg text-slate-900">{memberSinceYear}</p>
+              </div>
+              <div>
+                <p className="text-slate-500 uppercase tracking-widest text-xs mb-1">Totalvurdering</p>
+                <span className="font-bold text-lg text-yellow-600 flex items-center gap-1">
+                  {stars}/50
+                </span>
+              </div>
+            </div>
           </div>
         </div>
       </div>
@@ -205,11 +173,10 @@ export function TenantCertificate({
           </div>
           
           {/* Verified Badge & Tier */}
-          <div className="flex flex-col items-end mr-[-4px]">
-             <div className={cn("px-1.5 py-[2px] rounded-full border mb-1", tier.bg, tier.border)}>
-               <span className={cn("text-[8px] font-bold uppercase tracking-wider", tier.color)}>Verifisert</span>
+          <div className="flex flex-col items-end">
+             <div className={cn("px-3 py-1 rounded-full border mb-1", tier.bg, tier.border)}>
+               <span className={cn("text-[10px] font-bold uppercase tracking-wider", tier.color)}>Verifisert</span>
              </div>
-             <span className={cn("text-xs font-medium", tier.color)}>{tier.name}-leietaker</span>
           </div>
         </div>
 
@@ -220,47 +187,39 @@ export function TenantCertificate({
               (tier.name === 'Gull' ? 'from-yellow-200 to-yellow-400' : 
               (tier.name === 'Standard' ? 'from-emerald-200 to-emerald-400' : 'from-slate-200 to-slate-400'))
            )}>
-             <div className="w-8 h-5 border border-black/10 rounded-sm grid grid-cols-2 gap-[1px]">
-                <div className="border-r border-black/10"></div>
-                <div></div>
-             </div>
+              <div className="w-8 h-5 border border-black/10 rounded-sm grid grid-cols-2 gap-[1px]">
+                <div className="border border-black/10 rounded-[1px]"></div>
+                <div className="border border-black/10 rounded-[1px]"></div>
+                <div className="border border-black/10 rounded-[1px]"></div>
+                <div className="border border-black/10 rounded-[1px]"></div>
+              </div>
            </div>
            <div>
-             <p className="text-xs text-slate-400 uppercase">Navn</p>
-             <p className="text-xl font-medium tracking-wide font-mono shadow-black drop-shadow-md leading-tight">{name}</p>
-             <div className="text-[9px] text-slate-400 italic mt-1 leading-tight">
-               <p>Dokumentert leieforhold med</p>
-               <p>fremragende resultater</p>
-             </div>
+              <p className="text-[10px] text-slate-400 uppercase tracking-wider">Navn</p>
+              <p className="text-xl font-mono text-white tracking-wide">{name}</p>
            </div>
         </div>
 
         {/* Footer Info */}
-        <div className="flex justify-between items-end pb-2">
-          <div>
-            <div className="flex gap-4 mb-1">
-              <div>
-                <p className="text-[10px] text-slate-400 uppercase">Leietaker siden</p>
-                <p className="text-sm font-mono">{memberSinceYear}</p>
-              </div>
-              <div>
-                <p className="text-[10px] text-slate-400 uppercase">Totalvurdering</p>
-                <div className={cn("flex items-center gap-1", tier.color)}>
-                  <span className="text-sm font-bold">{stars}/50</span>
-                  <Star className="w-3 h-3 fill-current" />
-                </div>
+        <div className="flex justify-between items-end">
+          <div className="flex gap-8">
+            <div>
+              <p className="text-[9px] text-slate-400 uppercase tracking-wider mb-0.5">Leietaker siden</p>
+              <p className="font-mono text-white">{memberSinceYear}</p>
+            </div>
+            <div>
+              <p className="text-[9px] text-slate-400 uppercase tracking-wider mb-0.5">Totalvurdering</p>
+              <div className="flex items-center gap-1">
+                <span className={cn("font-bold font-mono", tier.color)}>{stars}/50</span>
+                <Star className={cn("w-3 h-3 fill-current", tier.iconColor)} />
               </div>
             </div>
           </div>
           
-          <div className="flex flex-col items-center">
-             <div className="bg-white p-1 rounded">
-                <QRCodeSVG value={verificationUrl} size={60} />
-             </div>
-             <p className="text-[8px] text-slate-400 text-center mt-1 w-20 leading-tight">Scan for å verifisere ekthet</p>
+          <div className="bg-white p-1 rounded-lg">
+            <QRCodeSVG value={verificationUrl} size={60} />
           </div>
         </div>
-
       </div>
     </div>
   );
