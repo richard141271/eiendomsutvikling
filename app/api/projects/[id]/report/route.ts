@@ -5,19 +5,24 @@ import { createAdminClient, ensureBucketExists } from "@/lib/supabase-admin";
 import { NextResponse } from "next/server";
 import { generateProjectReportPDF } from "@/lib/pdf-generator";
 import sharp from "sharp";
-import fetch from "node-fetch";
 
 // Optimize image function
 async function optimizeImage(url: string) {
   try {
+    console.log(`Optimizing image: ${url}`);
     const res = await fetch(url);
     if (!res.ok) throw new Error(`Failed to fetch image: ${res.statusText}`);
     const arrayBuffer = await res.arrayBuffer();
+    const buffer = Buffer.from(arrayBuffer);
 
-    const optimized = await sharp(Buffer.from(arrayBuffer))
+    console.log(`Original image size: ${(buffer.length / 1024).toFixed(2)} KB`);
+
+    const optimized = await sharp(buffer)
       .resize({ width: 1200, withoutEnlargement: true })
       .jpeg({ quality: 60 })
       .toBuffer();
+
+    console.log(`Optimized image size: ${(optimized.length / 1024).toFixed(2)} KB`);
 
     return `data:image/jpeg;base64,${optimized.toString("base64")}`;
   } catch (error) {

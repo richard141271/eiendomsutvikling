@@ -143,6 +143,11 @@ export async function generateProjectReportPDF(data: ProjectReportData): Promise
     // Cleanup any handlebars-like tags if present and not replaced
     html = html.replace(/{{#if description}}[\s\S]*?{{\/if}}/g, data.description ? `<div class="description"><p>${data.description}</p></div>` : '');
 
+    console.log("PDF HTML length:", html.length);
+    if (html.length > 5000000) {
+      console.warn("WARNING: HTML length is very large (> 5MB). This might indicate that images are not optimized correctly.");
+    }
+
     await page.setContent(html, { waitUntil: 'networkidle0' });
 
     const fileName = `report-${data.projectId}-${Date.now()}.pdf`;
