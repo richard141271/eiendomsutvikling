@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { generateCertificatePDF } from '@/lib/pdf-generator';
 import { createClient } from '@/lib/supabase-server';
+import { createAdminClient } from '@/lib/supabase-admin';
 import { getCertificateContent } from '@/lib/certificate-utils';
 import path from 'path';
 
@@ -95,8 +96,11 @@ export async function POST(req: NextRequest) {
     // Generate PDF
     const { pdfPath, pdfHash, fileName, pdfBuffer } = await generateCertificatePDF(pdfData);
 
+    // Use admin client for storage operations to bypass RLS
+    const adminSupabase = createAdminClient();
+
     // Upload to Supabase Storage
-    const { data: uploadData, error: uploadError } = await supabase.storage
+    const { data: uploadData, error: uploadError } = await adminSupabase.storage
       .from('reports') // User specified 'reports' bucket in example, assuming shared or same bucket logic
       .upload(`certificates/${fileName}`, pdfBuffer, {
         contentType: 'application/pdf',
@@ -109,7 +113,7 @@ export async function POST(req: NextRequest) {
     }
 
     // Get public URL
-    const { data: { publicUrl } } = supabase
+    const { data: { publicUrl } } = adminSupabase
       .storage
       .from('reports')
       .getPublicUrl(`certificates/${fileName}`);
