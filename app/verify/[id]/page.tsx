@@ -65,6 +65,17 @@ export default async function VerifyPage({ params }: VerifyPageProps) {
         </div>
 
         <div className="w-full max-w-4xl bg-white shadow-xl rounded-lg overflow-hidden border border-slate-200">
+           <div className="bg-slate-50 border-b border-slate-200 p-4 flex justify-between items-center">
+             <span className="text-sm font-medium text-slate-600">Dokumentvisning</span>
+             <a 
+               href={`/api/certificates/${id}/pdf`} 
+               download
+               className="inline-flex items-center gap-2 px-4 py-2 bg-white border border-slate-300 rounded-md text-sm font-medium text-slate-700 hover:bg-slate-50 hover:text-slate-900 transition-colors shadow-sm"
+             >
+               <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+               Last ned PDF
+             </a>
+           </div>
            <iframe 
              src={`/api/certificates/${id}/pdf`} 
              className="w-full h-[800px] border-none"
