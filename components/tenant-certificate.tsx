@@ -178,7 +178,7 @@ export function TenantCertificate({
       <div className="absolute bottom-0 left-0 w-32 h-32 bg-blue-500/10 blur-3xl rounded-full pointer-events-none"></div>
 
       {/* Content */}
-      <div className="relative z-10 px-6 pt-6 pb-9 flex flex-col justify-between h-full border border-white/10 rounded-xl bg-white/5 backdrop-blur-sm">
+      <div className="relative z-10 px-8 py-8 flex flex-col justify-between h-full border border-white/10 rounded-xl bg-white/5 backdrop-blur-sm">
         
         {/* Header */}
         <div className="flex justify-between items-start">
@@ -192,8 +192,8 @@ export function TenantCertificate({
           
           {/* Verified Badge & Tier */}
           <div className="flex flex-col items-end">
-             <div className={cn("px-2 py-0.5 rounded-full border mb-1 mr-[-2px]", tier.bg, tier.border)}>
-               <span className={cn("text-[9px] font-bold uppercase tracking-wider", tier.color)}>Verifisert</span>
+             <div className={cn("px-2 py-0.5 rounded-full border mb-1 mr-[-6px]", tier.bg, tier.border)}>
+               <span className={cn("text-[8px] font-bold uppercase tracking-wider", tier.color)}>Verifisert</span>
              </div>
           </div>
         </div>
