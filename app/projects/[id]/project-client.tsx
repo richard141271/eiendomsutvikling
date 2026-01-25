@@ -2,11 +2,13 @@
 "use client";
 
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { FileText, CheckSquare, Info } from "lucide-react";
+import { FileText, CheckSquare, Info, MapPin } from "lucide-react";
 import ProjectLog from "../_components/project-log";
 import ProjectTasks from "../_components/project-tasks";
 import ProjectOverview from "../_components/project-overview";
 import ProjectAuditLogs from "../_components/project-audit-logs";
+import { Button } from "@/components/ui/button";
+import Link from "next/link";
 
 interface ProjectClientProps {
   project: any; // Full project object with relations
@@ -40,6 +42,14 @@ export default function ProjectClient({ project, auditLogs }: ProjectClientProps
       </TabsContent>
       
       <TabsContent value="overview">
+        <div className="flex justify-end mb-4">
+          <Link href="/tasks">
+            <Button variant="outline" className="flex gap-2">
+              <MapPin className="h-4 w-4" />
+              Gå til Stedsbaserte Oppgaver
+            </Button>
+          </Link>
+        </div>
         <ProjectOverview project={project} />
         <div className="mt-8">
           <ProjectAuditLogs logs={auditLogs} />

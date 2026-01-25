@@ -27,7 +27,7 @@ interface GeneratedCertificate {
 export async function generateCertificatePDF(data: CertificateData): Promise<GeneratedCertificate> {
   const browser = await puppeteer.launch({
     headless: true,
-    args: ['--no-sandbox', '--disable-setuid-sandbox'],
+    args: ['--no-sandbox', '--disable-setuid-sandbox', '--disable-dev-shm-usage'],
   });
   
   try {
@@ -108,7 +108,7 @@ interface ProjectReportData {
 export async function generateProjectReportPDF(data: ProjectReportData): Promise<GeneratedCertificate> {
   const browser = await puppeteer.launch({
     headless: true,
-    args: ['--no-sandbox', '--disable-setuid-sandbox'],
+    args: ['--no-sandbox', '--disable-setuid-sandbox', '--disable-dev-shm-usage'],
   });
   
   try {
