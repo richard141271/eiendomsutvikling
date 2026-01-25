@@ -1,6 +1,7 @@
 
 import { prisma } from "@/lib/prisma";
 import { createClient } from "@/lib/supabase-server";
+import { createAdminClient } from "@/lib/supabase-admin";
 import { NextResponse } from "next/server";
 import { generateProjectReportPDF } from "@/lib/pdf-generator";
 
@@ -15,6 +16,9 @@ export async function POST(
     if (!user) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
+
+    // Use admin client for storage operations to bypass RLS
+    const adminSupabase = createAdminClient();
 
     const project = await prisma.project.findUnique({
       where: { id: params.id },
@@ -71,7 +75,7 @@ export async function POST(
     console.log("PDF generated:", fileName);
 
     // Upload to Supabase Storage
-    const { data: uploadData, error: uploadError } = await supabase.storage
+    const { data: uploadData, error: uploadError } = await adminSupabase.storage
       .from('reports')
       .upload(`reports/${fileName}`, pdfBuffer, {
         contentType: 'application/pdf',
@@ -84,7 +88,7 @@ export async function POST(
     }
 
     // Get public URL
-    const { data: { publicUrl } } = supabase
+    const { data: { publicUrl } } = adminSupabase
       .storage
       .from('reports')
       .getPublicUrl(`reports/${fileName}`);
