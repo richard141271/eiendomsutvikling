@@ -126,15 +126,17 @@ interface ProjectReportData {
 }
 
 export async function generateProjectReportPDF(data: ProjectReportData): Promise<GeneratedCertificate> {
-  const chromium = (await import('@sparticuz/chromium')).default;
-  const puppeteer = (await import('puppeteer-core')).default;
-
+  let chromium: any;
+  let puppeteer: any;
   let executablePath: string | undefined;
   const isProduction = process.env.NODE_ENV === 'production';
 
   if (isProduction) {
+    chromium = (await import('@sparticuz/chromium')).default;
+    puppeteer = (await import('puppeteer-core')).default;
     executablePath = await chromium.executablePath();
   } else {
+    puppeteer = (await import('puppeteer-core')).default;
     // Attempt to use local puppeteer (which includes Chrome) if available
     try {
       // Dynamic import to avoid bundling issues in production
