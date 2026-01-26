@@ -183,7 +183,7 @@ export default async function DashboardPage() {
                   <div key={project.id} className="flex items-center justify-between border-b pb-2 last:border-0 last:pb-0">
                     <div>
                       <Link href={`/projects/${project.id}`} className="font-medium hover:underline">{project.title}</Link>
-                      <p className="text-sm text-muted-foreground">{project.property.name}</p>
+                      <p className="text-sm text-muted-foreground">{project.property?.name || project.customPropertyName || 'Ingen eiendom'}</p>
                     </div>
                     <div className="text-sm text-muted-foreground">
                       {new Date(project.updatedAt).toLocaleDateString("no-NO")}
