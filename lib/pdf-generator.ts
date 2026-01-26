@@ -27,23 +27,41 @@ interface GeneratedCertificate {
 }
 
 export async function generateCertificatePDF(data: CertificateData): Promise<GeneratedCertificate> {
+  let chromium: any;
+  let puppeteer: any;
   let executablePath: string | undefined;
   const isProduction = process.env.NODE_ENV === 'production';
 
   if (isProduction) {
+    chromium = (await import('@sparticuz/chromium')).default;
+    puppeteer = (await import('puppeteer-core')).default;
     executablePath = await chromium.executablePath();
   } else {
-    // Fallback for local development (macOS/Linux/Windows)
-    const paths = [
-      "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome",
-      "/Applications/Google Chrome Canary.app/Contents/MacOS/Google Chrome Canary",
-      "/Applications/Chromium.app/Contents/MacOS/Chromium",
-      "/usr/bin/google-chrome-stable",
-      "/usr/bin/chromium-browser",
-      "C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe",
-      "C:\\Program Files (x86)\\Google\\Chrome\\Application\\chrome.exe"
-    ];
-    executablePath = paths.find(p => fs.existsSync(p));
+    puppeteer = (await import('puppeteer-core')).default;
+    // Attempt to use local puppeteer (which includes Chrome) if available
+    try {
+      // Dynamic import to avoid bundling issues in production
+      // @ts-ignore
+      const puppeteerLocal = await import('puppeteer');
+      executablePath = puppeteerLocal.executablePath();
+      console.log(`Using local Puppeteer Chrome at: ${executablePath}`);
+    } catch (error) {
+       console.log("Local puppeteer not found, falling back to system paths");
+    }
+
+    if (!executablePath) {
+      // Fallback for local development (macOS/Linux/Windows)
+      const paths = [
+        "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome",
+        "/Applications/Google Chrome Canary.app/Contents/MacOS/Google Chrome Canary",
+        "/Applications/Chromium.app/Contents/MacOS/Chromium",
+        "/usr/bin/google-chrome-stable",
+        "/usr/bin/chromium-browser",
+        "C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe",
+        "C:\\Program Files (x86)\\Google\\Chrome\\Application\\chrome.exe"
+      ];
+      executablePath = paths.find(p => fs.existsSync(p));
+    }
   }
 
   if (!executablePath) {
