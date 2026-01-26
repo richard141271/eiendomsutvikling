@@ -4,11 +4,11 @@ import { createClient } from "@/lib/supabase-server";
 import { createAdminClient, ensureBucketExists } from "@/lib/supabase-admin";
 import { NextResponse } from "next/server";
 import { generateProjectReportPDF } from "@/lib/pdf-generator";
-import sharp from "sharp";
 
 // Optimize image function
 async function optimizeImage(url: string) {
   try {
+    const { default: sharp } = await import("sharp");
     console.log(`Optimizing image: ${url}`);
     const res = await fetch(url);
     if (!res.ok) throw new Error(`Failed to fetch image: ${res.statusText}`);

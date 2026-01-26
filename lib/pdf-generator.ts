@@ -70,13 +70,21 @@ export async function generateCertificatePDF(data: CertificateData): Promise<Gen
     console.log(`Using Chrome executable at: ${executablePath}`);
   }
 
-  const browser = await puppeteer.launch({
-    args: isProduction ? chromium.args : [],
-    defaultViewport: { width: 1200, height: 800 },
-    executablePath,
-    headless: isProduction ? true : true,
-  });
+  console.log(`Launching Puppeteer with executablePath: ${executablePath}, isProduction: ${isProduction}`);
   
+  let browser;
+  try {
+    browser = await puppeteer.launch({
+      args: isProduction ? chromium.args : ['--no-sandbox', '--disable-setuid-sandbox'],
+      defaultViewport: { width: 1200, height: 800 },
+      executablePath,
+      headless: isProduction ? true : "new",
+    });
+  } catch (error) {
+    console.error("Failed to launch Puppeteer browser:", error);
+    throw error;
+  }
+    
   try {
     const page = await browser.newPage();
     
@@ -127,7 +135,7 @@ export async function generateCertificatePDF(data: CertificateData): Promise<Gen
     };
 
   } finally {
-    await browser.close();
+    if (browser) await browser.close();
   }
 }
 
@@ -187,12 +195,20 @@ export async function generateProjectReportPDF(data: ProjectReportData): Promise
     console.log(`Using Chrome executable at: ${executablePath}`);
   }
 
-  const browser = await puppeteer.launch({
-    args: isProduction ? chromium.args : [],
-    defaultViewport: { width: 1200, height: 800 },
-    executablePath,
-    headless: isProduction ? true : true,
-  });
+  console.log(`Launching Puppeteer with executablePath: ${executablePath}, isProduction: ${isProduction}`);
+
+  let browser;
+  try {
+    browser = await puppeteer.launch({
+      args: isProduction ? chromium.args : ['--no-sandbox', '--disable-setuid-sandbox'],
+      defaultViewport: { width: 1200, height: 800 },
+      executablePath,
+      headless: isProduction ? true : "new",
+    });
+  } catch (error) {
+    console.error("Failed to launch Puppeteer browser:", error);
+    throw error;
+  }
   
   try {
     const page = await browser.newPage();
@@ -250,6 +266,6 @@ export async function generateProjectReportPDF(data: ProjectReportData): Promise
     };
 
   } finally {
-    await browser.close();
+    if (browser) await browser.close();
   }
 }
