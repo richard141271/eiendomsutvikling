@@ -1,5 +1,6 @@
-import puppeteer from 'puppeteer-core';
-import chromium from '@sparticuz/chromium';
+// Imports moved to dynamic imports inside functions to avoid Vercel crash
+// import puppeteer from 'puppeteer-core';
+// import chromium from '@sparticuz/chromium';
 import fs from 'fs';
 import path from 'path';
 import QRCode from 'qrcode';
@@ -26,16 +27,36 @@ interface GeneratedCertificate {
 }
 
 export async function generateCertificatePDF(data: CertificateData): Promise<GeneratedCertificate> {
-  let executablePath = await chromium.executablePath();
+  let executablePath: string | undefined;
+  const isProduction = process.env.NODE_ENV === 'production';
+
+  if (isProduction) {
+    executablePath = await chromium.executablePath();
+  } else {
+    // Fallback for local development (macOS/Linux/Windows)
+    const paths = [
+      "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome",
+      "/Applications/Google Chrome Canary.app/Contents/MacOS/Google Chrome Canary",
+      "/Applications/Chromium.app/Contents/MacOS/Chromium",
+      "/usr/bin/google-chrome-stable",
+      "/usr/bin/chromium-browser",
+      "C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe",
+      "C:\\Program Files (x86)\\Google\\Chrome\\Application\\chrome.exe"
+    ];
+    executablePath = paths.find(p => fs.existsSync(p));
+  }
+
   if (!executablePath) {
-    // Fallback for local development (macOS)
-    executablePath = "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome";
+    console.warn("Could not find Chrome executable. Puppeteer launch may fail.");
+  } else {
+    console.log(`Using Chrome executable at: ${executablePath}`);
   }
 
   const browser = await puppeteer.launch({
-    args: chromium.args,
+    args: isProduction ? chromium.args : [],
+    defaultViewport: { width: 1200, height: 800 },
     executablePath,
-    headless: true,
+    headless: isProduction ? true : true,
   });
   
   try {
@@ -105,16 +126,52 @@ interface ProjectReportData {
 }
 
 export async function generateProjectReportPDF(data: ProjectReportData): Promise<GeneratedCertificate> {
-  let executablePath = await chromium.executablePath();
+  const chromium = (await import('@sparticuz/chromium')).default;
+  const puppeteer = (await import('puppeteer-core')).default;
+
+  let executablePath: string | undefined;
+  const isProduction = process.env.NODE_ENV === 'production';
+
+  if (isProduction) {
+    executablePath = await chromium.executablePath();
+  } else {
+    // Attempt to use local puppeteer (which includes Chrome) if available
+    try {
+      // Dynamic import to avoid bundling issues in production
+      // @ts-ignore
+      const puppeteerLocal = await import('puppeteer');
+      executablePath = puppeteerLocal.executablePath();
+      console.log(`Using local Puppeteer Chrome at: ${executablePath}`);
+    } catch (error) {
+       console.log("Local puppeteer not found, falling back to system paths");
+    }
+
+    if (!executablePath) {
+      // Fallback for local development (macOS/Linux/Windows)
+      const paths = [
+        "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome",
+        "/Applications/Google Chrome Canary.app/Contents/MacOS/Google Chrome Canary",
+        "/Applications/Chromium.app/Contents/MacOS/Chromium",
+        "/usr/bin/google-chrome-stable",
+        "/usr/bin/chromium-browser",
+        "C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe",
+        "C:\\Program Files (x86)\\Google\\Chrome\\Application\\chrome.exe"
+      ];
+      executablePath = paths.find(p => fs.existsSync(p));
+    }
+  }
+
   if (!executablePath) {
-    // Fallback for local development (macOS)
-    executablePath = "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome";
+    console.warn("Could not find Chrome executable. Puppeteer launch may fail.");
+  } else {
+    console.log(`Using Chrome executable at: ${executablePath}`);
   }
 
   const browser = await puppeteer.launch({
-    args: chromium.args,
+    args: isProduction ? chromium.args : [],
+    defaultViewport: { width: 1200, height: 800 },
     executablePath,
-    headless: true,
+    headless: isProduction ? true : true,
   });
   
   try {
