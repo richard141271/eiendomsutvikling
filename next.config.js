@@ -10,9 +10,9 @@ const nextConfig = {
       },
     ],
   },
-  // experimental: {
-  //   serverComponentsExternalPackages: ['puppeteer-core', '@sparticuz/chromium', 'sharp', 'puppeteer'],
-  // },
+  experimental: {
+    serverComponentsExternalPackages: ['puppeteer-core', '@sparticuz/chromium'],
+  },
 };
 
 module.exports = nextConfig;
