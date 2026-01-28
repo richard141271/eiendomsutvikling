@@ -118,7 +118,7 @@ export async function addProjectEntry(data: {
   return entry;
 }
 
-export async function updateProjectEntry(entryId: string, newContent: string) {
+export async function updateProjectEntry(entryId: string, data: { content?: string, rotation?: number }) {
   const supabase = createClient();
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) throw new Error("Unauthorized");
@@ -135,21 +135,31 @@ export async function updateProjectEntry(entryId: string, newContent: string) {
   
   if (dbUser) {
     // Create Audit Log
-    await prisma.projectAuditLog.create({
-      data: {
-        projectId: entry.projectId,
-        userId: dbUser.id,
-        action: "EDIT",
-        entityType: entry.type,
-        entityId: entry.id,
-        details: `Edited ${entry.type.toLowerCase()}. Previous: "${entry.content?.substring(0, 50) || "Image"}..."`,
-      }
-    });
+    const changes = [];
+    if (data.content !== undefined && data.content !== entry.content) changes.push("content");
+    if (data.rotation !== undefined && data.rotation !== entry.rotation) changes.push("rotation");
+
+    if (changes.length > 0) {
+      await prisma.projectAuditLog.create({
+        data: {
+          projectId: entry.projectId,
+          userId: dbUser.id,
+          action: "EDIT",
+          entityType: entry.type,
+          entityId: entry.id,
+          details: `Edited ${entry.type.toLowerCase()} (${changes.join(", ")}).`,
+        }
+      });
+    }
   }
+
+  const updateData: any = {};
+  if (data.content !== undefined) updateData.content = data.content;
+  if (data.rotation !== undefined) updateData.rotation = data.rotation;
 
   const updatedEntry = await prisma.projectEntry.update({
     where: { id: entryId },
-    data: { content: newContent },
+    data: updateData,
   });
 
   revalidatePath(`/projects/${entry.projectId}`);

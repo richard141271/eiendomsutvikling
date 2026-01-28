@@ -1,0 +1,140 @@
+<!DOCTYPE html>
+<html lang="no">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{{title}}</title>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap');
+        
+        body {
+            font-family: 'Inter', sans-serif;
+            color: #1e293b;
+            margin: 0;
+            padding: 40px;
+            max-width: 1000px;
+            margin: 0 auto;
+        }
+
+        .header {
+            text-align: center;
+            margin-bottom: 40px;
+            border-bottom: 2px solid #e2e8f0;
+            padding-bottom: 20px;
+        }
+
+        .header h1 {
+            font-size: 32px;
+            color: #0f172a;
+            margin: 0 0 10px 0;
+        }
+
+        .header p {
+            font-size: 18px;
+            color: #64748b;
+            margin: 0;
+        }
+
+        .details-grid {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 20px;
+            margin-bottom: 40px;
+            background: #f8fafc;
+            padding: 20px;
+            border-radius: 8px;
+        }
+
+        .detail-item strong {
+            display: block;
+            font-size: 14px;
+            color: #64748b;
+            margin-bottom: 4px;
+        }
+
+        .detail-item span {
+            font-size: 18px;
+            font-weight: 600;
+            color: #0f172a;
+        }
+
+        .rooms {
+            display: flex;
+            flex-direction: column;
+            gap: 40px;
+        }
+
+        .room {
+            break-inside: avoid;
+        }
+
+        .room h2 {
+            font-size: 24px;
+            border-left: 4px solid #3b82f6;
+            padding-left: 12px;
+            margin: 0 0 16px 0;
+        }
+
+        .room p {
+            font-size: 16px;
+            color: #475569;
+            margin-bottom: 16px;
+            font-style: italic;
+        }
+
+        .image-grid {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 16px;
+        }
+
+        .image-container {
+            aspect-ratio: 4/3;
+            overflow: hidden;
+            border-radius: 6px;
+            background: #e2e8f0;
+        }
+
+        .image-container img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+        }
+
+        .footer {
+            margin-top: 60px;
+            text-align: center;
+            font-size: 12px;
+            color: #94a3b8;
+            border-top: 1px solid #e2e8f0;
+            padding-top: 20px;
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1>{{type}}</h1>
+        <p>{{address}}</p>
+    </div>
+
+    <div class="details-grid">
+        <div class="detail-item">
+            <strong>Bolig</strong>
+            <span>{{unitName}}</span>
+        </div>
+        <div class="detail-item">
+            <strong>Størrelse</strong>
+            <span>{{size}} m²</span>
+        </div>
+        {{customDetails}}
+    </div>
+
+    <div class="rooms">
+        {{roomsHtml}}
+    </div>
+
+    <div class="footer">
+        <p>Generert av Eiendomssystem • {{date}}</p>
+    </div>
+</body>
+</html>

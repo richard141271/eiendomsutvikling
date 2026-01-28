@@ -402,6 +402,7 @@ model ProjectEntry {
   content         String?  
   imageUrl        String?
   includeInReport Boolean  @default(false)
+  rotation        Int      @default(0)
   createdAt       DateTime @default(now())
 }
 

@@ -9,7 +9,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Label } from "@/components/ui/label";
 import { ImageUpload } from "@/components/image-upload"; // Using existing component
 import { useState } from "react";
-import { Loader2, Camera, Send, FileText, Image as ImageIcon, Trash2, Pencil, X, Check, Maximize2 } from "lucide-react";
+import { Loader2, Camera, Send, FileText, Image as ImageIcon, Trash2, Pencil, X, Check, Maximize2, RotateCw } from "lucide-react";
 import Image from "next/image";
 import { cn } from "@/lib/utils";
 import { useRouter } from "next/navigation";
@@ -20,6 +20,7 @@ interface Entry {
   content: string | null;
   imageUrl: string | null;
   includeInReport: boolean;
+  rotation: number;
   createdAt: Date;
 }
 
@@ -147,7 +148,7 @@ export default function ProjectLog({ projectId, entries }: ProjectLogProps) {
     if (!editContent.trim()) return;
     setLoading(true);
     try {
-      await updateProjectEntry(id, editContent);
+      await updateProjectEntry(id, { content: editContent });
       setEditingId(null);
       setEditContent("");
       router.refresh();
@@ -155,6 +156,16 @@ export default function ProjectLog({ projectId, entries }: ProjectLogProps) {
       alert("Kunne ikke oppdatere loggføring");
     } finally {
       setLoading(false);
+    }
+  }
+
+  async function handleRotate(id: string, currentRotation: number) {
+    const newRotation = (currentRotation + 90) % 360;
+    try {
+      await updateProjectEntry(id, { rotation: newRotation });
+      router.refresh();
+    } catch (error) {
+      alert("Kunne ikke rotere bildet");
     }
   }
 
@@ -253,19 +264,31 @@ export default function ProjectLog({ projectId, entries }: ProjectLogProps) {
                   {entry.content && <p className="text-sm text-slate-800 whitespace-pre-wrap mb-2">{entry.content}</p>}
                   
                   {entry.imageUrl && (
-                    <div 
-                      className="relative h-48 w-full rounded-md overflow-hidden bg-slate-100 border cursor-pointer group"
-                      onClick={() => setFullScreenImage(entry.imageUrl)}
-                    >
-                      <Image 
-                        src={entry.imageUrl} 
-                        alt="Log image" 
-                        fill 
-                        className="object-cover transition-transform duration-300 group-hover:scale-105" 
-                      />
-                      <div className="absolute inset-0 bg-black/0 group-hover:bg-black/10 transition-colors flex items-center justify-center">
-                        <Maximize2 className="text-white opacity-0 group-hover:opacity-100 transition-opacity w-8 h-8 drop-shadow-md" />
+                    <div className="space-y-2">
+                      <div 
+                        className="relative h-48 w-full rounded-md overflow-hidden bg-slate-100 border cursor-pointer group"
+                        onClick={() => setFullScreenImage(entry.imageUrl)}
+                      >
+                        <Image 
+                          src={entry.imageUrl} 
+                          alt="Log image" 
+                          fill 
+                          className="object-cover transition-transform duration-300 group-hover:scale-105" 
+                          style={{ transform: `rotate(${entry.rotation || 0}deg)` }}
+                        />
+                        <div className="absolute inset-0 bg-black/0 group-hover:bg-black/10 transition-colors flex items-center justify-center">
+                          <Maximize2 className="text-white opacity-0 group-hover:opacity-100 transition-opacity w-8 h-8 drop-shadow-md" />
+                        </div>
                       </div>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => handleRotate(entry.id, entry.rotation || 0)}
+                        className="w-full"
+                      >
+                        <RotateCw className="w-4 h-4 mr-2" />
+                        Roter bilde
+                      </Button>
                     </div>
                   )}
                 </>

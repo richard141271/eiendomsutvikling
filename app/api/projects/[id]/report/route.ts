@@ -75,7 +75,7 @@ export async function POST(
       if (imageUrl) {
         // Check if it's already a data URL or external URL that needs optimization
         if (!imageUrl.startsWith('data:')) {
-           imageUrl = await optimizeImage(imageUrl);
+           imageUrl = await optimizeImage(imageUrl, entry.rotation || 0);
         }
       }
       return { ...entry, imageUrl };

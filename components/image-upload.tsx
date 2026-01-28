@@ -139,6 +139,7 @@ export function ImageUpload({ value, onChange, label = "Bilde", onUploadStatusCh
                     type="file"
                     className="sr-only"
                     accept="image/*"
+                    capture="environment"
                     onChange={handleFileChange}
                     disabled={uploading}
                   />
