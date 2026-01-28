@@ -394,7 +394,7 @@ export function ShowcaseWizard({ unit }: ShowcaseWizardProps) {
                 </CardHeader>
                 <CardContent className="p-4 pt-0 text-sm text-muted-foreground">
                   <p>{imageCount} bilder lastet opp</p>
-                  {data?.notes && <p className="mt-1 italic">"{data.notes}"</p>}
+                  {data?.notes && <p className="mt-1 italic">&quot;{data.notes}&quot;</p>}
                 </CardContent>
               </Card>
             );
