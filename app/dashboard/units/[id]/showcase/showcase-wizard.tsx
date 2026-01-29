@@ -65,6 +65,7 @@ export function ShowcaseWizard({ unit }: ShowcaseWizardProps) {
   };
 
   const handleRoomImageAdd = (url: string) => {
+    if (!url) return; // Prevent adding empty strings (e.g. from reset/clear)
     const roomId = selectedRooms[currentRoomIndex];
     setRoomData((prev) => ({
       ...prev,
@@ -201,23 +202,17 @@ export function ShowcaseWizard({ unit }: ShowcaseWizardProps) {
             {ROOM_OPTIONS.map((room) => (
               <div 
                 key={room.id} 
-                className="flex items-center space-x-2 border p-3 rounded-lg hover:bg-accent cursor-pointer"
-                onClick={(e) => {
-                  // Prevent double-toggling if clicking directly on the checkbox or label (which triggers checkbox)
-                  // The Checkbox component handles its own click, and Label triggers the checkbox via htmlFor.
-                  // We only want to trigger here if the user clicked the container background.
-                  if (e.target !== e.currentTarget && (e.target as HTMLElement).closest('[data-radix-collection-item], label')) {
-                    return;
-                  }
-                  handleRoomToggle(room.id);
-                }}
+                className={`flex items-center space-x-2 border p-3 rounded-lg cursor-pointer transition-colors ${selectedRooms.includes(room.id) ? "bg-blue-50 border-blue-200" : "hover:bg-accent"}`}
+                onClick={() => handleRoomToggle(room.id)}
               >
-                <Checkbox 
-                  id={room.id} 
-                  checked={selectedRooms.includes(room.id)}
-                  onCheckedChange={() => handleRoomToggle(room.id)}
-                />
-                <Label htmlFor={room.id} className="flex-1 cursor-pointer font-medium py-1">
+                <div className="pointer-events-none flex items-center justify-center">
+                  <Checkbox 
+                    id={room.id} 
+                    checked={selectedRooms.includes(room.id)}
+                    tabIndex={-1} // Prevent tab focus
+                  />
+                </div>
+                <Label htmlFor={room.id} className="flex-1 cursor-pointer font-medium py-1 pointer-events-none">
                   {room.label}
                 </Label>
               </div>
