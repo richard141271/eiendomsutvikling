@@ -33,13 +33,14 @@ const ROOM_OPTIONS = [
 
 export function ShowcaseWizard({ unit }: ShowcaseWizardProps) {
   const router = useRouter();
-  const [step, setStep] = useState<"type" | "checklist" | "rooms" | "details" | "review">("type");
+  const [step, setStep] = useState<"type" | "checklist" | "rooms" | "details" | "review" | "success">("type");
   const [showcaseType, setShowcaseType] = useState<ShowcaseType | null>(null);
   const [selectedRooms, setSelectedRooms] = useState<string[]>([]);
   const [currentRoomIndex, setCurrentRoomIndex] = useState(0);
   const [roomData, setRoomData] = useState<Record<string, { images: string[]; notes: string }>>({});
   const [details, setDetails] = useState<Record<string, string>>({});
   const [loading, setLoading] = useState(false);
+  const [generatedUrl, setGeneratedUrl] = useState<string | null>(null);
 
   const handleTypeSelect = (type: ShowcaseType) => {
     setShowcaseType(type);

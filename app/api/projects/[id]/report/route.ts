@@ -6,10 +6,10 @@ import { NextResponse } from "next/server";
 import { generateProjectReportPDF } from "@/lib/pdf-generator";
 
 // Optimize image function
-async function optimizeImage(url: string) {
+async function optimizeImage(url: string, rotation: number = 0) {
   try {
     const { default: sharp } = await import("sharp");
-    console.log(`Optimizing image: ${url}`);
+    console.log(`Optimizing image: ${url} with rotation ${rotation}`);
     const res = await fetch(url);
     if (!res.ok) throw new Error(`Failed to fetch image: ${res.statusText}`);
     const arrayBuffer = await res.arrayBuffer();
@@ -18,6 +18,7 @@ async function optimizeImage(url: string) {
     console.log(`Original image size: ${(buffer.length / 1024).toFixed(2)} KB`);
 
     const optimized = await sharp(buffer)
+      .rotate(rotation)
       .resize({ width: 1200, withoutEnlargement: true })
       .jpeg({ quality: 60 })
       .toBuffer();
