@@ -146,7 +146,7 @@ export function ShowcaseWizard({ unit }: ShowcaseWizardProps) {
       // Generate with details for selected type
       const result = await generateShowcaseReport(unit.id, showcaseType, details);
       if (result.success) {
-        setGeneratedUrl(result.url);
+        setGeneratedUrl(result.url || null);
         setStep("success");
       } else {
         alert(`Kunne ikke generere rapport: ${result.error || "Ukjent feil"}`);
