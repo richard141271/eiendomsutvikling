@@ -199,13 +199,25 @@ export function ShowcaseWizard({ unit }: ShowcaseWizardProps) {
         <Card>
           <CardContent className="pt-6 grid gap-4">
             {ROOM_OPTIONS.map((room) => (
-              <div key={room.id} className="flex items-center space-x-2 border p-3 rounded-lg hover:bg-accent cursor-pointer" onClick={() => handleRoomToggle(room.id)}>
+              <div 
+                key={room.id} 
+                className="flex items-center space-x-2 border p-3 rounded-lg hover:bg-accent cursor-pointer"
+                onClick={(e) => {
+                  // Prevent double-toggling if clicking directly on the checkbox or label (which triggers checkbox)
+                  // The Checkbox component handles its own click, and Label triggers the checkbox via htmlFor.
+                  // We only want to trigger here if the user clicked the container background.
+                  if (e.target !== e.currentTarget && (e.target as HTMLElement).closest('[data-radix-collection-item], label')) {
+                    return;
+                  }
+                  handleRoomToggle(room.id);
+                }}
+              >
                 <Checkbox 
                   id={room.id} 
                   checked={selectedRooms.includes(room.id)}
                   onCheckedChange={() => handleRoomToggle(room.id)}
                 />
-                <Label htmlFor={room.id} className="flex-1 cursor-pointer font-medium">
+                <Label htmlFor={room.id} className="flex-1 cursor-pointer font-medium py-1">
                   {room.label}
                 </Label>
               </div>
@@ -248,8 +260,17 @@ export function ShowcaseWizard({ unit }: ShowcaseWizardProps) {
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-6">
+            <div className="bg-blue-50 border border-blue-200 rounded-md p-4 text-sm text-blue-800 mb-4">
+              <p className="font-semibold mb-1">Fototips:</p>
+              <ul className="list-disc pl-4 space-y-1">
+                <li>Ta 2-3 oversiktsbilder (fra hjørnene).</li>
+                <li>Ta 2-3 nærbilder (detaljer, f.eks. fruktfat, peis, utsikt).</li>
+                <li>Totalt 1-6 bilder per rom.</li>
+              </ul>
+            </div>
+
             <div className="space-y-2">
-              <Label>Bilder</Label>
+              <Label>Bilder ({data.images.length} / 6)</Label>
               <div className="grid grid-cols-2 gap-2">
                 {data.images.map((url, idx) => (
                   <div key={idx} className="relative aspect-square rounded-md overflow-hidden border">
@@ -265,14 +286,16 @@ export function ShowcaseWizard({ unit }: ShowcaseWizardProps) {
                 ))}
                 
                 {/* Use ImageUpload component - adapted for multiple adds */}
-                <div className="aspect-square">
-                    <ImageUpload 
-                        value={null} // Always reset
-                        onChange={handleRoomImageAdd}
-                        label="Legg til"
-                        onUploadStatusChange={(isUploading) => setLoading(isUploading)}
-                    />
-                </div>
+                {data.images.length < 6 && (
+                  <div className="aspect-square">
+                      <ImageUpload 
+                          value={null} // Always reset
+                          onChange={handleRoomImageAdd}
+                          label={data.images.length === 0 ? "Start foto" : "Legg til bilde"}
+                          onUploadStatusChange={(isUploading) => setLoading(isUploading)}
+                      />
+                  </div>
+                )}
               </div>
             </div>
 
@@ -353,7 +376,7 @@ export function ShowcaseWizard({ unit }: ShowcaseWizardProps) {
               </>
             )}
             
-             <div className="space-y-2">
+            <div className="space-y-2">
               <Label htmlFor="generalNotes">Generelle opplysninger</Label>
               <Textarea 
                 id="generalNotes" 
@@ -361,6 +384,49 @@ export function ShowcaseWizard({ unit }: ShowcaseWizardProps) {
                 value={details.generalNotes || ""}
                 onChange={(e) => setDetails(prev => ({ ...prev, generalNotes: e.target.value }))}
               />
+            </div>
+
+            <div className="space-y-4 pt-4 border-t">
+              <h3 className="font-semibold text-lg">Nærområde & Fasiliteter</h3>
+              <p className="text-sm text-muted-foreground">Fyll inn informasjon om nærområdet. (Dette kan senere hentes automatisk)</p>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label htmlFor="schools">Skoler/Barnehager (avstand)</Label>
+                  <Input 
+                    id="schools" 
+                    placeholder="F.eks. 500m til barneskole"
+                    value={details.schools || ""}
+                    onChange={(e) => setDetails(prev => ({ ...prev, schools: e.target.value }))}
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="shops">Butikk/Service (avstand)</Label>
+                  <Input 
+                    id="shops" 
+                    placeholder="F.eks. 200m til Rema 1000"
+                    value={details.shops || ""}
+                    onChange={(e) => setDetails(prev => ({ ...prev, shops: e.target.value }))}
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="transport">Kollektivtransport</Label>
+                  <Input 
+                    id="transport" 
+                    placeholder="F.eks. 100m til buss"
+                    value={details.transport || ""}
+                    onChange={(e) => setDetails(prev => ({ ...prev, transport: e.target.value }))}
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="nature">Turområder</Label>
+                  <Input 
+                    id="nature" 
+                    placeholder="F.eks. Nærhet til marka"
+                    value={details.nature || ""}
+                    onChange={(e) => setDetails(prev => ({ ...prev, nature: e.target.value }))}
+                  />
+                </div>
+              </div>
             </div>
 
           </CardContent>

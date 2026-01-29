@@ -17,11 +17,18 @@ export default async function ProjectsPage() {
       </div>
       <div className="flex justify-between items-center mb-6">
         <h1 className="text-2xl font-bold">Prosjekter</h1>
-        <Link href="/projects/new">
-          <Button>
-            <Plus className="mr-2 h-4 w-4" /> Nytt prosjekt
-          </Button>
-        </Link>
+        <div className="flex gap-2">
+          <Link href="/dashboard/showcase/new">
+            <Button variant="outline">
+              <Folder className="mr-2 h-4 w-4" /> Ny Skrytemappe
+            </Button>
+          </Link>
+          <Link href="/projects/new">
+            <Button>
+              <Plus className="mr-2 h-4 w-4" /> Nytt prosjekt
+            </Button>
+          </Link>
+        </div>
       </div>
 
       <div className="grid gap-4">

@@ -117,38 +117,46 @@ export default async function DashboardPage() {
     <div className="flex flex-col gap-4">
       <h1 className="text-2xl font-bold">Dashboard</h1>
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Totalt Eiendommer</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{propertyCount}</div>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Totalt Enheter</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{unitCount}</div>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Aktive Kontrakter</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{activeContractCount}</div>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Vedlikehold (Pågående)</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{pendingMaintenanceCount}</div>
-          </CardContent>
-        </Card>
+        <Link href="/dashboard/properties" className="block transition-transform hover:scale-105">
+          <Card>
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium">Totalt Eiendommer</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold">{propertyCount}</div>
+            </CardContent>
+          </Card>
+        </Link>
+        <Link href="/dashboard/properties" className="block transition-transform hover:scale-105">
+          <Card>
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium">Totalt Enheter</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold">{unitCount}</div>
+            </CardContent>
+          </Card>
+        </Link>
+        <Link href="/dashboard/contracts" className="block transition-transform hover:scale-105">
+          <Card>
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium">Aktive Kontrakter</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold">{activeContractCount}</div>
+            </CardContent>
+          </Card>
+        </Link>
+        <Link href="/dashboard/maintenance" className="block transition-transform hover:scale-105">
+          <Card>
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium">Vedlikehold (Pågående)</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold">{pendingMaintenanceCount}</div>
+            </CardContent>
+          </Card>
+        </Link>
         <Link href="/projects" className="block transition-transform hover:scale-105">
           <Card>
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
@@ -205,7 +213,11 @@ export default async function DashboardPage() {
             {recentProperties.length > 0 ? (
               <div className="space-y-4">
                 {recentProperties.map((property) => (
-                  <div key={property.id} className="flex items-center justify-between border-b pb-2 last:border-0 last:pb-0">
+                  <Link 
+                    key={property.id} 
+                    href={`/dashboard/properties/${property.id}`}
+                    className="flex items-center justify-between border-b pb-2 last:border-0 last:pb-0 hover:bg-slate-50 transition-colors cursor-pointer"
+                  >
                     <div>
                       <p className="font-medium">{property.name}</p>
                       <p className="text-sm text-muted-foreground">{property.address}</p>
@@ -213,7 +225,7 @@ export default async function DashboardPage() {
                     <div className="text-sm text-muted-foreground">
                       {new Date(property.createdAt).toLocaleDateString("no-NO")}
                     </div>
-                  </div>
+                  </Link>
                 ))}
               </div>
             ) : (
