@@ -126,36 +126,58 @@ export async function generateShowcaseReport(
     const { pdfBuffer, fileName } = await generateShowcasePDF(data);
     console.log("PDF generated successfully, size:", pdfBuffer.length);
 
-    // Upload to Supabase using Admin Client
+    // Upload to Supabase using Admin Client (preferred)
     console.log("Uploading to Supabase (Admin)...");
-    
-    // Ensure bucket exists
+    let publicUrl: string | null = null;
     try {
-        await ensureBucketExists('reports');
-    } catch (bucketError) {
-        console.warn("Could not ensure bucket exists (likely missing Service Role Key), proceeding with upload attempt:", bucketError);
+      // Ensure bucket exists
+      try {
+          await ensureBucketExists('reports');
+      } catch (bucketError) {
+          console.warn("Could not ensure bucket exists (likely missing Service Role Key), proceeding with upload attempt:", bucketError);
+      }
+  
+      const adminSupabase = createAdminClient();
+      const { data: uploadData, error: uploadError } = await adminSupabase.storage
+        .from('reports') 
+        .upload(`reports/${fileName}`, pdfBuffer, {
+          contentType: 'application/pdf',
+          upsert: true
+        });
+  
+      if (uploadError) {
+          console.error("Upload error details (admin):", JSON.stringify(uploadError));
+          throw new Error(`Upload failed (admin): ${uploadError.message}`);
+      }
+      console.log("Upload successful (admin):", uploadData);
+  
+      const { data: { publicUrl: adminUrl } } = adminSupabase.storage
+        .from('reports')
+        .getPublicUrl(`reports/${fileName}`);
+      publicUrl = adminUrl;
+    } catch (adminErr) {
+      console.warn("Admin upload failed, attempting user client fallback:", adminErr);
+      // Fallback to regular client (works if bucket policy allows)
+      const { createClient } = await import("@/lib/supabase-server");
+      const userSupabase = createClient();
+      const { data: uploadData, error: uploadError } = await userSupabase.storage
+        .from('reports') 
+        .upload(`reports/${fileName}`, pdfBuffer, {
+          contentType: 'application/pdf',
+          upsert: true
+        });
+      if (uploadError) {
+        console.error("Upload error details (user):", JSON.stringify(uploadError));
+        throw new Error(`Upload failed (user): ${uploadError.message}`);
+      }
+      const { data: { publicUrl: userUrl } } = userSupabase.storage
+        .from('reports')
+        .getPublicUrl(`reports/${fileName}`);
+      publicUrl = userUrl;
     }
-
-    const supabase = createAdminClient();
-    const { data: uploadData, error: uploadError } = await supabase.storage
-      .from('reports') 
-      .upload(`showcases/${fileName}`, pdfBuffer, {
-        contentType: 'application/pdf',
-        upsert: true
-      });
-
-    if (uploadError) {
-        console.error("Upload error details:", JSON.stringify(uploadError));
-        throw new Error(`Upload failed: ${uploadError.message}`);
-    }
-    console.log("Upload successful:", uploadData);
-
-    const { data: { publicUrl } } = supabase.storage
-      .from('reports')
-      .getPublicUrl(`showcases/${fileName}`);
 
     console.log("Public URL:", publicUrl);
-    return { success: true, url: publicUrl };
+    return { success: true, url: publicUrl! };
 
   } catch (error) {
     console.error("Error generating report:", error);
