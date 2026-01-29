@@ -136,16 +136,23 @@ export function ShowcaseWizard({ unit }: ShowcaseWizardProps) {
     if (!showcaseType) return;
     setLoading(true);
     try {
-      const result = await generateShowcaseReport(unit.id, showcaseType);
+      // Persist room data to backend before generating
+      for (const roomId of selectedRooms) {
+        const label = ROOM_OPTIONS.find(r => r.id === roomId)?.label || roomId;
+        const data = roomData[roomId] || { images: [], notes: "" };
+        await saveRoomData(unit.id, label, data.images, data.notes);
+      }
+
+      // Generate with details for selected type
+      const result = await generateShowcaseReport(unit.id, showcaseType, details);
       if (result.success) {
-        alert("Rapport generert!");
-        // Redirect or show download link
-        router.refresh();
+        setGeneratedUrl(result.url);
+        setStep("success");
       } else {
-        alert("Kunne ikke generere rapport");
+        alert(`Kunne ikke generere rapport: ${result.error || "Ukjent feil"}`);
       }
     } catch (error) {
-      alert("Noe gikk galt");
+      alert(`Noe gikk galt: ${error instanceof Error ? error.message : "Ukjent feil"}`);
     } finally {
       setLoading(false);
     }
