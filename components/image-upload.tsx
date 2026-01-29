@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import Image from "next/image";
@@ -15,6 +15,10 @@ interface ImageUploadProps {
 export function ImageUpload({ value, onChange, label = "Bilde", onUploadStatusChange }: ImageUploadProps) {
   const [uploading, setUploading] = useState(false);
   const [preview, setPreview] = useState<string | null>(value || null);
+
+  useEffect(() => {
+    setPreview(value || null);
+  }, [value]);
 
   const resizeImage = (file: File): Promise<Blob> => {
     return new Promise((resolve, reject) => {

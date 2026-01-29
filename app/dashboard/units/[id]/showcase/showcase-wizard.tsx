@@ -282,8 +282,9 @@ export function ShowcaseWizard({ unit }: ShowcaseWizardProps) {
                 
                 {/* Use ImageUpload component - adapted for multiple adds */}
                 {data.images.length < 6 && (
-                  <div className="aspect-square">
+                  <div className="aspect-square flex flex-col justify-center">
                       <ImageUpload 
+                          key={`upload-${data.images.length}`} // Force reset on every add
                           value={null} // Always reset
                           onChange={handleRoomImageAdd}
                           label={data.images.length === 0 ? "Start foto" : "Legg til bilde"}
@@ -516,6 +517,16 @@ export function ShowcaseWizard({ unit }: ShowcaseWizardProps) {
         </Card>
       </div>
     );
+  }
+
+  // Fallback if no URL generated yet but success step
+  if (step === "success" && !generatedUrl) {
+      return (
+          <div className="flex flex-col items-center justify-center p-10 space-y-4">
+              <Loader2 className="h-10 w-10 animate-spin text-primary" />
+              <p>Henter rapport...</p>
+          </div>
+      );
   }
 
   return null;
