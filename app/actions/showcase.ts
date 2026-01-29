@@ -80,7 +80,7 @@ export async function saveRoomData(
 }
 
 import { generateShowcasePDF } from "@/lib/showcase-pdf-generator";
-import { createClient } from "@/lib/supabase-server";
+import { createAdminClient, ensureBucketExists } from "@/lib/supabase-admin";
 
 export async function generateShowcaseReport(
   unitId: string, 
@@ -126,11 +126,19 @@ export async function generateShowcaseReport(
     const { pdfBuffer, fileName } = await generateShowcasePDF(data);
     console.log("PDF generated successfully, size:", pdfBuffer.length);
 
-    // Upload to Supabase
-    const supabase = createClient();
-    console.log("Uploading to Supabase...");
+    // Upload to Supabase using Admin Client
+    console.log("Uploading to Supabase (Admin)...");
+    
+    // Ensure bucket exists
+    try {
+        await ensureBucketExists('reports');
+    } catch (bucketError) {
+        console.warn("Could not ensure bucket exists (likely missing Service Role Key), proceeding with upload attempt:", bucketError);
+    }
+
+    const supabase = createAdminClient();
     const { data: uploadData, error: uploadError } = await supabase.storage
-      .from('reports') // reusing reports bucket
+      .from('reports') 
       .upload(`showcases/${fileName}`, pdfBuffer, {
         contentType: 'application/pdf',
         upsert: true
