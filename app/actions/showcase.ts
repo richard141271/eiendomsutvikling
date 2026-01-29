@@ -122,10 +122,13 @@ export async function generateShowcaseReport(
     };
 
     // Generate PDF
+    console.log("Generating PDF for type:", type);
     const { pdfBuffer, fileName } = await generateShowcasePDF(data);
+    console.log("PDF generated successfully, size:", pdfBuffer.length);
 
     // Upload to Supabase
     const supabase = createClient();
+    console.log("Uploading to Supabase...");
     const { data: uploadData, error: uploadError } = await supabase.storage
       .from('reports') // reusing reports bucket
       .upload(`showcases/${fileName}`, pdfBuffer, {
@@ -134,18 +137,23 @@ export async function generateShowcaseReport(
       });
 
     if (uploadError) {
-        console.error("Upload error:", uploadError);
-        throw new Error("Upload failed");
+        console.error("Upload error details:", JSON.stringify(uploadError));
+        throw new Error(`Upload failed: ${uploadError.message}`);
     }
+    console.log("Upload successful:", uploadData);
 
     const { data: { publicUrl } } = supabase.storage
       .from('reports')
       .getPublicUrl(`showcases/${fileName}`);
 
+    console.log("Public URL:", publicUrl);
     return { success: true, url: publicUrl };
 
   } catch (error) {
     console.error("Error generating report:", error);
-    return { success: false, error: "Failed to generate report" };
+    return { 
+      success: false, 
+      error: error instanceof Error ? error.message : "Failed to generate report" 
+    };
   }
 }

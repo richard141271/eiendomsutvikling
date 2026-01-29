@@ -349,22 +349,54 @@ export function ShowcaseWizard({ unit }: ShowcaseWizardProps) {
               </>
             )}
 
+            {showcaseType === "PROSPEKT" && (
+              <>
+                 <div className="space-y-2">
+                  <Label htmlFor="completionDate">Ferdigstillelse</Label>
+                  <Input 
+                    id="completionDate" 
+                    placeholder="F.eks. Høst 2025"
+                    value={details.completionDate || ""}
+                    onChange={(e) => setDetails(prev => ({ ...prev, completionDate: e.target.value }))}
+                  />
+                </div>
+                 <div className="space-y-2">
+                  <Label htmlFor="totalUnits">Antall enheter i prosjektet</Label>
+                  <Input 
+                    id="totalUnits" 
+                    placeholder="F.eks. 4"
+                    value={details.totalUnits || ""}
+                    onChange={(e) => setDetails(prev => ({ ...prev, totalUnits: e.target.value }))}
+                  />
+                </div>
+              </>
+            )}
+
             {showcaseType === "UTLEIEOPPGAVE" && (
               <>
                  <div className="space-y-2">
                   <Label htmlFor="rent">Månedsleie</Label>
                   <Input 
                     id="rent" 
-                    placeholder="F.eks. 15 000"
+                    type="number"
+                    placeholder="F.eks. 15000"
                     value={details.rent || ""}
-                    onChange={(e) => setDetails(prev => ({ ...prev, rent: e.target.value }))}
+                    onChange={(e) => {
+                      const rent = e.target.value;
+                      setDetails(prev => ({ 
+                        ...prev, 
+                        rent,
+                        // Auto-calculate deposit as 3x rent
+                        deposit: rent ? (parseInt(rent) * 3).toString() : prev.deposit 
+                      }))
+                    }}
                   />
                 </div>
                  <div className="space-y-2">
-                  <Label htmlFor="deposit">Depositum</Label>
+                  <Label htmlFor="deposit">Depositum (Standard: 3x leie)</Label>
                   <Input 
                     id="deposit" 
-                    placeholder="F.eks. 45 000"
+                    placeholder="F.eks. 45000"
                     value={details.deposit || ""}
                     onChange={(e) => setDetails(prev => ({ ...prev, deposit: e.target.value }))}
                   />
