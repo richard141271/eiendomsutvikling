@@ -38,7 +38,12 @@ async function getSignedImageUrl(
 
     const { data, error } = await adminSupabase.storage
       .from(bucketName)
-      .createSignedUrl(objectPath, 60 * 60);
+      .createSignedUrl(objectPath, 60 * 60, {
+        transform: {
+          width: 1600,
+          quality: 80,
+        },
+      });
 
     if (error || !data?.signedUrl) {
       console.error("Failed to create signed URL for image", { error, bucketName, objectPath });
