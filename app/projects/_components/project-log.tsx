@@ -32,24 +32,35 @@ interface ProjectLogProps {
 // Separate client component for the form to handle state
 function LogForm({ projectId, onEntryAdded }: { projectId: string, onEntryAdded: () => void }) {
   const [content, setContent] = useState("");
-  const [imageUrl, setImageUrl] = useState<string | null>(null);
+  const [imageUrls, setImageUrls] = useState<string[]>([]);
   const [loading, setLoading] = useState(false);
   const [mode, setMode] = useState<"TEXT" | "IMAGE">("TEXT");
 
   async function handleSubmit() {
-    if (!content && !imageUrl) return;
+    if (!content && imageUrls.length === 0) return;
     
     setLoading(true);
     try {
-      await addProjectEntry({
-        projectId,
-        type: imageUrl ? "IMAGE" : "NOTE", // Simplified type logic
-        content,
-        imageUrl: imageUrl || undefined,
-        includeInReport: true // Default to true as per user flow hint "Checkmark: [ ] Ta med i rapport"
-      });
+      if (imageUrls.length > 0) {
+        for (const url of imageUrls) {
+          await addProjectEntry({
+            projectId,
+            type: "IMAGE",
+            content,
+            imageUrl: url,
+            includeInReport: true,
+          });
+        }
+      } else {
+        await addProjectEntry({
+          projectId,
+          type: "NOTE",
+          content,
+          includeInReport: true,
+        });
+      }
       setContent("");
-      setImageUrl(null);
+      setImageUrls([]);
       setMode("TEXT");
       onEntryAdded();
     } catch (error) {
@@ -82,9 +93,10 @@ function LogForm({ projectId, onEntryAdded }: { projectId: string, onEntryAdded:
       <div className="space-y-4">
         {mode === "IMAGE" && (
            <ImageUpload 
-             value={imageUrl} 
-             onChange={setImageUrl} 
+             value={imageUrls[0] || null} 
+             onChange={(url) => setImageUrls((prev) => [...prev, url])} 
              label="Ta bilde eller velg fra arkiv"
+             allowMultiple
            />
         )}
         
@@ -100,7 +112,7 @@ function LogForm({ projectId, onEntryAdded }: { projectId: string, onEntryAdded:
            <Label htmlFor="include">Ta med i rapport</Label>
         </div>
 
-        <Button onClick={handleSubmit} disabled={loading || (!content && !imageUrl)} className="w-full">
+        <Button onClick={handleSubmit} disabled={loading || (!content && imageUrls.length === 0)} className="w-full">
           {loading ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : <Send className="w-4 h-4 mr-2" />}
           Lagre loggføring
         </Button>

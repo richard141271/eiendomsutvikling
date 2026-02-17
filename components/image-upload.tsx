@@ -10,9 +10,10 @@ interface ImageUploadProps {
   onChange: (url: string) => void;
   label?: string;
   onUploadStatusChange?: (isUploading: boolean) => void;
+  allowMultiple?: boolean;
 }
 
-export function ImageUpload({ value, onChange, label = "Bilde", onUploadStatusChange }: ImageUploadProps) {
+export function ImageUpload({ value, onChange, label = "Bilde", onUploadStatusChange, allowMultiple = false }: ImageUploadProps) {
   const [uploading, setUploading] = useState(false);
   const [preview, setPreview] = useState<string | null>(value || null);
 
@@ -63,36 +64,38 @@ export function ImageUpload({ value, onChange, label = "Bilde", onUploadStatusCh
   };
 
   const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
+    const files = e.target.files ? Array.from(e.target.files) : [];
+    if (!files.length) return;
 
-    // Show local preview immediately
-    const objectUrl = URL.createObjectURL(file);
-    setPreview(objectUrl);
-    
+    const selectedFiles = allowMultiple ? files : [files[0]];
+
     setUploading(true);
     if (onUploadStatusChange) onUploadStatusChange(true);
 
     try {
-      // Resize image before upload to avoid server limits and save bandwidth
-      const resizedBlob = await resizeImage(file);
-      const resizedFile = new File([resizedBlob], file.name, { type: 'image/jpeg' });
+      for (const file of selectedFiles) {
+        const objectUrl = URL.createObjectURL(file);
+        setPreview(objectUrl);
 
-      const formData = new FormData();
-      formData.append("file", resizedFile);
+        const resizedBlob = await resizeImage(file);
+        const resizedFile = new File([resizedBlob], file.name, { type: 'image/jpeg' });
 
-      const res = await fetch("/api/upload", {
-        method: "POST",
-        body: formData,
-      });
+        const formData = new FormData();
+        formData.append("file", resizedFile);
 
-      if (!res.ok) {
-        const errorData = await res.json().catch(() => ({}));
-        throw new Error(errorData.error || "Upload failed");
+        const res = await fetch("/api/upload", {
+          method: "POST",
+          body: formData,
+        });
+
+        if (!res.ok) {
+          const errorData = await res.json().catch(() => ({}));
+          throw new Error(errorData.error || "Upload failed");
+        }
+
+        const data = await res.json();
+        onChange(data.imageUrl);
       }
-
-      const data = await res.json();
-      onChange(data.imageUrl);
     } catch (error) {
       console.error("Error uploading image:", error);
       alert(`Kunne ikke laste opp bilde: ${error instanceof Error ? error.message : "Ukjent feil"}`);
@@ -143,6 +146,7 @@ export function ImageUpload({ value, onChange, label = "Bilde", onUploadStatusCh
                     type="file"
                     className="sr-only"
                     accept="image/*"
+                    multiple={allowMultiple}
                     onChange={handleFileChange}
                     disabled={uploading}
                   />
