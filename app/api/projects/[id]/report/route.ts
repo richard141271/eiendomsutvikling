@@ -97,6 +97,9 @@ export async function POST(
       })
     );
 
+    const imageEntriesCount = entriesWithSignedUrls.filter((entry: any) => !!entry.imageUrl).length;
+    console.log("Project report image entries:", imageEntriesCount);
+
     const entriesHtml = entriesWithSignedUrls.map((entry: any) => `
       <div class="entry">
         <div class="entry-header">

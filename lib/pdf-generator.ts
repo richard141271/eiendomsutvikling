@@ -241,7 +241,7 @@ export async function generateProjectReportPDF(data: ProjectReportData): Promise
       console.warn("WARNING: HTML length is very large (> 5MB). This might indicate that images are not optimized correctly.");
     }
 
-    await page.setContent(html, { waitUntil: 'domcontentloaded' });
+    await page.setContent(html, { waitUntil: 'networkidle0' });
 
     const fileName = `report-${data.projectId}-${Date.now()}.pdf`;
 
