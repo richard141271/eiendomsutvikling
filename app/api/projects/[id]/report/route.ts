@@ -5,6 +5,8 @@ import { createAdminClient, ensureBucketExists } from "@/lib/supabase-admin";
 import { NextResponse } from "next/server";
 import { generateProjectReportPDF } from "@/lib/pdf-generator";
 
+export const runtime = "nodejs";
+
 async function getSignedImageUrl(
   adminSupabase: ReturnType<typeof createAdminClient>,
   originalUrl: string

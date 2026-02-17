@@ -1,5 +1,5 @@
 import fs from 'fs';
-import path from 'path';
+import templateHtml from "@/lib/templates/showcase.html";
 
 interface ShowcaseData {
   type: string;
@@ -60,8 +60,7 @@ export async function generateShowcasePDF(data: ShowcaseData): Promise<Generated
   try {
     const page = await browser.newPage();
     
-    const templatePath = require.resolve('@/lib/templates/showcase.html');
-    let html = fs.readFileSync(templatePath, 'utf8');
+    let html = templateHtml as string;
 
     // Replace placeholders
     html = html.replace('{{title}}', `${data.type} - ${data.address}`);
