@@ -82,6 +82,51 @@ export async function saveRoomData(
 import { generateShowcasePDF } from "@/lib/showcase-pdf-generator";
 import { createAdminClient, ensureBucketExists } from "@/lib/supabase-admin";
 
+async function getSignedImageUrl(
+  adminSupabase: ReturnType<typeof createAdminClient>,
+  originalUrl: string
+): Promise<string> {
+  try {
+    const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+    if (!supabaseUrl) return originalUrl;
+
+    const publicPrefix = `${supabaseUrl}/storage/v1/object/public/`;
+    const genericPrefix = `${supabaseUrl}/storage/v1/object/`;
+
+    let rest: string | null = null;
+
+    if (originalUrl.startsWith(publicPrefix)) {
+      rest = originalUrl.substring(publicPrefix.length);
+    } else if (originalUrl.startsWith(genericPrefix)) {
+      rest = originalUrl.substring(genericPrefix.length);
+    } else {
+      return originalUrl;
+    }
+
+    const pathPart = rest.split("?")[0];
+    const [bucketName, ...objectParts] = pathPart.split("/");
+    const objectPath = objectParts.join("/");
+
+    if (!bucketName || !objectPath) {
+      return originalUrl;
+    }
+
+    const { data, error } = await adminSupabase.storage
+      .from(bucketName)
+      .createSignedUrl(objectPath, 60 * 60);
+
+    if (error || !data?.signedUrl) {
+      console.error("Failed to create signed URL for showcase image", { error, bucketName, objectPath });
+      return originalUrl;
+    }
+
+    return data.signedUrl;
+  } catch (error) {
+    console.error("Error while creating signed URL for showcase image", error);
+    return originalUrl;
+  }
+}
+
 export async function generateShowcaseReport(
   unitId: string, 
   type: string,
@@ -107,6 +152,27 @@ export async function generateShowcaseReport(
 
     if (!unit) throw new Error("Unit not found");
 
+    const adminSupabase = createAdminClient();
+
+    const roomsWithSignedUrls = await Promise.all(
+      unit.roomDetails.map(async (room) => {
+        const signedImages = await Promise.all(
+          room.images.map(async (img) => await getSignedImageUrl(adminSupabase, img.url))
+        );
+
+        return {
+          name: room.name,
+          description: room.description || undefined,
+          images: signedImages,
+        };
+      })
+    );
+
+    const totalImages = roomsWithSignedUrls.reduce(
+      (sum, room) => sum + room.images.length,
+      0
+    );
+
     // Map to ShowcaseData
     const data = {
       type,
@@ -114,15 +180,12 @@ export async function generateShowcaseReport(
       unitName: unit.name,
       size: unit.sizeSqm,
       details,
-      rooms: unit.roomDetails.map(room => ({
-        name: room.name,
-        description: room.description || undefined,
-        images: room.images.map(img => img.url)
-      }))
+      rooms: roomsWithSignedUrls,
     };
 
     // Generate PDF
     console.log("Generating PDF for type:", type);
+    console.log("Showcase PDF images count:", totalImages);
     const { pdfBuffer, fileName } = await generateShowcasePDF(data);
     console.log("PDF generated successfully, size:", pdfBuffer.length);
 

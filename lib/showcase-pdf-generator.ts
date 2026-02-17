@@ -88,6 +88,12 @@ export async function generateShowcasePDF(data: ShowcaseData): Promise<Generated
     html = html.replace('{{customDetails}}', detailsHtml);
 
     // Rooms
+    const totalImages = data.rooms.reduce(
+      (sum, room) => sum + (room.images?.length || 0),
+      0
+    );
+    console.log("Showcase PDF images count (generator):", totalImages);
+
     let roomsHtml = '';
     for (const room of data.rooms) {
         let imagesHtml = '';
