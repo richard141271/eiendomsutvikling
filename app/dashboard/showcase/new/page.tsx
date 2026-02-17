@@ -43,7 +43,7 @@ export default async function NewShowcasePage() {
       throw new Error("User not found");
     }
 
-    const title = `Skrytemappe: ${name}`;
+    const title = `Prospekt: ${name}`;
     const tenSecondsAgo = new Date(Date.now() - 10_000);
 
     const recentProject = await prisma.project.findFirst({
@@ -87,7 +87,7 @@ export default async function NewShowcasePage() {
 
     const unit = await prisma.unit.create({
       data: {
-        name: "Skrytemappe Enhet",
+        name: "Prospekt Enhet",
         propertyId: property.id,
         status: "AVAILABLE",
         sizeSqm: 0,
@@ -100,7 +100,7 @@ export default async function NewShowcasePage() {
     await prisma.project.create({
       data: {
         title,
-        description: "Automatisk opprettet skrytemappe-prosjekt",
+        description: "Automatisk opprettet prospekt-prosjekt",
         status: "ACTIVE",
         propertyId: property.id,
         unitId: unit.id
@@ -116,14 +116,14 @@ export default async function NewShowcasePage() {
         <Link href="/projects" className="text-slate-500 hover:text-slate-900 flex items-center mb-4">
           <ChevronLeft className="h-4 w-4 mr-1" /> Tilbake til prosjekter
         </Link>
-        <h1 className="text-2xl font-bold">Ny Skrytemappe</h1>
-        <p className="text-muted-foreground">Opprett en ny skrytemappe for en eiendom du ikke eier fra før.</p>
+        <h1 className="text-2xl font-bold">Nytt prospekt</h1>
+        <p className="text-muted-foreground">Opprett et nytt prospekt for en eiendom du ikke eier fra før.</p>
       </div>
 
       <Card>
         <CardHeader>
           <CardTitle>Eiendom / Objekt</CardTitle>
-          <CardDescription>Vi oppretter et prosjekt og en skrytemappe for deg.</CardDescription>
+          <CardDescription>Vi oppretter et prosjekt og et prospekt for deg.</CardDescription>
         </CardHeader>
         <CardContent>
           <NewShowcaseForm createShowcase={createShowcase} />

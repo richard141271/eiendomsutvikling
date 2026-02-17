@@ -58,6 +58,9 @@ export function MobileNav({ unresolvedNotesCount = 0, maintenanceCount = 0, isAd
                     <FolderKanban className="h-5 w-5" />
                     Prosjekter
                   </Link>
+                  <Link href="/dashboard/cases" onClick={() => setIsOpen(false)} className="text-lg font-medium hover:text-primary">
+                    Saker
+                  </Link>
                   <Link href="/tasks" onClick={() => setIsOpen(false)} className="text-lg font-medium hover:text-primary flex items-center gap-2">
                     <MapPin className="h-5 w-5" />
                     Oppgaver

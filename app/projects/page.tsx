@@ -20,7 +20,7 @@ export default async function ProjectsPage() {
         <div className="flex gap-2">
           <Link href="/dashboard/showcase/new">
             <Button variant="outline">
-              <Folder className="mr-2 h-4 w-4" /> Ny Skrytemappe
+              <Folder className="mr-2 h-4 w-4" /> Nytt prospekt
             </Button>
           </Link>
           <Link href="/projects/new">

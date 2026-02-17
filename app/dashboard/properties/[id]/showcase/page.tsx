@@ -10,20 +10,20 @@ export default async function PropertyShowcasePage({ params }: { params: { id: s
 
   if (!property) return notFound();
 
-  // Find or create "Hele Eiendommen" unit for showcase purposes
+  // Find or create "Hele Eiendommen" unit for prospekt purposes
   // We use a specific name to identify it. 
   // Ideally this would be a separate model or a flag on Unit, but this is a safe non-breaking way.
   let showcaseUnit = await prisma.unit.findFirst({
     where: {
       propertyId: property.id,
-      name: "Hele Eiendommen (Skrytemappe)"
+      name: "Hele Eiendommen (Prospekt)"
     }
   });
 
   if (!showcaseUnit) {
     showcaseUnit = await prisma.unit.create({
       data: {
-        name: "Hele Eiendommen (Skrytemappe)",
+        name: "Hele Eiendommen (Prospekt)",
         propertyId: property.id,
         status: "AVAILABLE",
         sizeSqm: 0,
@@ -51,7 +51,7 @@ export default async function PropertyShowcasePage({ params }: { params: { id: s
   return (
     <div className="container max-w-lg mx-auto py-8 px-4">
       <div className="mb-6">
-        <h1 className="text-2xl font-bold">Skrytemappe Generator</h1>
+        <h1 className="text-2xl font-bold">Prospektgenerator</h1>
         <p className="text-muted-foreground">For hele eiendommen: {property.name}</p>
       </div>
       <ShowcaseWizard unit={fullUnit} />
