@@ -5,33 +5,6 @@ import { createAdminClient, ensureBucketExists } from "@/lib/supabase-admin";
 import { NextResponse } from "next/server";
 import { generateProjectReportPDF } from "@/lib/pdf-generator";
 
-// Optimize image function
-async function optimizeImage(url: string, rotation: number = 0) {
-  try {
-    const { default: sharp } = await import("sharp");
-    console.log(`Optimizing image: ${url} with rotation ${rotation}`);
-    const res = await fetch(url);
-    if (!res.ok) throw new Error(`Failed to fetch image: ${res.statusText}`);
-    const arrayBuffer = await res.arrayBuffer();
-    const buffer = Buffer.from(arrayBuffer);
-
-    console.log(`Original image size: ${(buffer.length / 1024).toFixed(2)} KB`);
-
-    const optimized = await sharp(buffer)
-      .rotate(rotation)
-      .resize({ width: 1200, withoutEnlargement: true })
-      .jpeg({ quality: 60 })
-      .toBuffer();
-
-    console.log(`Optimized image size: ${(optimized.length / 1024).toFixed(2)} KB`);
-
-    return `data:image/jpeg;base64,${optimized.toString("base64")}`;
-  } catch (error) {
-    console.error("Image optimization failed, using original url:", error);
-    return url; // Fallback to original URL if optimization fails
-  }
-}
-
 export async function POST(
   request: Request,
   { params }: { params: { id: string } }
@@ -69,20 +42,7 @@ export async function POST(
       return NextResponse.json({ error: "Prosjekt ikke funnet" }, { status: 404 });
     }
 
-    // Generate Entries HTML
-    // Optimize images first
-    const processedEntries = await Promise.all(project.entries.map(async (entry: any) => {
-      let imageUrl = entry.imageUrl;
-      if (imageUrl) {
-        // Check if it's already a data URL or external URL that needs optimization
-        if (!imageUrl.startsWith('data:')) {
-           imageUrl = await optimizeImage(imageUrl, entry.rotation || 0);
-        }
-      }
-      return { ...entry, imageUrl };
-    }));
-
-    const entriesHtml = processedEntries.map((entry: any) => `
+    const entriesHtml = project.entries.map((entry: any) => `
       <div class="entry">
         <div class="entry-header">
           <span class="entry-date">${entry.createdAt.toLocaleDateString("no-NO")} ${entry.createdAt.toLocaleTimeString("no-NO", {hour: '2-digit', minute:'2-digit'})}</span>

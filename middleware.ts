@@ -40,36 +40,6 @@ export async function middleware(request: NextRequest) {
 
   const { data: { user } } = await supabase.auth.getUser()
 
-  // Custom Session Duration Logic
-  if (user) {
-    const role = user.user_metadata?.role;
-    let maxAgeSeconds = 3600; // Default 1 hour
-
-    if (role === 'OWNER' || role === 'ADMIN') {
-      maxAgeSeconds = 7200; // 2 hours
-    } else if (role === 'TENANT') {
-      maxAgeSeconds = 900; // 15 minutes
-    }
-
-    // Extend session cookie lifetime on every request (Sliding Expiration)
-    const cookiesList = request.cookies.getAll();
-    
-    cookiesList.forEach(cookie => {
-      // Target Supabase Auth cookies
-      if (cookie.name.startsWith('sb-') && cookie.name.endsWith('-auth-token')) {
-        response.cookies.set({
-          name: cookie.name,
-          value: cookie.value,
-          maxAge: maxAgeSeconds,
-          path: '/',
-          sameSite: 'lax',
-          secure: process.env.NODE_ENV === 'production',
-          httpOnly: false // Allow client-side access for hydration
-        });
-      }
-    });
-  }
-
   return response
 }
 

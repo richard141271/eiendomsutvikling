@@ -1,8 +1,7 @@
 
-import { getProject, getProjectAuditLogs } from "@/app/actions/projects";
+import { getProject } from "@/app/actions/projects";
 import { notFound, redirect } from "next/navigation";
 import ProjectClient from "./project-client";
-import ProjectAuditLogs from "../_components/project-audit-logs";
 import { ChevronLeft } from "lucide-react";
 import Link from "next/link";
 import { createClient } from "@/lib/supabase-server";
@@ -13,7 +12,6 @@ export default async function ProjectPage({ params }: { params: { id: string } }
   if (!user) redirect("/login");
 
   const project = await getProject(params.id);
-  const auditLogs = await getProjectAuditLogs(params.id);
 
   if (!project) {
     notFound();
@@ -35,7 +33,7 @@ export default async function ProjectPage({ params }: { params: { id: string } }
         </p>
       </div>
 
-      <ProjectClient project={project} auditLogs={auditLogs} />
+      <ProjectClient project={project} />
     </div>
   );
 }

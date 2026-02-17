@@ -40,6 +40,7 @@ interface TasksClientProps {
 
 export default function TasksClient({ tasks }: TasksClientProps) {
   const router = useRouter();
+  const [localTasks, setLocalTasks] = useState(Array.isArray(tasks) ? tasks : []);
   const [newTaskTitle, setNewTaskTitle] = useState("");
   const [loading, setLoading] = useState(false);
   const [userLocation, setUserLocation] = useState<{ lat: number; lng: number } | null>(null);
@@ -61,9 +62,10 @@ export default function TasksClient({ tasks }: TasksClientProps) {
   const [showMap, setShowMap] = useState(false);
 
   useEffect(() => {
+    setLocalTasks(Array.isArray(tasks) ? tasks : []);
     // Check location on mount
     refreshLocation();
-  }, []);
+  }, [tasks]);
 
   function refreshLocation() {
     if (!navigator.geolocation) return;
@@ -161,16 +163,40 @@ export default function TasksClient({ tasks }: TasksClientProps) {
   }
 
   async function handleToggle(id: string, done: boolean) {
-    await toggleLocationTask(id, !done);
-    router.refresh();
+    setLocalTasks((prev) =>
+      prev.map((task) =>
+        task.id === id ? { ...task, done: !done } : task
+      )
+    );
+
+    try {
+      await toggleLocationTask(id, !done);
+    } catch (error) {
+      console.error("Failed to toggle location task", error);
+      setLocalTasks(Array.isArray(tasks) ? tasks : []);
+      router.refresh();
+    }
   }
 
   async function handleToggleItem(itemId: string, done: boolean) {
-    await toggleLocationTaskItem(itemId, done);
-    // Don't refresh whole page for item toggle to avoid layout shift, 
-    // but in this simple version we might need to to see update? 
-    // Optimistic update would be better.
-    router.refresh();
+    setLocalTasks((prev) =>
+      prev.map((task) => ({
+        ...task,
+        items: task.items
+          ? task.items.map((item) =>
+              item.id === itemId ? { ...item, done } : item
+            )
+          : task.items,
+      }))
+    );
+
+    try {
+      await toggleLocationTaskItem(itemId, done);
+    } catch (error) {
+      console.error("Failed to toggle location task item", error);
+      setLocalTasks(Array.isArray(tasks) ? tasks : []);
+      router.refresh();
+    }
   }
 
   async function handleCreateRestList(taskId: string, items: LocationTaskItem[]) {
@@ -192,7 +218,7 @@ export default function TasksClient({ tasks }: TasksClientProps) {
   }
 
   // Sort tasks: Nearby first if location known
-  const safeTasks = Array.isArray(tasks) ? tasks : [];
+  const safeTasks = Array.isArray(localTasks) ? localTasks : [];
   const sortedTasks = [...safeTasks].sort((a, b) => {
     if (a.done === b.done) {
       if (userLocation) {

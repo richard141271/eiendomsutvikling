@@ -64,10 +64,12 @@ export async function toggleLocationTask(id: string, done: boolean) {
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) throw new Error("Unauthorized");
 
-  await prisma.locationTask.update({
+  const task = await prisma.locationTask.update({
     where: { id },
     data: { done },
   });
+
+  console.log("toggleLocationTask", { id, done, relatedProjectId: task.relatedProjectId });
 
   revalidatePath("/tasks");
 }
@@ -77,11 +79,13 @@ export async function toggleLocationTaskItem(itemId: string, done: boolean) {
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) throw new Error("Unauthorized");
 
-  await prisma.locationTaskItem.update({
+  const item = await prisma.locationTaskItem.update({
     where: { id: itemId },
     data: { done },
   });
   
+  console.log("toggleLocationTaskItem", { itemId, done, locationTaskId: item.locationTaskId });
+
   revalidatePath("/tasks");
 }
 
@@ -119,6 +123,8 @@ export async function createRestList(originalTaskId: string, uncheckedItems: str
     where: { id: originalTaskId },
     data: { done: true }
   });
+
+  console.log("createRestList", { originalTaskId, restTaskId: restTask.id, uncheckedCount: uncheckedItems.length });
 
   revalidatePath("/tasks");
   return restTask;

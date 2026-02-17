@@ -7,8 +7,8 @@ import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Label } from "@/components/ui/label";
-import { ImageUpload } from "@/components/image-upload"; // Using existing component
-import { useState } from "react";
+import { ImageUpload } from "@/components/image-upload";
+import { useEffect, useState } from "react";
 import { Loader2, Camera, Send, FileText, Image as ImageIcon, Trash2, Pencil, X, Check, Maximize2, RotateCw } from "lucide-react";
 import Image from "next/image";
 import { cn } from "@/lib/utils";
@@ -113,14 +113,30 @@ function LogForm({ projectId, onEntryAdded }: { projectId: string, onEntryAdded:
 
 export default function ProjectLog({ projectId, entries }: ProjectLogProps) {
   const router = useRouter();
+  const [localEntries, setLocalEntries] = useState(entries);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editContent, setEditContent] = useState("");
   const [loading, setLoading] = useState(false);
   const [fullScreenImage, setFullScreenImage] = useState<string | null>(null);
 
+  useEffect(() => {
+    setLocalEntries(entries);
+  }, [entries]);
+
   async function handleToggleReport(id: string, current: boolean) {
-    await toggleEntryReportStatus(id, !current);
-    router.refresh();
+    setLocalEntries((prev) =>
+      prev.map((entry) =>
+        entry.id === id ? { ...entry, includeInReport: !current } : entry
+      )
+    );
+
+    try {
+      await toggleEntryReportStatus(id, !current);
+    } catch (error) {
+      console.error("Failed to toggle entry report status", error);
+      setLocalEntries(entries);
+      router.refresh();
+    }
   }
 
   async function handleDelete(id: string) {
@@ -190,9 +206,9 @@ export default function ProjectLog({ projectId, entries }: ProjectLogProps) {
       </Dialog>
 
       <div className="space-y-4">
-        {entries.length === 0 && <p className="text-center text-slate-500 py-8">Ingen loggføringer enda.</p>}
+        {localEntries.length === 0 && <p className="text-center text-slate-500 py-8">Ingen loggføringer enda.</p>}
         
-        {entries.map((entry) => (
+        {localEntries.map((entry) => (
           <div key={entry.id} className="border rounded-lg p-4 bg-white shadow-sm flex gap-4">
             <div className="flex-shrink-0 mt-1">
               {entry.type === "IMAGE" ? (

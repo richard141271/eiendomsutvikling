@@ -1,23 +1,47 @@
 
 "use client";
 
+import { useState } from "react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { FileText, CheckSquare, Info, MapPin } from "lucide-react";
 import ProjectLog from "../_components/project-log";
 import ProjectTasks from "../_components/project-tasks";
 import ProjectOverview from "../_components/project-overview";
 import ProjectAuditLogs from "../_components/project-audit-logs";
-import { Button } from "@/components/ui/button";
 import Link from "next/link";
+import { getProjectAuditLogs } from "@/app/actions/projects";
 
 interface ProjectClientProps {
-  project: any; // Full project object with relations
-  auditLogs: any[];
+  project: any;
 }
 
-export default function ProjectClient({ project, auditLogs }: ProjectClientProps) {
+export default function ProjectClient({ project }: ProjectClientProps) {
+  const [activeTab, setActiveTab] = useState("log");
+  const [auditLogs, setAuditLogs] = useState<any[] | null>(null);
+  const [loadingLogs, setLoadingLogs] = useState(false);
+
+  async function ensureAuditLogsLoaded() {
+    if (auditLogs || loadingLogs) return;
+    try {
+      setLoadingLogs(true);
+      const logs = await getProjectAuditLogs(project.id);
+      setAuditLogs(logs);
+    } catch (error) {
+      console.error("Failed to load project audit logs", error);
+    } finally {
+      setLoadingLogs(false);
+    }
+  }
+
+  function handleTabChange(value: string) {
+    setActiveTab(value);
+    if (value === "overview") {
+      ensureAuditLogsLoaded();
+    }
+  }
+
   return (
-    <Tabs defaultValue="log" className="w-full">
+    <Tabs defaultValue="log" className="w-full" onValueChange={handleTabChange}>
       <TabsList className="grid w-full grid-cols-4 h-14 mb-6">
         <TabsTrigger value="log" className="flex flex-col gap-1 py-2">
           <FileText className="h-4 w-4" />
@@ -50,7 +74,7 @@ export default function ProjectClient({ project, auditLogs }: ProjectClientProps
       <TabsContent value="overview">
         <ProjectOverview project={project} />
         <div className="mt-8">
-          <ProjectAuditLogs logs={auditLogs} />
+          {auditLogs && <ProjectAuditLogs logs={auditLogs} />}
         </div>
       </TabsContent>
     </Tabs>

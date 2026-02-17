@@ -199,6 +199,8 @@ export async function deleteProjectEntry(entryId: string) {
     where: { id: entryId },
   });
 
+  console.log("deleteProjectEntry", { entryId, projectId: entry.projectId });
+
   revalidatePath(`/projects/${entry.projectId}`);
 }
 
@@ -235,6 +237,8 @@ export async function toggleEntryReportStatus(entryId: string, include: boolean)
     data: { includeInReport: include },
   });
 
+  console.log("toggleEntryReportStatus", { entryId, include, projectId: entry.projectId });
+
   revalidatePath(`/projects/${entry.projectId}`);
 }
 
@@ -266,6 +270,8 @@ export async function toggleProjectTask(taskId: string, done: boolean) {
     data: { done },
   });
 
+  console.log("toggleProjectTask", { taskId, done, projectId: task.projectId });
+
   revalidatePath(`/projects/${task.projectId}`);
 }
 
@@ -283,6 +289,8 @@ export async function deleteProjectTask(taskId: string) {
   await prisma.projectTask.delete({
     where: { id: taskId },
   });
+
+  console.log("deleteProjectTask", { taskId, projectId: task.projectId });
 
   revalidatePath(`/projects/${task.projectId}`);
 }

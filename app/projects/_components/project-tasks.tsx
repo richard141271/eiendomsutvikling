@@ -5,7 +5,7 @@ import { addProjectTask, toggleProjectTask, deleteProjectTask } from "@/app/acti
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Checkbox } from "@/components/ui/checkbox";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Loader2, Plus, Trash2 } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { cn } from "@/lib/utils";
@@ -23,8 +23,13 @@ interface ProjectTasksProps {
 
 export default function ProjectTasks({ projectId, tasks }: ProjectTasksProps) {
   const router = useRouter();
+  const [localTasks, setLocalTasks] = useState(tasks);
   const [newTask, setNewTask] = useState("");
   const [loading, setLoading] = useState(false);
+
+  useEffect(() => {
+    setLocalTasks(tasks);
+  }, [tasks]);
 
   async function handleAdd() {
     if (!newTask.trim()) return;
@@ -41,8 +46,19 @@ export default function ProjectTasks({ projectId, tasks }: ProjectTasksProps) {
   }
 
   async function handleToggle(id: string, current: boolean) {
-    await toggleProjectTask(id, !current);
-    router.refresh();
+    setLocalTasks((prev) =>
+      prev.map((task) =>
+        task.id === id ? { ...task, done: !current } : task
+      )
+    );
+
+    try {
+      await toggleProjectTask(id, !current);
+    } catch (error) {
+      console.error("Failed to toggle project task", error);
+      setLocalTasks(tasks);
+      router.refresh();
+    }
   }
 
   async function handleDelete(id: string) {
@@ -71,9 +87,9 @@ export default function ProjectTasks({ projectId, tasks }: ProjectTasksProps) {
       </div>
 
       <div className="space-y-2">
-        {tasks.length === 0 && <p className="text-center text-slate-500 py-4">Ingen oppgaver enda.</p>}
+        {localTasks.length === 0 && <p className="text-center text-slate-500 py-4">Ingen oppgaver enda.</p>}
         
-        {tasks.map((task) => (
+        {localTasks.map((task) => (
           <div 
             key={task.id} 
             className={cn(
