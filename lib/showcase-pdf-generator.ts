@@ -60,8 +60,7 @@ export async function generateShowcasePDF(data: ShowcaseData): Promise<Generated
   try {
     const page = await browser.newPage();
     
-    // Read HTML template
-    const templatePath = path.join(process.cwd(), 'lib', 'templates', 'showcase.html');
+    const templatePath = path.resolve(process.cwd(), 'lib', 'templates', 'showcase.html');
     let html = fs.readFileSync(templatePath, 'utf8');
 
     // Replace placeholders
@@ -112,7 +111,7 @@ export async function generateShowcasePDF(data: ShowcaseData): Promise<Generated
 
     html = html.replace('{{roomsHtml}}', roomsHtml);
 
-    await page.setContent(html, { waitUntil: 'networkidle0' });
+    await page.setContent(html, { waitUntil: 'domcontentloaded' });
     
     const pdfBuffer = await page.pdf({
       format: 'A4',

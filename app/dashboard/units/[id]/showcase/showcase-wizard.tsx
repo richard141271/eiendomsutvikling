@@ -129,10 +129,11 @@ export function ShowcaseWizard({ unit }: ShowcaseWizardProps) {
   };
   
   const handleDetailsSubmit = () => {
-      setStep("review");
+    setStep("review");
   };
 
   const handleGenerate = async () => {
+    console.log("Showcase generate clicked", { unitId: unit.id, showcaseType, details });
     if (!showcaseType) return;
     setLoading(true);
     try {

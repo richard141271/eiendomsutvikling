@@ -5,6 +5,51 @@ import { createAdminClient, ensureBucketExists } from "@/lib/supabase-admin";
 import { NextResponse } from "next/server";
 import { generateProjectReportPDF } from "@/lib/pdf-generator";
 
+async function getSignedImageUrl(
+  adminSupabase: ReturnType<typeof createAdminClient>,
+  originalUrl: string
+): Promise<string> {
+  try {
+    const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+    if (!supabaseUrl) return originalUrl;
+
+    const publicPrefix = `${supabaseUrl}/storage/v1/object/public/`;
+    const genericPrefix = `${supabaseUrl}/storage/v1/object/`;
+
+    let rest: string | null = null;
+
+    if (originalUrl.startsWith(publicPrefix)) {
+      rest = originalUrl.substring(publicPrefix.length);
+    } else if (originalUrl.startsWith(genericPrefix)) {
+      rest = originalUrl.substring(genericPrefix.length);
+    } else {
+      return originalUrl;
+    }
+
+    const pathPart = rest.split("?")[0];
+    const [bucketName, ...objectParts] = pathPart.split("/");
+    const objectPath = objectParts.join("/");
+
+    if (!bucketName || !objectPath) {
+      return originalUrl;
+    }
+
+    const { data, error } = await adminSupabase.storage
+      .from(bucketName)
+      .createSignedUrl(objectPath, 60 * 60);
+
+    if (error || !data?.signedUrl) {
+      console.error("Failed to create signed URL for image", { error, bucketName, objectPath });
+      return originalUrl;
+    }
+
+    return data.signedUrl;
+  } catch (error) {
+    console.error("Error while creating signed URL for image", error);
+    return originalUrl;
+  }
+}
+
 export async function POST(
   request: Request,
   { params }: { params: { id: string } }
@@ -42,7 +87,15 @@ export async function POST(
       return NextResponse.json({ error: "Prosjekt ikke funnet" }, { status: 404 });
     }
 
-    const entriesHtml = project.entries.map((entry: any) => `
+    const entriesWithSignedUrls = await Promise.all(
+      project.entries.map(async (entry: any) => {
+        if (!entry.imageUrl) return entry;
+        const signedUrl = await getSignedImageUrl(adminSupabase, entry.imageUrl);
+        return { ...entry, imageUrl: signedUrl };
+      })
+    );
+
+    const entriesHtml = entriesWithSignedUrls.map((entry: any) => `
       <div class="entry">
         <div class="entry-header">
           <span class="entry-date">${entry.createdAt.toLocaleDateString("no-NO")} ${entry.createdAt.toLocaleTimeString("no-NO", {hour: '2-digit', minute:'2-digit'})}</span>
