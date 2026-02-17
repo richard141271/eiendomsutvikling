@@ -7,13 +7,10 @@ import { PdfReportRenderer } from "@/lib/reporting/pdf-renderer";
 
 export const runtime = "nodejs";
 
-const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL;
-
 async function getTransformedImageUrl(
   imageUrl: string
 ): Promise<string | null> {
   try {
-    if (!SUPABASE_URL) return imageUrl;
     const url = new URL(imageUrl);
     const path = url.pathname.replace("/storage/v1/object/public/", "");
     const [bucket, ...objectParts] = path.split("/");
@@ -36,7 +33,7 @@ async function getTransformedImageUrl(
       return imageUrl;
     }
 
-    return `${SUPABASE_URL}${data.signedUrl}`;
+    return data.signedUrl;
   } catch {
     return imageUrl;
   }

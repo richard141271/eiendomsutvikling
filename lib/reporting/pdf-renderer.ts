@@ -35,6 +35,34 @@ export class PdfReportRenderer implements ReportRenderer {
       y -= size + 6;
     };
 
+    const maxTextWidth = () => width - 100;
+
+    const drawWrappedText = (text: string, size = 12) => {
+      const words = text.split(" ");
+      let currentLine = "";
+
+      for (const word of words) {
+        const testLine = currentLine ? currentLine + " " + word : word;
+        const testWidth = font.widthOfTextAtSize(testLine, size);
+
+        if (testWidth > maxTextWidth()) {
+          if (currentLine) {
+            drawLine(currentLine, size);
+            currentLine = word;
+          } else {
+            drawLine(testLine, size);
+            currentLine = "";
+          }
+        } else {
+          currentLine = testLine;
+        }
+      }
+
+      if (currentLine) {
+        drawLine(currentLine, size);
+      }
+    };
+
     drawLine(document.metadata.documentType, 18);
     drawLine(`Saksnummer: ${document.metadata.caseNumber}`);
     drawLine(`Opprettet: ${document.metadata.createdAt.toLocaleString()}`);
@@ -95,9 +123,9 @@ export class PdfReportRenderer implements ReportRenderer {
 
     const drawSection = async (section: Section, level: number) => {
       const prefix = "#".repeat(level);
-      drawLine(`${prefix} ${section.title}`, 14);
+      drawWrappedText(`${prefix} ${section.title}`, 14);
       for (const block of section.blocks) {
-        await this.drawBlock(block, drawLine, drawImage);
+        await this.drawBlock(block, drawWrappedText, drawImage);
       }
       if (section.children) {
         for (const child of section.children) {
@@ -148,23 +176,23 @@ export class PdfReportRenderer implements ReportRenderer {
 
   private async drawBlock(
     block: ContentBlock,
-    drawLine: (text: string, size?: number) => void,
+    drawWrappedText: (text: string, size?: number) => void,
     drawImage: (imageUrl: string, caption?: string) => Promise<void>
   ) {
     if (block.kind === "PARAGRAPH") {
-      drawLine(block.text);
+      drawWrappedText(block.text);
     } else if (block.kind === "HEADING") {
       const size = block.level === 1 ? 16 : block.level === 2 ? 14 : 12;
-      drawLine(block.text, size);
+      drawWrappedText(block.text, size);
     } else if (block.kind === "LIST") {
       for (const item of block.items) {
-        drawLine(`• ${item}`);
+        drawWrappedText(`• ${item}`);
       }
     } else if (block.kind === "IMAGE") {
       if (block.imageUrl) {
         await drawImage(block.imageUrl, block.caption);
       } else {
-        drawLine(`[Bilde: ${block.caption}]`);
+        drawWrappedText(`[Bilde: ${block.caption}]`);
       }
     }
   }
