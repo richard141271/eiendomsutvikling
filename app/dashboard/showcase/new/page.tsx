@@ -1,13 +1,12 @@
 
+import { randomUUID } from "crypto";
 import { prisma } from "@/lib/prisma";
 import { createClient } from "@/lib/supabase-server";
 import { redirect } from "next/navigation";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import Link from "next/link";
-import { ChevronLeft, Loader2 } from "lucide-react";
+import { ChevronLeft } from "lucide-react";
+import { NewShowcaseForm } from "./new-showcase-form";
 
 export default async function NewShowcasePage() {
   const supabase = createClient();
@@ -17,29 +16,75 @@ export default async function NewShowcasePage() {
   async function createShowcase(formData: FormData) {
     "use server";
     
+    const requestId = randomUUID();
+    const now = new Date();
+
     const name = formData.get("name") as string;
     const address = formData.get("address") as string;
     
+    console.log("createShowcase invoked", {
+      requestId,
+      timestamp: now.toISOString(),
+      userId: user!.id,
+      name,
+    });
+
     if (!name) return;
 
-    // Get DB user
     const dbUser = await prisma.user.findUnique({
       where: { authId: user!.id }
     });
 
-    if (!dbUser) throw new Error("User not found");
+    if (!dbUser) {
+      console.log("createShowcase user not found", {
+        requestId,
+        authId: user!.id,
+      });
+      throw new Error("User not found");
+    }
 
-    // Create a new property for this showcase
+    const title = `Skrytemappe: ${name}`;
+    const tenSecondsAgo = new Date(Date.now() - 10_000);
+
+    const recentProject = await prisma.project.findFirst({
+      where: {
+        title,
+        createdAt: {
+          gte: tenSecondsAgo,
+        },
+        property: {
+          ownerId: dbUser.id,
+        },
+      },
+    });
+
+    if (recentProject) {
+      console.log("createShowcase duplicate title within 10 seconds, redirecting to existing", {
+        requestId,
+        projectId: recentProject.id,
+        unitId: recentProject.unitId,
+      });
+
+      if (recentProject.unitId) {
+        redirect(`/dashboard/units/${recentProject.unitId}/showcase`);
+      } else {
+        redirect("/projects");
+      }
+    }
+
+    console.log("createShowcase creating new showcase entities", {
+      requestId,
+    });
+
     const property = await prisma.property.create({
       data: {
-        name: name,
+        name,
         address: address || name,
         ownerId: dbUser.id,
-        status: "ACTIVE", // Or potentially a new status like 'PROSPECT'
+        status: "ACTIVE",
       }
     });
 
-    // Create a default unit for the showcase
     const unit = await prisma.unit.create({
       data: {
         name: "Skrytemappe Enhet",
@@ -52,12 +97,9 @@ export default async function NewShowcasePage() {
       }
     });
 
-    // Create a Project entry too? The user asked for it under "Prosjekter".
-    // "jeg vil kunne lage en skrytemappe... kanskje under prosjekter?"
-    // If we create a project, it appears in the list.
     await prisma.project.create({
       data: {
-        title: `Skrytemappe: ${name}`,
+        title,
         description: "Automatisk opprettet skrytemappe-prosjekt",
         status: "ACTIVE",
         propertyId: property.id,
@@ -84,21 +126,7 @@ export default async function NewShowcasePage() {
           <CardDescription>Vi oppretter et prosjekt og en skrytemappe for deg.</CardDescription>
         </CardHeader>
         <CardContent>
-          <form action={createShowcase} className="space-y-4">
-            <div className="space-y-2">
-              <Label htmlFor="name">Navn på objekt / overskrift</Label>
-              <Input id="name" name="name" placeholder="F.eks. Storgata 12 - Visning" required />
-            </div>
-            
-            <div className="space-y-2">
-              <Label htmlFor="address">Adresse (valgfritt)</Label>
-              <Input id="address" name="address" placeholder="F.eks. Storgata 12, 0150 Oslo" />
-            </div>
-
-            <Button type="submit" className="w-full">
-              Opprett og start veiviser
-            </Button>
-          </form>
+          <NewShowcaseForm createShowcase={createShowcase} />
         </CardContent>
       </Card>
     </div>
