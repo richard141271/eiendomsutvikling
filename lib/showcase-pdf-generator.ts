@@ -60,7 +60,7 @@ export async function generateShowcasePDF(data: ShowcaseData): Promise<Generated
   try {
     const page = await browser.newPage();
     
-    const templatePath = path.resolve(process.cwd(), 'lib', 'templates', 'showcase.html');
+    const templatePath = require.resolve('@/lib/templates/showcase.html');
     let html = fs.readFileSync(templatePath, 'utf8');
 
     // Replace placeholders
