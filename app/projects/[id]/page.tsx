@@ -5,6 +5,7 @@ import ProjectClient from "./project-client";
 import { ChevronLeft } from "lucide-react";
 import Link from "next/link";
 import { createClient } from "@/lib/supabase-server";
+import { prisma } from "@/lib/prisma";
 
 export default async function ProjectPage({ params }: { params: { id: string } }) {
   const supabase = createClient();
@@ -16,6 +17,16 @@ export default async function ProjectPage({ params }: { params: { id: string } }
   if (!project) {
     notFound();
   }
+
+  const dbUser = await prisma.user.findUnique({
+    where: { authId: user.id },
+    select: { role: true },
+  });
+
+  const canTestNewReport =
+    dbUser?.role === "OWNER" ||
+    dbUser?.role === "ADMIN" ||
+    dbUser?.role === "MANAGER";
 
   return (
     <div className="container max-w-lg mx-auto p-4 pb-24">
@@ -33,7 +44,7 @@ export default async function ProjectPage({ params }: { params: { id: string } }
         </p>
       </div>
 
-      <ProjectClient project={project} />
+      <ProjectClient project={project} canTestNewReport={!!canTestNewReport} />
     </div>
   );
 }

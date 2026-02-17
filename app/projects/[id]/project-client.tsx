@@ -13,9 +13,10 @@ import { getProjectAuditLogs } from "@/app/actions/projects";
 
 interface ProjectClientProps {
   project: any;
+  canTestNewReport: boolean;
 }
 
-export default function ProjectClient({ project }: ProjectClientProps) {
+export default function ProjectClient({ project, canTestNewReport }: ProjectClientProps) {
   const [activeTab, setActiveTab] = useState("log");
   const [auditLogs, setAuditLogs] = useState<any[] | null>(null);
   const [loadingLogs, setLoadingLogs] = useState(false);
@@ -72,7 +73,7 @@ export default function ProjectClient({ project }: ProjectClientProps) {
       </TabsContent>
       
       <TabsContent value="overview">
-        <ProjectOverview project={project} />
+        <ProjectOverview project={project} canTestNewReport={canTestNewReport} />
         <div className="mt-8">
           {auditLogs && <ProjectAuditLogs logs={auditLogs} />}
         </div>

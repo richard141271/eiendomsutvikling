@@ -10,12 +10,14 @@ import { useRouter } from "next/navigation";
 import Link from "next/link";
 
 interface ProjectOverviewProps {
-  project: any; // Using any for simplicity here, but should be typed
+  project: any;
+  canTestNewReport: boolean;
 }
 
-export default function ProjectOverview({ project }: ProjectOverviewProps) {
+export default function ProjectOverview({ project, canTestNewReport }: ProjectOverviewProps) {
   const router = useRouter();
   const [generating, setGenerating] = useState(false);
+  const [generatingV2, setGeneratingV2] = useState(false);
 
   async function handleArchive() {
     if (confirm("Er du sikker på at du vil arkivere prosjektet? Det vil bli låst for endringer.")) {
@@ -50,6 +52,31 @@ export default function ProjectOverview({ project }: ProjectOverviewProps) {
       alert(`Kunne ikke generere rapport: ${error instanceof Error ? error.message : String(error)}`);
     } finally {
       setGenerating(false);
+    }
+  }
+
+  async function handleGenerateReportV2() {
+    setGeneratingV2(true);
+    try {
+      const res = await fetch(`/api/projects/${project.id}/report-v2`, {
+        method: "POST",
+      });
+
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        throw new Error(data.details || "Generering feilet");
+      }
+
+      const blob = await res.blob();
+      const url = window.URL.createObjectURL(blob);
+      window.open(url, "_blank");
+      setTimeout(() => window.URL.revokeObjectURL(url), 1000);
+      router.refresh();
+    } catch (error) {
+      console.error(error);
+      alert(`Kunne ikke generere rapport (ny motor): ${error instanceof Error ? error.message : String(error)}`);
+    } finally {
+      setGeneratingV2(false);
     }
   }
 
@@ -102,6 +129,22 @@ export default function ProjectOverview({ project }: ProjectOverviewProps) {
             {generating ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : <FileText className="w-4 h-4 mr-2" />}
             Generer Prosjektrapport (PDF)
           </Button>
+
+          {canTestNewReport && (
+            <Button
+              onClick={handleGenerateReportV2}
+              disabled={generatingV2}
+              className="w-full"
+              variant="outline"
+            >
+              {generatingV2 ? (
+                <Loader2 className="w-4 h-4 animate-spin mr-2" />
+              ) : (
+                <FileText className="w-4 h-4 mr-2" />
+              )}
+              Test ny rapportmotor
+            </Button>
+          )}
 
           {project.reports && project.reports.length > 0 && (
             <div className="space-y-2 mt-4">
