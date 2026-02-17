@@ -38,28 +38,43 @@ export class PdfReportRenderer implements ReportRenderer {
     const maxTextWidth = () => width - 100;
 
     const drawWrappedText = (text: string, size = 12) => {
-      const words = text.split(" ");
-      let currentLine = "";
+      const normalized = text
+        .replace(/\r\n/g, "\n")
+        .replace(/\r/g, "\n")
+        .replace(/[\x00-\x08\x0B\x0C\x0E-\x1F]/g, "");
 
-      for (const word of words) {
-        const testLine = currentLine ? currentLine + " " + word : word;
-        const testWidth = font.widthOfTextAtSize(testLine, size);
+      const paragraphs = normalized.split("\n");
 
-        if (testWidth > maxTextWidth()) {
-          if (currentLine) {
-            drawLine(currentLine, size);
-            currentLine = word;
-          } else {
-            drawLine(testLine, size);
-            currentLine = "";
-          }
-        } else {
-          currentLine = testLine;
+      for (let pIndex = 0; pIndex < paragraphs.length; pIndex++) {
+        const paragraph = paragraphs[pIndex];
+        if (paragraph === "") {
+          drawLine("", size);
+          continue;
         }
-      }
 
-      if (currentLine) {
-        drawLine(currentLine, size);
+        const words = paragraph.split(" ");
+        let currentLine = "";
+
+        for (const word of words) {
+          const testLine = currentLine ? currentLine + " " + word : word;
+          const testWidth = font.widthOfTextAtSize(testLine, size);
+
+          if (testWidth > maxTextWidth()) {
+            if (currentLine) {
+              drawLine(currentLine, size);
+              currentLine = word;
+            } else {
+              drawLine(testLine, size);
+              currentLine = "";
+            }
+          } else {
+            currentLine = testLine;
+          }
+        }
+
+        if (currentLine) {
+          drawLine(currentLine, size);
+        }
       }
     };
 
