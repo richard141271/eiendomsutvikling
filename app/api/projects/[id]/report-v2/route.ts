@@ -1,10 +1,46 @@
 import { prisma } from "@/lib/prisma";
 import { createClient } from "@/lib/supabase-server";
+import { createAdminClient } from "@/lib/supabase-admin";
 import { NextResponse } from "next/server";
 import { mapProjectToReport } from "@/lib/reporting/project-report-mapper";
 import { PdfReportRenderer } from "@/lib/reporting/pdf-renderer";
 
 export const runtime = "nodejs";
+
+const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL;
+
+async function getTransformedImageUrl(
+  imageUrl: string
+): Promise<string | null> {
+  try {
+    if (!SUPABASE_URL) return imageUrl;
+    const url = new URL(imageUrl);
+    const path = url.pathname.replace("/storage/v1/object/public/", "");
+    const [bucket, ...objectParts] = path.split("/");
+    const objectName = objectParts.join("/");
+
+    if (!bucket || !objectName) return imageUrl;
+
+    const adminSupabase = createAdminClient();
+
+    const { data, error } = await adminSupabase.storage
+      .from(bucket)
+      .createSignedUrl(objectName, 60 * 60, {
+        transform: {
+          width: 1200,
+          quality: 75,
+        },
+      });
+
+    if (error || !data?.signedUrl) {
+      return imageUrl;
+    }
+
+    return `${SUPABASE_URL}${data.signedUrl}`;
+  } catch {
+    return imageUrl;
+  }
+}
 
 export async function POST(
   request: Request,
@@ -42,7 +78,23 @@ export async function POST(
       );
     }
 
-    const reportDocument = mapProjectToReport(project as any);
+    const entriesWithTransformedUrls = await Promise.all(
+      project.entries.map(async (entry) => {
+        if (!entry.imageUrl) return entry;
+        const transformed = await getTransformedImageUrl(entry.imageUrl);
+        return {
+          ...entry,
+          imageUrl: transformed || entry.imageUrl,
+        };
+      })
+    );
+
+    const projectForReport = {
+      ...project,
+      entries: entriesWithTransformedUrls,
+    } as any;
+
+    const reportDocument = mapProjectToReport(projectForReport);
 
     const renderer = new PdfReportRenderer();
     const pdfBytes = await renderer.render(reportDocument);
@@ -68,4 +120,3 @@ export async function POST(
     );
   }
 }
-

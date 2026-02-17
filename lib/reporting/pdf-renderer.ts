@@ -8,19 +8,25 @@ export interface ReportRenderer {
 export class PdfReportRenderer implements ReportRenderer {
   async render(document: ReportDocument): Promise<Uint8Array> {
     const pdfDoc = await PDFDocument.create();
-    const page = pdfDoc.addPage();
-    const { width, height } = page.getSize();
+    let page = pdfDoc.addPage();
+    let { width, height } = page.getSize();
     const font = await pdfDoc.embedFont(StandardFonts.Helvetica);
 
     let y = height - 50;
 
-    const drawLine = (text: string, size = 12) => {
-      if (y < 50) {
+    const ensureSpace = (neededHeight: number) => {
+      if (y - neededHeight < 50) {
+        page = pdfDoc.addPage();
+        const size = page.getSize();
+        width = size.width;
+        height = size.height;
         y = height - 50;
-        pdfDoc.addPage();
       }
-      const currentPage = pdfDoc.getPage(pdfDoc.getPageCount() - 1);
-      currentPage.drawText(text, {
+    };
+
+    const drawLine = (text: string, size = 12) => {
+      ensureSpace(size + 6);
+      page.drawText(text, {
         x: 50,
         y,
         size,
@@ -37,21 +43,71 @@ export class PdfReportRenderer implements ReportRenderer {
     drawLine(`Referanse-ID: ${document.metadata.referenceId}`);
     drawLine("");
 
-    const drawSection = (section: Section, level: number) => {
+    const drawImage = async (imageUrl: string, caption?: string) => {
+      try {
+        const response = await fetch(imageUrl);
+        if (!response.ok) {
+          drawLine(
+            caption
+              ? `[Bilde kunne ikke lastes: ${caption}]`
+              : "[Bilde kunne ikke lastes]"
+          );
+          return;
+        }
+
+        const contentType = response.headers.get("content-type") || "";
+        const arrayBuffer = await response.arrayBuffer();
+        const bytes = new Uint8Array(arrayBuffer);
+
+        const image =
+          contentType.includes("png") || contentType.includes("image/png")
+            ? await pdfDoc.embedPng(bytes)
+            : await pdfDoc.embedJpg(bytes);
+
+        const imageDims = image.scale(1);
+        const maxWidth = width - 100;
+        const scale = imageDims.width > maxWidth ? maxWidth / imageDims.width : 1;
+        const displayWidth = imageDims.width * scale;
+        const displayHeight = imageDims.height * scale;
+
+        ensureSpace(displayHeight + 20);
+
+        page.drawImage(image, {
+          x: 50,
+          y: y - displayHeight,
+          width: displayWidth,
+          height: displayHeight,
+        });
+
+        y -= displayHeight + 20;
+
+        if (caption) {
+          drawLine(caption, 10);
+        }
+      } catch (error) {
+        drawLine(
+          caption
+            ? `[Feil ved lasting av bilde: ${caption}]`
+            : "[Feil ved lasting av bilde]"
+        );
+      }
+    };
+
+    const drawSection = async (section: Section, level: number) => {
       const prefix = "#".repeat(level);
       drawLine(`${prefix} ${section.title}`, 14);
       for (const block of section.blocks) {
-        this.drawBlock(block, drawLine);
+        await this.drawBlock(block, drawLine, drawImage);
       }
       if (section.children) {
         for (const child of section.children) {
-          drawSection(child, Math.min(level + 1, 3));
+          await drawSection(child, Math.min(level + 1, 3));
         }
       }
     };
 
     for (const section of document.sections) {
-      drawSection(section, 1);
+      await drawSection(section, 1);
       drawLine("");
     }
 
@@ -90,7 +146,11 @@ export class PdfReportRenderer implements ReportRenderer {
     return pdfBytes;
   }
 
-  private drawBlock(block: ContentBlock, drawLine: (text: string, size?: number) => void) {
+  private async drawBlock(
+    block: ContentBlock,
+    drawLine: (text: string, size?: number) => void,
+    drawImage: (imageUrl: string, caption?: string) => Promise<void>
+  ) {
     if (block.kind === "PARAGRAPH") {
       drawLine(block.text);
     } else if (block.kind === "HEADING") {
@@ -101,8 +161,11 @@ export class PdfReportRenderer implements ReportRenderer {
         drawLine(`• ${item}`);
       }
     } else if (block.kind === "IMAGE") {
-      drawLine(`[Bilde: ${block.caption}]`);
+      if (block.imageUrl) {
+        await drawImage(block.imageUrl, block.caption);
+      } else {
+        drawLine(`[Bilde: ${block.caption}]`);
+      }
     }
   }
 }
-
