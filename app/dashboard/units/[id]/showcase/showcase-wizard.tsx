@@ -35,9 +35,29 @@ export function ShowcaseWizard({ unit }: ShowcaseWizardProps) {
   const router = useRouter();
   const [step, setStep] = useState<"type" | "checklist" | "rooms" | "details" | "review" | "success">("type");
   const [showcaseType, setShowcaseType] = useState<ShowcaseType | null>(null);
-  const [selectedRooms, setSelectedRooms] = useState<string[]>([]);
+  const [selectedRooms, setSelectedRooms] = useState<string[]>(() => {
+    const details = unit?.roomDetails || [];
+    return ROOM_OPTIONS
+      .filter(option => details.some((room: any) => room.name === option.label))
+      .map(option => option.id);
+  });
   const [currentRoomIndex, setCurrentRoomIndex] = useState(0);
-  const [roomData, setRoomData] = useState<Record<string, { images: string[]; notes: string }>>({});
+  const [roomData, setRoomData] = useState<Record<string, { images: string[]; notes: string }>>(() => {
+    const details = unit?.roomDetails || [];
+    const initial: Record<string, { images: string[]; notes: string }> = {};
+
+    for (const room of details as any[]) {
+      const option = ROOM_OPTIONS.find(opt => opt.label === room.name);
+      if (!option) continue;
+
+      initial[option.id] = {
+        images: (room.images || []).map((img: any) => img.url),
+        notes: room.description || "",
+      };
+    }
+
+    return initial;
+  });
   const [details, setDetails] = useState<Record<string, string>>({});
   const [loading, setLoading] = useState(false);
   const [generatedUrl, setGeneratedUrl] = useState<string | null>(null);
