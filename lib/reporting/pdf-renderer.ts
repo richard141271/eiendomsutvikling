@@ -1,6 +1,18 @@
 import { PDFDocument, StandardFonts } from "pdf-lib";
 import { ReportDocument, Section, ContentBlock } from "./report-types";
 
+const sanitizeText = (text: string): string => {
+  return text
+    .replace(/\r\n/g, "\n")
+    .replace(/\r/g, "\n")
+    .replace(/\u00A0/g, " ")
+    .replace(/[\u2010-\u2015]/g, "-")
+    .replace(/[\u2018\u2019]/g, "'")
+    .replace(/[\u201C\u201D]/g, '"')
+    .replace(/[\u2022\u2023\u25E6]/g, "- ")
+    .replace(/[^\x09\x0A\x0D\x20-\x7E\u00A0-\u00FF]/g, "");
+};
+
 export interface ReportRenderer {
   render(document: ReportDocument): Promise<Uint8Array>;
 }
@@ -25,8 +37,9 @@ export class PdfReportRenderer implements ReportRenderer {
     };
 
     const drawLine = (text: string, size = 12) => {
+      const safe = sanitizeText(text).replace(/\n/g, " ");
       ensureSpace(size + 6);
-      page.drawText(text, {
+      page.drawText(safe, {
         x: 50,
         y,
         size,
@@ -38,11 +51,7 @@ export class PdfReportRenderer implements ReportRenderer {
     const maxTextWidth = () => width - 100;
 
     const drawWrappedText = (text: string, size = 12) => {
-      const normalized = text
-        .replace(/\r\n/g, "\n")
-        .replace(/\r/g, "\n")
-        .replace(/[\x00-\x08\x0B\x0C\x0E-\x1F]/g, "");
-
+      const normalized = sanitizeText(text);
       const paragraphs = normalized.split("\n");
 
       for (let pIndex = 0; pIndex < paragraphs.length; pIndex++) {
@@ -205,7 +214,7 @@ export class PdfReportRenderer implements ReportRenderer {
       drawWrappedText(block.text, size);
     } else if (block.kind === "LIST") {
       for (const item of block.items) {
-        drawWrappedText(`• ${item}`);
+        drawWrappedText(`- ${item}`);
       }
     } else if (block.kind === "IMAGE") {
       if (block.imageUrl) {
