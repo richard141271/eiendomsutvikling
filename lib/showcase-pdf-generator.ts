@@ -117,7 +117,6 @@ export async function generateShowcasePDF(data: ShowcaseData): Promise<Generated
     html = html.replace('{{roomsHtml}}', roomsHtml);
 
     await page.setContent(html, { waitUntil: 'networkidle0' });
-    await page.waitForTimeout(1500);
     
     const pdfBuffer = await page.pdf({
       format: 'A4',
