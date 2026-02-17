@@ -40,8 +40,8 @@ async function getSignedImageUrl(
       .from(bucketName)
       .createSignedUrl(objectPath, 60 * 60, {
         transform: {
-          width: 1600,
-          quality: 80,
+          width: 1200,
+          quality: 70,
         },
       });
 
