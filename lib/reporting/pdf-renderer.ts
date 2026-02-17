@@ -73,8 +73,11 @@ export class PdfReportRenderer implements ReportRenderer {
 
     const drawImage = async (imageUrl: string, caption?: string) => {
       try {
+        console.log("FETCHING IMAGE:", imageUrl);
         const response = await fetch(imageUrl);
+        console.log("IMAGE STATUS:", response.status);
         if (!response.ok) {
+          console.log("FAILED URL:", imageUrl);
           drawLine(
             caption
               ? `[Bilde kunne ikke lastes: ${caption}]`
@@ -113,6 +116,7 @@ export class PdfReportRenderer implements ReportRenderer {
           drawLine(caption, 10);
         }
       } catch (error) {
+        console.log("FAILED URL:", imageUrl);
         drawLine(
           caption
             ? `[Feil ved lasting av bilde: ${caption}]`

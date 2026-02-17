@@ -1,43 +1,10 @@
 import { prisma } from "@/lib/prisma";
 import { createClient } from "@/lib/supabase-server";
-import { createAdminClient } from "@/lib/supabase-admin";
 import { NextResponse } from "next/server";
 import { mapProjectToReport } from "@/lib/reporting/project-report-mapper";
 import { PdfReportRenderer } from "@/lib/reporting/pdf-renderer";
 
 export const runtime = "nodejs";
-
-async function getTransformedImageUrl(
-  imageUrl: string
-): Promise<string | null> {
-  try {
-    const url = new URL(imageUrl);
-    const path = url.pathname.replace("/storage/v1/object/public/", "");
-    const [bucket, ...objectParts] = path.split("/");
-    const objectName = objectParts.join("/");
-
-    if (!bucket || !objectName) return imageUrl;
-
-    const adminSupabase = createAdminClient();
-
-    const { data, error } = await adminSupabase.storage
-      .from(bucket)
-      .createSignedUrl(objectName, 60 * 60, {
-        transform: {
-          width: 1200,
-          quality: 75,
-        },
-      });
-
-    if (error || !data?.signedUrl) {
-      return imageUrl;
-    }
-
-    return data.signedUrl;
-  } catch {
-    return imageUrl;
-  }
-}
 
 export async function POST(
   request: Request,
@@ -75,16 +42,11 @@ export async function POST(
       );
     }
 
-    const entriesWithTransformedUrls = await Promise.all(
-      project.entries.map(async (entry) => {
-        if (!entry.imageUrl) return entry;
-        const transformed = await getTransformedImageUrl(entry.imageUrl);
-        return {
-          ...entry,
-          imageUrl: transformed || entry.imageUrl,
-        };
-      })
-    );
+    const entriesWithTransformedUrls = project.entries.map((entry) => {
+      if (!entry.imageUrl) return entry;
+      console.log("TRANSFORMED URL:", entry.imageUrl);
+      return entry;
+    });
 
     const projectForReport = {
       ...project,
