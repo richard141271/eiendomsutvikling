@@ -2,7 +2,15 @@
 import { getProjects } from "@/app/actions/projects";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Plus, Folder, FolderArchive, Calendar, ChevronLeft } from "lucide-react";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import { Plus, Folder, FolderArchive, Calendar, ChevronLeft, ChevronDown, Gavel, FileText, Home } from "lucide-react";
 import Link from "next/link";
 
 export default async function ProjectsPage() {
@@ -18,16 +26,48 @@ export default async function ProjectsPage() {
       <div className="flex justify-between items-center mb-6">
         <h1 className="text-2xl font-bold">Prosjekter</h1>
         <div className="flex gap-2">
-          <Link href="/dashboard/showcase/new">
-            <Button variant="outline">
-              <Folder className="mr-2 h-4 w-4" /> Nytt prospekt
-            </Button>
-          </Link>
-          <Link href="/projects/new">
-            <Button>
-              <Plus className="mr-2 h-4 w-4" /> Nytt prosjekt
-            </Button>
-          </Link>
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button>
+                <Plus className="mr-2 h-4 w-4" /> Nytt prosjekt <ChevronDown className="ml-2 h-4 w-4" />
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end" className="w-56">
+              <DropdownMenuLabel>Velg type</DropdownMenuLabel>
+              <DropdownMenuSeparator />
+              <Link href="/projects/new">
+                <DropdownMenuItem>
+                  <Folder className="mr-2 h-4 w-4" /> Standard Prosjekt
+                </DropdownMenuItem>
+              </Link>
+              <Link href="/projects/new?type=legal">
+                <DropdownMenuItem>
+                  <Gavel className="mr-2 h-4 w-4" /> Dokumentasjonsrapport
+                </DropdownMenuItem>
+              </Link>
+              <Link href="/projects/new?type=brag">
+                <DropdownMenuItem>
+                  <FileText className="mr-2 h-4 w-4" /> Skryterapport
+                </DropdownMenuItem>
+              </Link>
+              <DropdownMenuSeparator />
+              <Link href="/dashboard/showcase/new">
+                <DropdownMenuItem>
+                  <Home className="mr-2 h-4 w-4" /> Nytt Prospekt
+                </DropdownMenuItem>
+              </Link>
+              <Link href="/dashboard/showcase/new?type=sales">
+                <DropdownMenuItem>
+                  <FileText className="mr-2 h-4 w-4" /> Salgsoppgave
+                </DropdownMenuItem>
+              </Link>
+              <Link href="/dashboard/showcase/new?type=rental">
+                <DropdownMenuItem>
+                  <Home className="mr-2 h-4 w-4" /> Utleieprospekt
+                </DropdownMenuItem>
+              </Link>
+            </DropdownMenuContent>
+          </DropdownMenu>
         </div>
       </div>
 

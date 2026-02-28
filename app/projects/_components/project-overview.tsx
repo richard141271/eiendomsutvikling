@@ -4,7 +4,7 @@
 import { archiveProject } from "@/app/actions/projects";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Archive, FileText, Download, Loader2, MapPin, Paperclip } from "lucide-react";
+import { Archive, FileText, Download, Loader2, MapPin, Paperclip, Gavel } from "lucide-react";
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
@@ -132,6 +132,13 @@ export default function ProjectOverview({ project, canTestNewReport }: ProjectOv
             {generating ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : <FileText className="w-4 h-4 mr-2" />}
             Generer Prosjektrapport (PDF)
           </Button>
+
+          <Link href={`/projects/${project.id}/juridisk-rapport`} className="block w-full">
+            <Button className="w-full bg-slate-800 hover:bg-slate-700 text-white">
+              <Gavel className="w-4 h-4 mr-2" />
+              Opprett Dokumentasjonsrapport
+            </Button>
+          </Link>
 
           {canTestNewReport && (
             <Button
