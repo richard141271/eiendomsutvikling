@@ -67,10 +67,13 @@ export default function ProjectOverview({ project, canTestNewReport }: ProjectOv
         throw new Error(data.details || "Generering feilet");
       }
 
-      const blob = await res.blob();
-      const url = window.URL.createObjectURL(blob);
-      window.open(url, "_blank");
-      setTimeout(() => window.URL.revokeObjectURL(url), 1000);
+      const data = await res.json();
+      if (data.url) {
+        window.open(data.url, "_blank");
+      } else {
+        throw new Error("Kunne ikke hente rapport-URL");
+      }
+      
       router.refresh();
     } catch (error) {
       console.error(error);

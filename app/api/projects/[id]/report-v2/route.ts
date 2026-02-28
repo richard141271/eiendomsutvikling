@@ -98,12 +98,10 @@ export async function POST(
       },
     });
 
-    return new NextResponse(pdfBuffer, {
-      status: 200,
-      headers: {
-        "Content-Type": "application/pdf",
-        "Content-Disposition": `attachment; filename="${fileName}"`,
-      },
+    // Return JSON with URL to avoid Vercel response payload limits (4.5MB)
+    return NextResponse.json({
+      url: publicUrl,
+      fileName: fileName
     });
   } catch (error) {
     console.error("Error generating v2 report:", error);

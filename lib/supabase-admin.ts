@@ -33,9 +33,10 @@ export async function ensureBucketExists(bucketName: string) {
 
   if (!bucketExists) {
     console.log(`Bucket '${bucketName}' not found. Creating...`);
+    const ONE_GB_IN_BYTES = 1073741824;
     const { data, error: createError } = await supabase.storage.createBucket(bucketName, {
       public: true,
-      fileSizeLimit: 52428800, // 50MB
+      fileSizeLimit: ONE_GB_IN_BYTES,
       allowedMimeTypes: ['application/pdf', 'image/png', 'image/jpeg']
     });
 
@@ -46,10 +47,12 @@ export async function ensureBucketExists(bucketName: string) {
     }
   } else {
     // Bucket exists, ensure configuration is correct (update limit)
-    console.log(`Bucket '${bucketName}' exists. Updating configuration to UNLIMITED limit...`);
+    // Using a high explicit limit (1GB) to ensure large PDF uploads work
+    const ONE_GB_IN_BYTES = 1073741824;
+    console.log(`Bucket '${bucketName}' exists. Updating configuration to 1GB limit...`);
     const { data, error: updateError } = await supabase.storage.updateBucket(bucketName, {
       public: true,
-      fileSizeLimit: null, // Unlimited
+      fileSizeLimit: ONE_GB_IN_BYTES, 
       allowedMimeTypes: ['application/pdf', 'image/png', 'image/jpeg']
     });
     
