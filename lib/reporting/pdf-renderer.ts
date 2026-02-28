@@ -223,14 +223,14 @@ export class PdfReportRenderer implements ReportRenderer {
                 const titlePage = partPdf.insertPage(0);
                 const { height: tpHeight } = titlePage.getSize();
                 let pY = tpHeight - 100;
-                titlePage.drawText(`Vedlegg Del ${currentPartNum}`, { x: 50, y: pY, size: 24, font: partBold });
+                titlePage.drawText(sanitizeText(`Vedlegg Del ${currentPartNum}`), { x: 50, y: pY, size: 24, font: partBold });
                 pY -= 40;
-                titlePage.drawText(`Til sak: ${document.metadata.caseNumber}`, { x: 50, y: pY, size: 14, font: partFont });
+                titlePage.drawText(sanitizeText(`Til sak: ${document.metadata.caseNumber}`), { x: 50, y: pY, size: 14, font: partFont });
                 pY -= 20;
                 
                 // Calculate end code for this part
                 const endCode = document.evidenceIndex[result.globalIdx - 1]?.evidenceCode || "Ukjent";
-                titlePage.drawText(`Inneholder bevis ${currentPartStartEvidenceCode} til ${endCode}`, { x: 50, y: pY, size: 12, font: partFont });
+                titlePage.drawText(sanitizeText(`Inneholder bevis ${currentPartStartEvidenceCode} til ${endCode}`), { x: 50, y: pY, size: 12, font: partFont });
 
                 parts.push({
                     name: `Vedlegg Del ${currentPartNum}`,
@@ -255,7 +255,7 @@ export class PdfReportRenderer implements ReportRenderer {
             const { width: pWidth, height: pHeight } = pPage.getSize();
             let pY = pHeight - 50;
             
-            pPage.drawText(`${item.evidenceCode} - ${item.title}`, { x: 50, y: pY, size: 14, font: partBold });
+            pPage.drawText(sanitizeText(`${item.evidenceCode} - ${item.title}`), { x: 50, y: pY, size: 14, font: partBold });
             pY -= 20;
 
             if (imgBytes) {
@@ -296,12 +296,12 @@ export class PdfReportRenderer implements ReportRenderer {
          const titlePage = partPdf.insertPage(0);
          const { height: tpHeight } = titlePage.getSize();
          let pY = tpHeight - 100;
-         titlePage.drawText(`Vedlegg Del ${currentPartNum}`, { x: 50, y: pY, size: 24, font: partBold });
+         titlePage.drawText(sanitizeText(`Vedlegg Del ${currentPartNum}`), { x: 50, y: pY, size: 24, font: partBold });
          pY -= 40;
-         titlePage.drawText(`Til sak: ${document.metadata.caseNumber}`, { x: 50, y: pY, size: 14, font: partFont });
+         titlePage.drawText(sanitizeText(`Til sak: ${document.metadata.caseNumber}`), { x: 50, y: pY, size: 14, font: partFont });
          pY -= 20;
          const endCode = document.evidenceIndex[document.evidenceIndex.length-1]?.evidenceCode || currentPartStartEvidenceCode;
-         titlePage.drawText(`Inneholder bevis ${currentPartStartEvidenceCode} til ${endCode}`, { x: 50, y: pY, size: 12, font: partFont });
+         titlePage.drawText(sanitizeText(`Inneholder bevis ${currentPartStartEvidenceCode} til ${endCode}`), { x: 50, y: pY, size: 12, font: partFont });
 
          parts.push({
              name: `Vedlegg Del ${currentPartNum}`,
