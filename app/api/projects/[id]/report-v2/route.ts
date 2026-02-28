@@ -25,7 +25,8 @@ export async function POST(
     const adminSupabase = createAdminClient();
     
     // Ensure bucket exists
-    await ensureBucketExists('reports');
+    const bucketName = 'reports-v2';
+    await ensureBucketExists(bucketName);
 
     const project = await prisma.project.findUnique({
       where: { id: params.id },
@@ -73,7 +74,7 @@ export async function POST(
 
     // Upload to Supabase Storage
     const { data: uploadData, error: uploadError } = await adminSupabase.storage
-      .from('reports')
+      .from(bucketName)
       .upload(`reports/${fileName}`, pdfBuffer, {
         contentType: 'application/pdf',
         upsert: true,
@@ -87,7 +88,7 @@ export async function POST(
     // Get public URL
     const { data: { publicUrl } } = adminSupabase
       .storage
-      .from('reports')
+      .from(bucketName)
       .getPublicUrl(`reports/${fileName}`);
 
     // Save to DB
