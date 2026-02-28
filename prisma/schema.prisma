@@ -528,6 +528,9 @@ model ReportInstance {
   totalEvidenceCount Int
   totalPages         Int?
   pdfUrl             String?
+  pdfHash            String?
+  pdfSize            Int?
+  pdfGeneratedAt     DateTime?
   contentSnapshot    Json?    // Stores the full content structure (summary, legal, etc) at generation time
   createdAt          DateTime @default(now())
   

@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { archiveReport, markReportAsDownloaded } from "@/app/actions/reports";
+import { archiveReport, markReportAsDownloaded, generateLegalPdfFromSnapshot } from "@/app/actions/reports";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Download, Archive, Lock, Check, AlertTriangle } from "lucide-react";
@@ -47,12 +47,24 @@ export function ReportHistoryTable({ reports, projectId }: ReportHistoryTablePro
   const handleDownload = async (reportId: string) => {
     try {
       setIsProcessing(reportId);
-      // Simulate download for now (in future, generate PDF blob)
-      await markReportAsDownloaded(reportId);
-      toast.success("Rapport markert som lastet ned");
-      router.refresh();
-    } catch (error) {
-      toast.error("Kunne ikke markere som lastet ned");
+      
+      // 1. Generate PDF (or get existing URL)
+      const result = await generateLegalPdfFromSnapshot(reportId);
+      
+      if (result.success && result.pdfUrl) {
+        // 2. Open PDF in new tab
+        window.open(result.pdfUrl, '_blank');
+        
+        // 3. Mark as downloaded
+        await markReportAsDownloaded(reportId);
+        toast.success("PDF åpnet og markert som lastet ned");
+        router.refresh();
+      } else {
+        throw new Error("Kunne ikke generere PDF");
+      }
+    } catch (error: any) {
+      console.error("Download error:", error);
+      toast.error(error.message || "Kunne ikke laste ned rapport");
     } finally {
       setIsProcessing(null);
     }
