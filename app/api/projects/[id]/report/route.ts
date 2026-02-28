@@ -6,6 +6,7 @@ import { NextResponse } from "next/server";
 import { generateProjectReportPDF } from "@/lib/pdf-generator";
 
 export const runtime = "nodejs";
+export const maxDuration = 300; // 5 minutes timeout
 
 async function getSignedImageUrl(
   adminSupabase: ReturnType<typeof createAdminClient>,

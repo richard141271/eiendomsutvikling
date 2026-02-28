@@ -6,6 +6,7 @@ import { mapProjectToReport } from "@/lib/reporting/project-report-mapper";
 import { PdfReportRenderer } from "@/lib/reporting/pdf-renderer";
 
 export const runtime = "nodejs";
+export const maxDuration = 300; // 5 minutes timeout for large reports
 
 export async function POST(
   request: Request,
