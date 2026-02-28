@@ -15,6 +15,33 @@ const sanitizeText = (text: string): string => {
     .replace(/[^\x09\x0A\x0D\x20-\x7E\u00A0-\u00FF]/g, "");
 };
 
+// Helper for breaking text into lines without drawing
+const wordWrap = (text: string, font: any, size: number, maxWidth: number): string[] => {
+  const normalized = sanitizeText(text);
+  const paragraphs = normalized.split("\n");
+  const lines: string[] = [];
+
+  for (const p of paragraphs) {
+    if (!p) {
+      lines.push("");
+      continue;
+    }
+    const words = p.split(" ");
+    let line = "";
+    for (const w of words) {
+      const test = line ? line + " " + w : w;
+      if (font.widthOfTextAtSize(test, size) > maxWidth) {
+        if (line) lines.push(line);
+        line = w;
+      } else {
+        line = test;
+      }
+    }
+    if (line) lines.push(line);
+  }
+  return lines;
+};
+
 export interface ReportPackage {
   main: Uint8Array;
   parts: { name: string; data: Uint8Array }[];
@@ -170,7 +197,9 @@ export class PdfReportRenderer implements ReportRenderer {
           const { item, partIndex, imgBytes, thumbBytes, error } = result;
           
           // --- Main Report: Evidence Item Entry ---
-          ensureSpace(120); // Space for item + thumbnail
+          // Don't rely on a big ensureSpace upfront for the whole block, 
+          // because text length is unknown. Just ensure enough for the first line of text.
+          ensureSpace(20); 
           
           // Text info
           const titleText = `${item.evidenceCode} - ${item.title}`;
@@ -191,6 +220,12 @@ export class PdfReportRenderer implements ReportRenderer {
                 const thumbHeight = 80;
                 const thumbWidth = thumbHeight * aspect;
                 
+                // CRITICAL FIX: Check space for image specifically to prevent it going off-page
+                if (y - thumbHeight < 50) {
+                    page = mainPdf.addPage();
+                    y = height - 50;
+                }
+
                 page.drawImage(image, {
                   x: 50,
                   y: y - thumbHeight,
@@ -255,8 +290,13 @@ export class PdfReportRenderer implements ReportRenderer {
             const { width: pWidth, height: pHeight } = pPage.getSize();
             let pY = pHeight - 50;
             
-            pPage.drawText(sanitizeText(`${item.evidenceCode} - ${item.title}`), { x: 50, y: pY, size: 14, font: partBold });
-            pY -= 20;
+            // Wrapped Title with proper spacing
+            const titleLines = wordWrap(`${item.evidenceCode} - ${item.title}`, partBold, 14, pWidth - 100);
+            for (const line of titleLines) {
+                pPage.drawText(line, { x: 50, y: pY, size: 14, font: partBold });
+                pY -= 20; // Line height
+            }
+            pY -= 10; // Extra padding between text and image
 
             if (imgBytes) {
                 try {
@@ -264,7 +304,10 @@ export class PdfReportRenderer implements ReportRenderer {
                     if (img) {
                         const dims = img.scale(1);
                         const maxWidth = pWidth - 100;
-                        const maxHeight = pHeight - 150; 
+                        // Calculate available height based on current pY, leaving 50px margin at bottom
+                        const availableHeight = pY - 50;
+                        const maxHeight = availableHeight > 0 ? availableHeight : pHeight - 150; 
+
                         let scale = 1;
                         if (dims.width > maxWidth) scale = maxWidth / dims.width;
                         if (dims.height * scale > maxHeight) scale = maxHeight / dims.height;
