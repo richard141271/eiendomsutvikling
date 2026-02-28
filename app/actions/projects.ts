@@ -67,7 +67,7 @@ export async function getProject(id: string) {
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) throw new Error("Unauthorized");
 
-  return await prisma.project.findUnique({
+  const project = await prisma.project.findUnique({
     where: { id },
     include: {
       property: true,
@@ -75,9 +75,18 @@ export async function getProject(id: string) {
       entries: { orderBy: { createdAt: "desc" } },
       tasks: { orderBy: { createdAt: "asc" } },
       reports: { orderBy: { createdAt: "desc" } },
-      reportInstances: { orderBy: { createdAt: "desc" } },
-    } as any,
+    },
   });
+
+  if (!project) return null;
+
+  // Fetch report instances manually to avoid type issues
+  const reportInstances = await (prisma as any).reportInstance.findMany({
+    where: { projectId: id },
+    orderBy: { createdAt: "desc" },
+  });
+
+  return { ...project, reportInstances };
 }
 
 export async function archiveProject(id: string) {
@@ -232,7 +241,7 @@ export async function deleteProjectEntry(entryId: string) {
 
   // Soft-delete associated evidence item to preserve numbering history
   // We use updateMany as there's no unique constraint on originalEntryId, though logic dictates 1:1
-  await prisma.evidenceItem.updateMany({
+  await (prisma as any).evidenceItem.updateMany({
     where: { 
       projectId: entry.projectId, 
       originalEntryId: entryId 
