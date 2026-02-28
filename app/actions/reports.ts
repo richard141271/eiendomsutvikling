@@ -4,6 +4,7 @@ import { prisma } from "@/lib/prisma";
 import { mapLegalReportToDocument } from "@/lib/reporting/legal-report-mapper";
 import { PdfReportRenderer } from "@/lib/reporting/pdf-renderer";
 import { createClient } from "@/lib/supabase-server";
+import { revalidatePath } from "next/cache";
 
 export async function generateLegalPdfFromSnapshot(reportId: string): Promise<{ success: boolean; pdfUrl: string; isNew: boolean }> {
   // 1. Fetch Report with Snapshots
@@ -39,15 +40,29 @@ export async function generateLegalPdfFromSnapshot(reportId: string): Promise<{ 
   });
   const fileMap = new Map(files.map((f: any) => [f.id, f]));
 
-  const evidenceItems = snapshots.map((s: any) => {
+  const supabase = createClient();
+  
+  const evidenceItems = await Promise.all(snapshots.map(async (s: any) => {
       const file = s.fileId ? fileMap.get(s.fileId) : null;
       let url = (file as any)?.storagePath;
       
-      // Resolve public URL if it's a path
+      // Resolve public/signed URL if it's a path
       if (url && !url.startsWith('http')) {
-        // Assume Supabase storage path, construct public URL if needed
-        // But PdfReportRenderer handles paths via fs usually or fetch
-        // Let's assume storagePath is what we need for now
+        // Generate a signed URL valid for 1 hour
+        const { data, error } = await supabase.storage
+            .from("project-assets")
+            .createSignedUrl(url, 3600);
+            
+        if (data?.signedUrl) {
+            url = data.signedUrl;
+        } else {
+            console.error(`Failed to sign URL for file ${s.fileId}:`, error);
+            // Fallback to public URL if signing fails (e.g. if bucket is public)
+            const { data: publicData } = supabase.storage
+                .from("project-assets")
+                .getPublicUrl(url);
+            url = publicData.publicUrl;
+        }
       }
 
       return {
@@ -61,7 +76,7 @@ export async function generateLegalPdfFromSnapshot(reportId: string): Promise<{ 
           contentType: (file as any).fileType || 'image/jpeg'
         } : undefined
       };
-  });
+  }));
 
   // 3. Map to ReportDocument
   // contentSnapshot is JSON, cast to any
@@ -77,7 +92,6 @@ export async function generateLegalPdfFromSnapshot(reportId: string): Promise<{ 
   const pdfBuffer = await renderer.render(reportDoc);
 
   // 5. Upload to Supabase
-  const supabase = createClient();
   const fileName = `reports/legal/${report.project.id}/${report.versionNumber}-${Date.now()}.pdf`;
   
   const { data: uploadData, error: uploadError } = await supabase.storage
@@ -138,6 +152,21 @@ export async function updateEvidenceInclusion(evidenceId: string, includeInRepor
 }
 
 // --- Archiving & Backup Actions ---
+
+export async function regenerateReport(reportId: string) {
+  const supabase = createClient();
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) throw new Error("Unauthorized");
+
+  const result = await generateLegalPdfFromSnapshot(reportId);
+  
+  revalidatePath("/projects");
+  // We can't revalidate specific project path easily without projectId, 
+  // but generateLegalPdfFromSnapshot fetches the report which has projectId.
+  // Ideally we should return projectId or revalidate inside generateLegalPdfFromSnapshot.
+  
+  return result;
+}
 
 export async function markReportAsDownloaded(reportId: string) {
   const supabase = createClient();

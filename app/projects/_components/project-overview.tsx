@@ -2,9 +2,10 @@
 "use client";
 
 import { archiveProject } from "@/app/actions/projects";
+import { regenerateReport } from "@/app/actions/reports";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Archive, FileText, Download, Loader2, MapPin, Paperclip, Gavel } from "lucide-react";
+import { Archive, FileText, Download, Loader2, MapPin, Paperclip, Gavel, RefreshCw } from "lucide-react";
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
@@ -18,6 +19,7 @@ export default function ProjectOverview({ project, canTestNewReport }: ProjectOv
   const router = useRouter();
   const [generating, setGenerating] = useState(false);
   const [generatingV2, setGeneratingV2] = useState(false);
+  const [regeneratingId, setRegeneratingId] = useState<string | null>(null);
 
   async function handleArchive() {
     if (confirm("Er du sikker på at du vil arkivere prosjektet? Det vil bli låst for endringer.")) {
@@ -80,6 +82,20 @@ export default function ProjectOverview({ project, canTestNewReport }: ProjectOv
       alert(`Kunne ikke generere rapport (ny motor): ${error instanceof Error ? error.message : String(error)}`);
     } finally {
       setGeneratingV2(false);
+    }
+  }
+
+  async function handleRegenerate(reportId: string) {
+    if (!confirm("Vil du forsøke å generere PDF på nytt?")) return;
+    setRegeneratingId(reportId);
+    try {
+        await regenerateReport(reportId);
+        router.refresh();
+    } catch (error) {
+        console.error(error);
+        alert("Feilet: " + (error instanceof Error ? error.message : String(error)));
+    } finally {
+        setRegeneratingId(null);
     }
   }
 
@@ -180,7 +196,23 @@ export default function ProjectOverview({ project, canTestNewReport }: ProjectOv
                       <Download className="w-3 h-3 mr-1" /> Last ned
                     </a>
                   ) : (
-                    <span className="text-xs text-amber-600">Genererer PDF...</span>
+                    <div className="flex items-center gap-2">
+                        <span className="text-xs text-amber-600">Genererer PDF...</span>
+                        <Button 
+                            variant="ghost" 
+                            size="icon" 
+                            className="h-6 w-6" 
+                            onClick={() => handleRegenerate(report.id)}
+                            disabled={regeneratingId === report.id}
+                            title="Prøv å generere på nytt"
+                        >
+                            {regeneratingId === report.id ? (
+                                <Loader2 className="h-3 w-3 animate-spin" />
+                            ) : (
+                                <RefreshCw className="h-3 w-3" />
+                            )}
+                        </Button>
+                    </div>
                   )}
                 </div>
               ))}

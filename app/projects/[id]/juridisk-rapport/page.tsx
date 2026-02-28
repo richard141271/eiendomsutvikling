@@ -61,8 +61,20 @@ export default async function LegalReportPage({ params }: { params: { id: string
       />
 
       {/* Report History */}
-      {project.reports && project.reports.length > 0 && (
-        <ReportHistoryTable reports={project.reports} projectId={project.id} />
+      {project.reportInstances && project.reportInstances.length > 0 && (
+        <ReportHistoryTable 
+          reports={project.reportInstances.map((r: any) => ({
+            id: r.id,
+            versionNumber: r.versionNumber,
+            createdAt: new Date(r.createdAt).toISOString(),
+            totalEvidenceCount: r.snapshots ? r.snapshots.length : 0,
+            archived: r.archived,
+            backupDownloaded: r.backupDownloaded,
+            backupDownloadedAt: r.backupDownloadedAt ? new Date(r.backupDownloadedAt).toISOString() : undefined,
+            archivedAt: r.archivedAt ? new Date(r.archivedAt).toISOString() : undefined,
+          }))} 
+          projectId={project.id} 
+        />
       )}
     </div>
   );

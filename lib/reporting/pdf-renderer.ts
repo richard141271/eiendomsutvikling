@@ -514,52 +514,65 @@ export class PdfReportRenderer implements ReportRenderer {
       drawLine("Bevisindeks", 16, bold);
       y -= 10;
 
-      for (const item of document.evidenceIndex) {
-        ensureSpace(40);
-        drawLine(`${item.evidenceCode} - ${item.title}`, 12, bold);
-        if (item.date) drawLine(`Dato: ${item.date.toLocaleDateString("no-NO")}`, 10);
+      const BATCH_SIZE = 5;
+      for (let i = 0; i < document.evidenceIndex.length; i += BATCH_SIZE) {
+        const batch = document.evidenceIndex.slice(i, i + BATCH_SIZE);
         
-        // Retrieve image if available
-        if (item.imageUrl) {
-            try {
-                const response = await fetch(item.imageUrl);
-                if (response.ok) {
-                    const buffer = await response.arrayBuffer();
-                    const imgBytes = new Uint8Array(buffer);
-                    
-                    // Embed as thumbnail
-                    let image;
-                    try {
-                        image = await pdfDoc.embedJpg(imgBytes).catch(() => pdfDoc.embedPng(imgBytes).catch(() => null));
-                    } catch (e) {
-                         // Ignore embed error
-                    }
-
-                    if (image) {
-                        const dims = image.scale(1);
-                        const aspect = dims.width / dims.height;
-                        const thumbHeight = 100;
-                        const thumbWidth = thumbHeight * aspect;
-
-                        if (y - thumbHeight < 50) {
-                            page = pdfDoc.addPage();
-                            y = height - 50;
-                        }
-
-                        page.drawImage(image, {
-                            x: 50,
-                            y: y - thumbHeight,
-                            width: thumbWidth,
-                            height: thumbHeight
-                        });
-                        y -= thumbHeight + 20;
-                    }
-                }
-            } catch (e) {
-                console.error("Failed to fetch/embed thumbnail:", e);
+        // Fetch batch in parallel
+        const results = await Promise.all(batch.map(async (item) => {
+          if (!item.imageUrl) return { item, imgBytes: null };
+          try {
+            const controller = new AbortController();
+            const timeoutId = setTimeout(() => controller.abort(), 10000); // 10s timeout
+            const response = await fetch(item.imageUrl, { signal: controller.signal });
+            clearTimeout(timeoutId);
+            
+            if (response.ok) {
+              const buffer = await response.arrayBuffer();
+              return { item, imgBytes: new Uint8Array(buffer) };
             }
+          } catch (e) {
+            console.error(`Failed to fetch thumbnail for ${item.evidenceCode}:`, e);
+          }
+          return { item, imgBytes: null };
+        }));
+
+        // Process results sequentially to maintain order and layout
+        for (const { item, imgBytes } of results) {
+          ensureSpace(40);
+          drawLine(`${item.evidenceCode} - ${item.title}`, 12, bold);
+          if (item.date) drawLine(`Dato: ${item.date.toLocaleDateString("no-NO")}`, 10);
+          
+          if (imgBytes) {
+             let image;
+             try {
+                image = await pdfDoc.embedJpg(imgBytes).catch(() => pdfDoc.embedPng(imgBytes).catch(() => null));
+             } catch (e) {
+                // Ignore embed error
+             }
+
+             if (image) {
+                const dims = image.scale(1);
+                const aspect = dims.width / dims.height;
+                const thumbHeight = 100;
+                const thumbWidth = thumbHeight * aspect;
+
+                if (y - thumbHeight < 50) {
+                    page = pdfDoc.addPage();
+                    y = height - 50;
+                }
+
+                page.drawImage(image, {
+                    x: 50,
+                    y: y - thumbHeight,
+                    width: thumbWidth,
+                    height: thumbHeight
+                });
+                y -= thumbHeight + 20;
+             }
+          }
+          y -= 10;
         }
-        y -= 10;
       }
     }
 
@@ -573,45 +586,67 @@ export class PdfReportRenderer implements ReportRenderer {
       page = pdfDoc.addPage();
       y = height - 50;
 
-      for (const item of document.evidenceIndex) {
-        if (!item.imageUrl) continue;
-
-        // New page per evidence item
-        page = pdfDoc.addPage();
-        y = height - 50;
-
-        drawLine(`${item.evidenceCode} - ${item.title}`, 16, bold);
-        y -= 10;
-
-        try {
-            const response = await fetch(item.imageUrl);
+      const BATCH_SIZE = 5;
+      for (let i = 0; i < document.evidenceIndex.length; i += BATCH_SIZE) {
+        const batch = document.evidenceIndex.slice(i, i + BATCH_SIZE);
+        
+        // Fetch batch in parallel
+        const results = await Promise.all(batch.map(async (item) => {
+          if (!item.imageUrl) return { item, imgBytes: null };
+          try {
+            const controller = new AbortController();
+            const timeoutId = setTimeout(() => controller.abort(), 15000); // 15s timeout for full images
+            const response = await fetch(item.imageUrl, { signal: controller.signal });
+            clearTimeout(timeoutId);
+            
             if (response.ok) {
-                const buffer = await response.arrayBuffer();
-                const imgBytes = new Uint8Array(buffer);
-                
-                const image = await pdfDoc.embedJpg(imgBytes).catch(() => pdfDoc.embedPng(imgBytes).catch(() => null));
-                if (image) {
-                    const dims = image.scale(1);
-                    const maxWidth = width - 100;
-                    const maxHeight = height - 150; // Leave space for title
-
-                    let scale = 1;
-                    if (dims.width > maxWidth) scale = maxWidth / dims.width;
-                    if (dims.height * scale > maxHeight) scale = maxHeight / dims.height;
-
-                    const w = dims.width * scale;
-                    const h = dims.height * scale;
-
-                    page.drawImage(image, {
-                        x: 50,
-                        y: y - h,
-                        width: w,
-                        height: h
-                    });
-                }
+              const buffer = await response.arrayBuffer();
+              return { item, imgBytes: new Uint8Array(buffer) };
             }
-        } catch (e) {
-            drawLine("[Kunne ikke vise bilde i full størrelse]", 12, font, 50, rgb(1,0,0));
+          } catch (e) {
+            console.error(`Failed to fetch full image for ${item.evidenceCode}:`, e);
+          }
+          return { item, imgBytes: null };
+        }));
+
+        for (const { item, imgBytes } of results) {
+            if (!item.imageUrl) continue;
+
+            // New page per evidence item
+            page = pdfDoc.addPage();
+            y = height - 50;
+
+            drawLine(`${item.evidenceCode} - ${item.title}`, 16, bold);
+            y -= 10;
+
+            if (imgBytes) {
+                try {
+                    const image = await pdfDoc.embedJpg(imgBytes).catch(() => pdfDoc.embedPng(imgBytes).catch(() => null));
+                    if (image) {
+                        const dims = image.scale(1);
+                        const maxWidth = width - 100;
+                        const maxHeight = height - 150; // Leave space for title
+
+                        let scale = 1;
+                        if (dims.width > maxWidth) scale = maxWidth / dims.width;
+                        if (dims.height * scale > maxHeight) scale = maxHeight / dims.height;
+
+                        const w = dims.width * scale;
+                        const h = dims.height * scale;
+
+                        page.drawImage(image, {
+                            x: 50,
+                            y: y - h,
+                            width: w,
+                            height: h
+                        });
+                    }
+                } catch (e) {
+                    drawLine("[Kunne ikke vise bilde i full størrelse]", 12, font, 50, rgb(1,0,0));
+                }
+            } else {
+                 drawLine("[Kunne ikke laste ned bilde]", 12, font, 50, rgb(1,0,0));
+            }
         }
       }
     }
