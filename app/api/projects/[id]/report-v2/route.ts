@@ -67,6 +67,9 @@ export async function POST(
 
     const fileName = `project-report-v2-${project.id}-${Date.now()}.pdf`;
     const pdfBuffer = Buffer.from(pdfBytes);
+    
+    const fileSizeMB = pdfBuffer.length / (1024 * 1024);
+    console.log(`Generated PDF size: ${fileSizeMB.toFixed(2)} MB`);
 
     // Upload to Supabase Storage
     const { data: uploadData, error: uploadError } = await adminSupabase.storage
@@ -78,7 +81,7 @@ export async function POST(
 
     if (uploadError) {
       console.error("Supabase upload error:", uploadError);
-      throw new Error(`Kunne ikke laste opp rapport til skyen: ${uploadError.message}`);
+      throw new Error(`Kunne ikke laste opp rapport (${fileSizeMB.toFixed(2)} MB) til skyen: ${uploadError.message}`);
     }
 
     // Get public URL

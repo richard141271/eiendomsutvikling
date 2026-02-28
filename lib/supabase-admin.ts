@@ -47,12 +47,10 @@ export async function ensureBucketExists(bucketName: string) {
     }
   } else {
     // Bucket exists, ensure configuration is correct (update limit)
-    // Using a high explicit limit (1GB) to ensure large PDF uploads work
-    const ONE_GB_IN_BYTES = 1073741824;
-    console.log(`Bucket '${bucketName}' exists. Updating configuration to 1GB limit...`);
+    console.log(`Bucket '${bucketName}' exists. Updating configuration to UNLIMITED limit...`);
     const { data, error: updateError } = await supabase.storage.updateBucket(bucketName, {
       public: true,
-      fileSizeLimit: ONE_GB_IN_BYTES, 
+      fileSizeLimit: null, // Set to null for unlimited size
       allowedMimeTypes: ['application/pdf', 'image/png', 'image/jpeg']
     });
     
