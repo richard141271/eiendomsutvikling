@@ -2,7 +2,7 @@
 "use client";
 
 import { Dialog, DialogContent } from "@/components/ui/dialog";
-import { addProjectEntry, deleteProjectEntry, updateProjectEntry, toggleEntryReportStatus } from "@/app/actions/projects";
+import { addProjectEntry, addProjectEntries, deleteProjectEntry, updateProjectEntry, toggleEntryReportStatus } from "@/app/actions/projects";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -42,15 +42,13 @@ function LogForm({ projectId, onEntryAdded }: { projectId: string, onEntryAdded:
     setLoading(true);
     try {
       if (imageUrls.length > 0) {
-        for (const url of imageUrls) {
-          await addProjectEntry({
-            projectId,
-            type: "IMAGE",
-            content,
-            imageUrl: url,
-            includeInReport: true,
-          });
-        }
+        await addProjectEntries({
+          projectId,
+          type: "IMAGE",
+          content,
+          imageUrls,
+          includeInReport: true,
+        });
       } else {
         await addProjectEntry({
           projectId,

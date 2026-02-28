@@ -118,6 +118,33 @@ export async function addProjectEntry(data: {
   return entry;
 }
 
+export async function addProjectEntries(data: {
+  projectId: string;
+  type: "NOTE" | "IMAGE" | "MEASUREMENT";
+  content?: string;
+  imageUrls: string[];
+  includeInReport?: boolean;
+}) {
+  const supabase = createClient();
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) throw new Error("Unauthorized");
+
+  const entriesData = data.imageUrls.map(url => ({
+    projectId: data.projectId,
+    type: data.type,
+    content: data.content,
+    imageUrl: url,
+    includeInReport: data.includeInReport ?? false,
+  }));
+
+  const count = await prisma.projectEntry.createMany({
+    data: entriesData,
+  });
+
+  revalidatePath(`/projects/${data.projectId}`);
+  return count;
+}
+
 export async function updateProjectEntry(entryId: string, data: { content?: string, rotation?: number }) {
   const supabase = createClient();
   const { data: { user } } = await supabase.auth.getUser();
