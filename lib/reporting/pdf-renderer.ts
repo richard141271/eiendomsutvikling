@@ -168,11 +168,11 @@ export class PdfReportRenderer implements ReportRenderer {
     }
 
     if (document.evidenceIndex.length > 0) {
-      pdfDoc.addPage();
+      page = pdfDoc.addPage();
       y = height - 50;
       drawLine("Bevisindeks", 16);
       for (const item of document.evidenceIndex) {
-        drawLine(
+        drawWrappedText(
           `${item.evidenceCode} - ${item.title}${
             item.date ? " (" + item.date.toLocaleDateString("no-NO") + ")" : ""
           }`
@@ -181,11 +181,11 @@ export class PdfReportRenderer implements ReportRenderer {
     }
 
     if (document.economySummary && document.economyLines.length > 0) {
-      pdfDoc.addPage();
+      page = pdfDoc.addPage();
       y = height - 50;
       drawLine("Økonomi", 16);
       for (const line of document.economyLines) {
-        drawLine(
+        drawWrappedText(
           `${line.description}: ${line.amount.toFixed(2)}${
             line.party ? " (" + line.party + ")" : ""
           }`

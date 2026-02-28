@@ -1,5 +1,6 @@
 import { prisma } from "@/lib/prisma";
 import { createClient } from "@/lib/supabase-server";
+import { createAdminClient, ensureBucketExists } from "@/lib/supabase-admin";
 import { NextResponse } from "next/server";
 import { mapProjectToReport } from "@/lib/reporting/project-report-mapper";
 import { PdfReportRenderer } from "@/lib/reporting/pdf-renderer";
@@ -19,6 +20,12 @@ export async function POST(
     if (!user) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
+
+    // Use admin client for storage operations
+    const adminSupabase = createAdminClient();
+    
+    // Ensure bucket exists
+    await ensureBucketExists('reports');
 
     const project = await prisma.project.findUnique({
       where: { id: params.id },
@@ -59,8 +66,39 @@ export async function POST(
     const pdfBytes = await renderer.render(reportDocument);
 
     const fileName = `project-report-v2-${project.id}-${Date.now()}.pdf`;
+    const pdfBuffer = Buffer.from(pdfBytes);
 
-    return new NextResponse(Buffer.from(pdfBytes), {
+    // Upload to Supabase Storage
+    const { data: uploadData, error: uploadError } = await adminSupabase.storage
+      .from('reports')
+      .upload(`reports/${fileName}`, pdfBuffer, {
+        contentType: 'application/pdf',
+        upsert: true,
+      });
+
+    if (uploadError) {
+      console.error("Supabase upload error:", uploadError);
+      throw new Error(`Kunne ikke laste opp rapport til skyen: ${uploadError.message}`);
+    }
+
+    // Get public URL
+    const { data: { publicUrl } } = adminSupabase
+      .storage
+      .from('reports')
+      .getPublicUrl(`reports/${fileName}`);
+
+    // Save to DB
+    console.log("Saving report v2 to DB:", publicUrl);
+    await prisma.projectReport.create({
+      data: {
+        projectId: project.id,
+        pdfUrl: publicUrl,
+        // pdfHash is optional and we don't have it from the new renderer yet, 
+        // but we could generate one if needed. For now, leaving it undefined.
+      },
+    });
+
+    return new NextResponse(pdfBuffer, {
       status: 200,
       headers: {
         "Content-Type": "application/pdf",
