@@ -363,6 +363,7 @@ model Project {
   title       String
   description String?  
   status      String   @default("ACTIVE") // ACTIVE, ARCHIVED
+  reportType  String   @default("STANDARD") // STANDARD, DOCUMENTATION, LEGAL
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
   
@@ -379,6 +380,10 @@ model Project {
   reports     ProjectReport[]
   locationTasks LocationTask[]
   auditLogs   ProjectAuditLog[]
+  
+  files           File[]
+  evidenceItems   EvidenceItem[]
+  reportInstances ReportInstance[]
 }
 
 model ProjectAuditLog {
@@ -388,7 +393,7 @@ model ProjectAuditLog {
   userId    String
   user      User     @relation(fields: [userId], references: [id])
   action    String   // DELETE, EDIT, CREATE
-  entityType String  // NOTE, IMAGE, TASK
+  entityType String  // NOTE, IMAGE, TASK, EVIDENCE
   entityId  String?  // ID of the deleted/edited item (optional if deleted)
   details   String?  // "Deleted image of wall"
   createdAt DateTime @default(now())
@@ -423,6 +428,74 @@ model ProjectReport {
   pdfHash   String?
   attachments Json? // Stores array of { title: string, url: string } for appendices
   createdAt DateTime @default(now())
+}
+
+// 🏛 JURIDISK DOKUMENTMOTOR - NY STRUKTUR
+
+model File {
+  id              String   @id @default(uuid())
+  projectId       String
+  project         Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  storagePath     String   // The URL or path
+  fileType        String   // image/jpeg, pdf, etc.
+  fileSize        Int?
+  originalName    String?
+  checksum        String?
+  uploadedAt      DateTime @default(now())
+
+  evidenceItems   EvidenceItem[]
+  
+  @@unique([projectId, checksum])
+}
+
+model EvidenceItem {
+  id              String   @id @default(uuid())
+  projectId       String
+  project         Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  evidenceNumber  Int      // INTEGER sequence
+  title           String
+  description     String?
+  
+  fileId          String
+  file            File     @relation(fields: [fileId], references: [id])
+  
+  originalEntryId String?  // Optional: ID of ProjectEntry for traceability
+  
+  includeInReport Boolean  @default(true)
+  locked          Boolean  @default(false)
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+  deletedAt       DateTime? // Soft delete to preserve evidence number history
+
+  reportSnapshots ReportEvidenceSnapshot[]
+
+  @@unique([projectId, evidenceNumber])
+}
+
+model ReportInstance {
+  id                 String   @id @default(uuid())
+  projectId          String
+  project            Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  reportType         String   // STANDARD, DOCUMENTATION, LEGAL
+  versionNumber      Int
+  totalEvidenceCount Int
+  totalPages         Int?
+  pdfUrl             String?
+  createdAt          DateTime @default(now())
+  
+  snapshots          ReportEvidenceSnapshot[]
+
+  @@unique([projectId, versionNumber])
+}
+
+model ReportEvidenceSnapshot {
+  id             String         @id @default(uuid())
+  reportId       String
+  report         ReportInstance @relation(fields: [reportId], references: [id], onDelete: Cascade)
+  evidenceItemId String
+  evidenceItem   EvidenceItem   @relation(fields: [evidenceItemId], references: [id])
+  evidenceNumber Int
+  includedAt     DateTime       @default(now())
 }
 
 model LocationTask {

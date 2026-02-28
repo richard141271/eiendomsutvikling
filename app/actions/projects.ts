@@ -3,6 +3,7 @@
 import { prisma } from "@/lib/prisma";
 import { createClient } from "@/lib/supabase-server";
 import { revalidatePath } from "next/cache";
+import { createEvidenceItemForEntry, ensureEvidenceItems } from "@/app/actions/evidence";
 
 // --- Project CRUD ---
 
@@ -114,6 +115,9 @@ export async function addProjectEntry(data: {
     },
   });
 
+  // Automatically create evidence item if applicable
+  await createEvidenceItemForEntry(entry);
+
   revalidatePath(`/projects/${data.projectId}`);
   return entry;
 }
@@ -140,6 +144,9 @@ export async function addProjectEntries(data: {
   const count = await prisma.projectEntry.createMany({
     data: entriesData,
   });
+
+  // Ensure evidence items are created for all new entries
+  await ensureEvidenceItems(data.projectId);
 
   revalidatePath(`/projects/${data.projectId}`);
   return count;
@@ -221,6 +228,16 @@ export async function deleteProjectEntry(entryId: string) {
       }
     });
   }
+
+  // Soft-delete associated evidence item to preserve numbering history
+  // We use updateMany as there's no unique constraint on originalEntryId, though logic dictates 1:1
+  await prisma.evidenceItem.updateMany({
+    where: { 
+      projectId: entry.projectId, 
+      originalEntryId: entryId 
+    },
+    data: { deletedAt: new Date() }
+  });
 
   await prisma.projectEntry.delete({
     where: { id: entryId },
