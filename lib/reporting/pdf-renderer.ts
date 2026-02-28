@@ -70,14 +70,14 @@ export class PdfReportRenderer implements ReportRenderer {
       }
     };
 
-    const drawLine = (text: string, size = 12, font = mainFont) => {
+    const drawLine = (text: string, size = 12, font = mainFont, x = 50, color = rgb(0, 0, 0)) => {
       const safe = sanitizeText(text).replace(/\n/g, " ");
       ensureSpace(size + 6);
-      page.drawText(safe, { x: 50, y, size, font });
+      page.drawText(safe, { x, y, size, font, color });
       y -= size + 6;
     };
 
-    const drawWrappedText = (text: string, size = 12, font = mainFont) => {
+    const drawWrappedText = (text: string, size = 12, font = mainFont, x = 50, maxWidth = width - 100) => {
       const normalized = sanitizeText(text);
       const paragraphs = normalized.split("\n");
       for (const p of paragraphs) {
@@ -86,23 +86,57 @@ export class PdfReportRenderer implements ReportRenderer {
         let line = "";
         for (const w of words) {
           const test = line ? line + " " + w : w;
-          if (font.widthOfTextAtSize(test, size) > width - 100) {
-            drawLine(line, size, font);
+          if (font.widthOfTextAtSize(test, size) > maxWidth) {
+            drawLine(line, size, font, x);
             line = w;
           } else {
             line = test;
           }
         }
-        if (line) drawLine(line, size, font);
+        if (line) drawLine(line, size, font, x);
       }
     };
 
-    // Metadata
-    drawLine(document.metadata.documentType, 18, mainBoldFont);
-    drawLine(`Saksnummer: ${document.metadata.caseNumber}`);
-    drawLine(`Opprettet: ${document.metadata.createdAt.toLocaleString("no-NO")}`);
-    drawLine(`Ansvarlig: ${document.metadata.responsible}`);
-    drawLine("");
+    // Metadata & Cover Page
+    if (document.metadata.documentType === "LEGAL_CASE") {
+      // Legal Report Cover Page
+      y = height - 150;
+      drawLine("JURIDISK DOKUMENTASJONSRAPPORT", 24, mainBoldFont, 50, rgb(0, 0.2, 0.4));
+      y -= 20;
+      drawLine(document.metadata.caseNumber, 16, mainFont, 50, rgb(0.4, 0.4, 0.4));
+      y -= 40;
+      
+      drawLine("Sak:", 12, mainBoldFont);
+      drawLine(document.metadata.referenceId, 12, mainFont); // Usually Project Title/ID
+      
+      y -= 20;
+      drawLine("Dato:", 12, mainBoldFont);
+      drawLine(document.metadata.createdAt.toLocaleDateString("no-NO"), 12, mainFont);
+      
+      y -= 20;
+      drawLine("Ansvarlig:", 12, mainBoldFont);
+      drawLine(document.metadata.responsible, 12, mainFont);
+
+      // Footer
+      page.drawText("Generert av Eiendomsappen", {
+        x: 50,
+        y: 50,
+        size: 10,
+        font: mainFont,
+        color: rgb(0.6, 0.6, 0.6),
+      });
+
+      // New page for content
+      page = mainPdf.addPage();
+      y = height - 50;
+    } else {
+      // Standard Report Header
+      drawLine(document.metadata.documentType, 18, mainBoldFont);
+      drawLine(`Saksnummer: ${document.metadata.caseNumber}`);
+      drawLine(`Opprettet: ${document.metadata.createdAt.toLocaleString("no-NO")}`);
+      drawLine(`Ansvarlig: ${document.metadata.responsible}`);
+      drawLine("");
+    }
 
     // Sections (Summary, Analysis, etc.)
     // Note: We skip images in sections for Main Report to keep it small, 
@@ -371,208 +405,229 @@ export class PdfReportRenderer implements ReportRenderer {
 
   async render(document: ReportDocument): Promise<Uint8Array> {
     const pdfDoc = await PDFDocument.create();
+    const font = await pdfDoc.embedFont(StandardFonts.Helvetica);
+    const bold = await pdfDoc.embedFont(StandardFonts.HelveticaBold);
+    
     let page = pdfDoc.addPage();
     let { width, height } = page.getSize();
-    const font = await pdfDoc.embedFont(StandardFonts.Helvetica);
-
     let y = height - 50;
 
-    const ensureSpace = (neededHeight: number) => {
-      if (y - neededHeight < 50) {
+    const ensureSpace = (needed: number) => {
+      if (y - needed < 50) {
         page = pdfDoc.addPage();
-        const size = page.getSize();
-        width = size.width;
-        height = size.height;
         y = height - 50;
       }
     };
 
-    const drawLine = (text: string, size = 12) => {
+    const drawLine = (text: string, size = 12, f = font, x = 50, color = rgb(0, 0, 0)) => {
       const safe = sanitizeText(text).replace(/\n/g, " ");
       ensureSpace(size + 6);
-      page.drawText(safe, {
-        x: 50,
-        y,
-        size,
-        font,
-      });
+      page.drawText(safe, { x, y, size, font: f, color });
       y -= size + 6;
     };
 
-    const maxTextWidth = () => width - 100;
-
-    const drawWrappedText = (text: string, size = 12) => {
+    const drawWrappedText = (text: string, size = 12, f = font, x = 50, maxWidth = width - 100) => {
       const normalized = sanitizeText(text);
       const paragraphs = normalized.split("\n");
-
-      for (let pIndex = 0; pIndex < paragraphs.length; pIndex++) {
-        const paragraph = paragraphs[pIndex];
-        if (paragraph === "") {
-          drawLine("", size);
-          continue;
-        }
-
-        const words = paragraph.split(" ");
-        let currentLine = "";
-
-        for (const word of words) {
-          const testLine = currentLine ? currentLine + " " + word : word;
-          const testWidth = font.widthOfTextAtSize(testLine, size);
-
-          if (testWidth > maxTextWidth()) {
-            if (currentLine) {
-              drawLine(currentLine, size);
-              currentLine = word;
-            } else {
-              drawLine(testLine, size);
-              currentLine = "";
-            }
+      for (const p of paragraphs) {
+        if (!p) { y -= size + 6; continue; }
+        const words = p.split(" ");
+        let line = "";
+        for (const w of words) {
+          const test = line ? line + " " + w : w;
+          if (f.widthOfTextAtSize(test, size) > maxWidth) {
+            drawLine(line, size, f, x);
+            line = w;
           } else {
-            currentLine = testLine;
+            line = test;
           }
         }
-
-        if (currentLine) {
-          drawLine(currentLine, size);
-        }
+        if (line) drawLine(line, size, f, x);
       }
     };
 
-    drawLine(document.metadata.documentType, 18);
-    drawLine(`Saksnummer: ${document.metadata.caseNumber}`);
-    drawLine(`Opprettet: ${document.metadata.createdAt.toLocaleString()}`);
-    drawLine(`Ansvarlig: ${document.metadata.responsible}`);
-    drawLine(`Status: ${document.metadata.status}`);
-    drawLine(`Referanse-ID: ${document.metadata.referenceId}`);
-    drawLine("");
+    // --- 1. Metadata & Cover Page ---
+    if (document.metadata.documentType === "LEGAL_CASE") {
+      // Legal Report Cover Page
+      y = height - 150;
+      drawLine("JURIDISK DOKUMENTASJONSRAPPORT", 24, bold, 50, rgb(0, 0.2, 0.4));
+      y -= 20;
+      drawLine(document.metadata.caseNumber, 16, font, 50, rgb(0.4, 0.4, 0.4));
+      y -= 40;
+      
+      drawLine("Sak:", 12, bold);
+      drawLine(document.metadata.referenceId, 12, font);
+      
+      y -= 20;
+      drawLine("Dato:", 12, bold);
+      drawLine(document.metadata.createdAt.toLocaleDateString("no-NO"), 12, font);
+      
+      y -= 20;
+      drawLine("Ansvarlig:", 12, bold);
+      drawLine(document.metadata.responsible, 12, font);
 
-    const drawImage = async (imageUrl: string, caption?: string) => {
-      try {
-        console.log("FETCHING IMAGE:", imageUrl);
-        const response = await fetch(imageUrl);
-        console.log("IMAGE STATUS:", response.status);
-        if (!response.ok) {
-          console.log("FAILED URL:", imageUrl);
-          drawLine(
-            caption
-              ? `[Bilde kunne ikke lastes: ${caption}]`
-              : "[Bilde kunne ikke lastes]"
-          );
-          return;
-        }
+      // Footer
+      page.drawText("Generert av Eiendomsappen", {
+        x: 50,
+        y: 50,
+        size: 10,
+        font: font,
+        color: rgb(0.6, 0.6, 0.6),
+      });
 
-        const contentType = response.headers.get("content-type") || "";
-        const arrayBuffer = await response.arrayBuffer();
-        const bytes = new Uint8Array(arrayBuffer);
-
-        const image =
-          contentType.includes("png") || contentType.includes("image/png")
-            ? await pdfDoc.embedPng(bytes)
-            : await pdfDoc.embedJpg(bytes);
-
-        const imageDims = image.scale(1);
-        const maxWidth = width - 100;
-        const scale = imageDims.width > maxWidth ? maxWidth / imageDims.width : 1;
-        const displayWidth = imageDims.width * scale;
-        const displayHeight = imageDims.height * scale;
-
-        ensureSpace(displayHeight + 20);
-
-        page.drawImage(image, {
-          x: 50,
-          y: y - displayHeight,
-          width: displayWidth,
-          height: displayHeight,
-        });
-
-        y -= displayHeight + 20;
-
-        if (caption) {
-          drawLine(caption, 10);
-        }
-      } catch (error) {
-        console.log("FAILED URL:", imageUrl);
-        drawLine(
-          caption
-            ? `[Feil ved lasting av bilde: ${caption}]`
-            : "[Feil ved lasting av bilde]"
-        );
-      }
-    };
-
-    const drawSection = async (section: Section, level: number) => {
-      const prefix = "#".repeat(level);
-      drawWrappedText(`${prefix} ${section.title}`, 14);
-      for (const block of section.blocks) {
-        await this.drawBlock(block, drawWrappedText, drawImage);
-      }
-      if (section.children) {
-        for (const child of section.children) {
-          await drawSection(child, Math.min(level + 1, 3));
-        }
-      }
-    };
-
-    for (const section of document.sections) {
-      await drawSection(section, 1);
+      // New page for content
+      page = pdfDoc.addPage();
+      y = height - 50;
+    } else {
+      // Standard Header
+      drawLine(document.metadata.documentType, 18, bold);
+      drawLine(`Saksnummer: ${document.metadata.caseNumber}`);
+      drawLine(`Opprettet: ${document.metadata.createdAt.toLocaleString("no-NO")}`);
       drawLine("");
     }
 
+    // --- 2. Sections ---
+    for (const section of document.sections) {
+      ensureSpace(40);
+      drawLine(section.title, 16, bold);
+      for (const block of section.blocks) {
+        if (block.kind === "PARAGRAPH") {
+            drawWrappedText(block.text);
+            y -= 10; // Paragraph spacing
+        }
+        if (block.kind === "HEADING") {
+            ensureSpace(30);
+            drawLine(block.text, 14, bold);
+        }
+        if (block.kind === "LIST") {
+            block.items.forEach(i => drawWrappedText("- " + i));
+            y -= 10;
+        }
+      }
+      y -= 20; // Section spacing
+    }
+
+    // --- 3. Evidence Index (with Thumbnails) ---
     if (document.evidenceIndex.length > 0) {
       page = pdfDoc.addPage();
       y = height - 50;
-      drawLine("Bevisindeks", 16);
+      drawLine("Bevisindeks", 16, bold);
+      y -= 10;
+
       for (const item of document.evidenceIndex) {
-        drawWrappedText(
-          `${item.evidenceCode} - ${item.title}${
-            item.date ? " (" + item.date.toLocaleDateString("no-NO") + ")" : ""
-          }`
-        );
+        ensureSpace(40);
+        drawLine(`${item.evidenceCode} - ${item.title}`, 12, bold);
+        if (item.date) drawLine(`Dato: ${item.date.toLocaleDateString("no-NO")}`, 10);
+        
+        // Retrieve image if available
+        if (item.imageUrl) {
+            try {
+                const response = await fetch(item.imageUrl);
+                if (response.ok) {
+                    const buffer = await response.arrayBuffer();
+                    const imgBytes = new Uint8Array(buffer);
+                    
+                    // Embed as thumbnail
+                    let image;
+                    try {
+                        image = await pdfDoc.embedJpg(imgBytes).catch(() => pdfDoc.embedPng(imgBytes).catch(() => null));
+                    } catch (e) {
+                         // Ignore embed error
+                    }
+
+                    if (image) {
+                        const dims = image.scale(1);
+                        const aspect = dims.width / dims.height;
+                        const thumbHeight = 100;
+                        const thumbWidth = thumbHeight * aspect;
+
+                        if (y - thumbHeight < 50) {
+                            page = pdfDoc.addPage();
+                            y = height - 50;
+                        }
+
+                        page.drawImage(image, {
+                            x: 50,
+                            y: y - thumbHeight,
+                            width: thumbWidth,
+                            height: thumbHeight
+                        });
+                        y -= thumbHeight + 20;
+                    }
+                }
+            } catch (e) {
+                console.error("Failed to fetch/embed thumbnail:", e);
+            }
+        }
+        y -= 10;
       }
     }
 
-    if (document.economySummary && document.economyLines.length > 0) {
+    // --- 4. Appendices (Full Images) ---
+    if (document.evidenceIndex.length > 0) {
       page = pdfDoc.addPage();
       y = height - 50;
-      drawLine("Økonomi", 16);
-      for (const line of document.economyLines) {
-        drawWrappedText(
-          `${line.description}: ${line.amount.toFixed(2)}${
-            line.party ? " (" + line.party + ")" : ""
-          }`
-        );
+      
+      // Title Page for Appendices
+      page.drawText("Vedlegg", { x: 50, y: height/2, size: 24, font: bold });
+      page = pdfDoc.addPage();
+      y = height - 50;
+
+      for (const item of document.evidenceIndex) {
+        if (!item.imageUrl) continue;
+
+        // New page per evidence item
+        page = pdfDoc.addPage();
+        y = height - 50;
+
+        drawLine(`${item.evidenceCode} - ${item.title}`, 16, bold);
+        y -= 10;
+
+        try {
+            const response = await fetch(item.imageUrl);
+            if (response.ok) {
+                const buffer = await response.arrayBuffer();
+                const imgBytes = new Uint8Array(buffer);
+                
+                const image = await pdfDoc.embedJpg(imgBytes).catch(() => pdfDoc.embedPng(imgBytes).catch(() => null));
+                if (image) {
+                    const dims = image.scale(1);
+                    const maxWidth = width - 100;
+                    const maxHeight = height - 150; // Leave space for title
+
+                    let scale = 1;
+                    if (dims.width > maxWidth) scale = maxWidth / dims.width;
+                    if (dims.height * scale > maxHeight) scale = maxHeight / dims.height;
+
+                    const w = dims.width * scale;
+                    const h = dims.height * scale;
+
+                    page.drawImage(image, {
+                        x: 50,
+                        y: y - h,
+                        width: w,
+                        height: h
+                    });
+                }
+            }
+        } catch (e) {
+            drawLine("[Kunne ikke vise bilde i full størrelse]", 12, font, 50, rgb(1,0,0));
+        }
       }
-      drawLine("");
-      drawLine(
-        `Totalt krav: ${document.economySummary.totalAmount.toFixed(2)}`,
-        14
-      );
     }
 
-    const pdfBytes = await pdfDoc.save();
-    return pdfBytes;
-  }
-
-  private async drawBlock(
-    block: ContentBlock,
-    drawWrappedText: (text: string, size?: number) => void,
-    drawImage: (imageUrl: string, caption?: string) => Promise<void>
-  ) {
-    if (block.kind === "PARAGRAPH") {
-      drawWrappedText(block.text);
-    } else if (block.kind === "HEADING") {
-      const size = block.level === 1 ? 16 : block.level === 2 ? 14 : 12;
-      drawWrappedText(block.text, size);
-    } else if (block.kind === "LIST") {
-      for (const item of block.items) {
-        drawWrappedText(`- ${item}`);
-      }
-    } else if (block.kind === "IMAGE") {
-      if (block.imageUrl) {
-        await drawImage(block.imageUrl, block.caption);
-      } else {
-        drawWrappedText(`[Bilde: ${block.caption}]`);
-      }
+    // Economy
+    if (document.economySummary && document.economyLines.length > 0) {
+        page = pdfDoc.addPage();
+        y = height - 50;
+        drawLine("Økonomi", 16, bold);
+        for (const line of document.economyLines) {
+            drawWrappedText(`${line.description}: ${line.amount.toFixed(2)}`);
+        }
+        drawLine("");
+        drawLine(`Totalt: ${document.economySummary.totalAmount.toFixed(2)}`, 14, bold);
     }
+
+    return await pdfDoc.save();
   }
 }

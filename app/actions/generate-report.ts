@@ -3,13 +3,22 @@
 import { prisma } from "@/lib/prisma";
 import { createClient } from "@/lib/supabase-server";
 import { revalidatePath } from "next/cache";
+import { generateLegalPdfFromSnapshot } from "@/app/actions/reports";
 
 export async function generateLegalReport(projectId: string) {
   const supabase = createClient();
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) throw new Error("Unauthorized");
 
-  return await generateLegalReportInternal(projectId);
+  const result = await generateLegalReportInternal(projectId);
+  
+  // Generate PDF immediately after creating the report record
+  const pdfResult = await generateLegalPdfFromSnapshot(result.reportId);
+
+  return {
+    ...result,
+    pdfUrl: pdfResult.pdfUrl
+  };
 }
 
 export async function generateLegalReportInternal(projectId: string) {

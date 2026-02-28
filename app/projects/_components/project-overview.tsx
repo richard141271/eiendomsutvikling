@@ -156,6 +156,37 @@ export default function ProjectOverview({ project, canTestNewReport }: ProjectOv
             </Button>
           )}
 
+          {project.reportInstances && project.reportInstances.length > 0 && (
+            <div className="space-y-4 mt-6">
+              <h4 className="text-sm font-medium text-slate-500 border-b pb-2">Juridiske Rapporter</h4>
+              {project.reportInstances.map((report: any) => (
+                <div key={report.id} className="border rounded-lg p-3 text-sm hover:bg-slate-50 transition-colors flex items-center justify-between">
+                  <div className="flex items-center text-slate-700 font-medium">
+                    <Gavel className="w-4 h-4 mr-2 text-slate-400" />
+                    <span className="flex-1">
+                      {report.reportType === "LEGAL" ? "Juridisk Rapport" : "Rapport"} v{report.versionNumber} 
+                      <span className="text-slate-400 font-normal ml-2">
+                        {new Date(report.createdAt).toLocaleString("no-NO")}
+                      </span>
+                    </span>
+                  </div>
+                  
+                  {report.pdfUrl ? (
+                    <a 
+                      href={report.pdfUrl}
+                      target="_blank"
+                      className="flex items-center text-blue-600 hover:text-blue-800 text-xs font-medium"
+                    >
+                      <Download className="w-3 h-3 mr-1" /> Last ned
+                    </a>
+                  ) : (
+                    <span className="text-xs text-amber-600">Genererer PDF...</span>
+                  )}
+                </div>
+              ))}
+            </div>
+          )}
+
           {project.reports && project.reports.length > 0 && (
             <div className="space-y-4 mt-6">
               <h4 className="text-sm font-medium text-slate-500 border-b pb-2">Tidligere rapporter</h4>

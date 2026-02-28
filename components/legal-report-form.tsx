@@ -59,8 +59,13 @@ export function LegalReportDraftForm({ projectId, initialData, evidenceItems, on
     // Optimistic feedback
     toast.info("Genererer rapport...");
     try {
-        const result = await generateLegalReport(projectId);
+        const result: any = await generateLegalReport(projectId);
         toast.success(`Juridisk rapport v${result.versionNumber} generert med ${result.evidenceCount} bevis!`);
+        
+        if (result.pdfUrl) {
+            window.open(result.pdfUrl, '_blank');
+        }
+
         // We might want to refresh the page or redirect to show the report status
         // For now, let's trigger the parent callback if any
         if (onGenerateReport) {

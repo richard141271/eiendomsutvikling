@@ -75,7 +75,8 @@ export async function getProject(id: string) {
       entries: { orderBy: { createdAt: "desc" } },
       tasks: { orderBy: { createdAt: "asc" } },
       reports: { orderBy: { createdAt: "desc" } },
-    },
+      reportInstances: { orderBy: { createdAt: "desc" } },
+    } as any,
   });
 }
 
