@@ -64,48 +64,83 @@ export async function POST(
     const reportDocument = mapProjectToReport(projectForReport);
 
     const renderer = new PdfReportRenderer();
-    const pdfBytes = await renderer.render(reportDocument);
+    const pkg = await renderer.renderPackage(reportDocument);
 
-    const fileName = `project-report-v2-${project.id}-${Date.now()}.pdf`;
-    const pdfBuffer = Buffer.from(pdfBytes);
+    const timestamp = Date.now();
+    const mainFileName = `project-report-v3-${project.id}-${timestamp}-main.pdf`;
+    const mainBuffer = Buffer.from(pkg.main);
     
-    const fileSizeMB = pdfBuffer.length / (1024 * 1024);
-    console.log(`Generated PDF size: ${fileSizeMB.toFixed(2)} MB`);
+    const fileSizeMB = mainBuffer.length / (1024 * 1024);
+    console.log(`Generated Main PDF size: ${fileSizeMB.toFixed(2)} MB`);
 
-    // Upload to Supabase Storage
-    const { data: uploadData, error: uploadError } = await adminSupabase.storage
+    // Upload Main Report to Supabase Storage
+    const { error: uploadError } = await adminSupabase.storage
       .from(bucketName)
-      .upload(`reports/${fileName}`, pdfBuffer, {
+      .upload(`reports/${mainFileName}`, mainBuffer, {
         contentType: 'application/pdf',
         upsert: true,
       });
 
     if (uploadError) {
-      console.error("Supabase upload error:", uploadError);
-      throw new Error(`Kunne ikke laste opp rapport (${fileSizeMB.toFixed(2)} MB) til skyen: ${uploadError.message}`);
+      console.error("Supabase upload error (Main):", uploadError);
+      throw new Error(`Kunne ikke laste opp hovedrapport (${fileSizeMB.toFixed(2)} MB) til skyen: ${uploadError.message}`);
     }
 
-    // Get public URL
-    const { data: { publicUrl } } = adminSupabase
+    // Get public URL for Main Report
+    const { data: { publicUrl: mainUrl } } = adminSupabase
       .storage
       .from(bucketName)
-      .getPublicUrl(`reports/${fileName}`);
+      .getPublicUrl(`reports/${mainFileName}`);
+
+    // Upload Parts (Appendices)
+    const attachments: { title: string; url: string }[] = [];
+    
+    for (let i = 0; i < pkg.parts.length; i++) {
+      const part = pkg.parts[i];
+      const partFileName = `project-report-v3-${project.id}-${timestamp}-part-${i+1}.pdf`;
+      const partBuffer = Buffer.from(part.data);
+      
+      const partSizeMB = partBuffer.length / (1024 * 1024);
+      console.log(`Generated Part ${i+1} size: ${partSizeMB.toFixed(2)} MB`);
+
+      const { error: partUploadError } = await adminSupabase.storage
+        .from(bucketName)
+        .upload(`reports/${partFileName}`, partBuffer, {
+          contentType: 'application/pdf',
+          upsert: true,
+        });
+
+      if (partUploadError) {
+        console.error(`Supabase upload error (Part ${i+1}):`, partUploadError);
+        throw new Error(`Kunne ikke laste opp vedlegg ${i+1} (${partSizeMB.toFixed(2)} MB): ${partUploadError.message}`);
+      }
+
+      const { data: { publicUrl: partUrl } } = adminSupabase
+        .storage
+        .from(bucketName)
+        .getPublicUrl(`reports/${partFileName}`);
+        
+      attachments.push({
+        title: part.name,
+        url: partUrl
+      });
+    }
 
     // Save to DB
-    console.log("Saving report v2 to DB:", publicUrl);
+    console.log("Saving report v3 package to DB:", mainUrl, attachments);
     await prisma.projectReport.create({
       data: {
         projectId: project.id,
-        pdfUrl: publicUrl,
-        // pdfHash is optional and we don't have it from the new renderer yet, 
-        // but we could generate one if needed. For now, leaving it undefined.
+        pdfUrl: mainUrl,
+        attachments: attachments as any, // Cast to any or InputJsonValue if needed
       },
     });
 
-    // Return JSON with URL to avoid Vercel response payload limits (4.5MB)
+    // Return JSON with URL and attachments
     return NextResponse.json({
-      url: publicUrl,
-      fileName: fileName
+      url: mainUrl,
+      fileName: mainFileName,
+      attachments: attachments
     });
   } catch (error) {
     console.error("Error generating v2 report:", error);

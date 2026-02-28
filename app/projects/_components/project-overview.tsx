@@ -4,7 +4,7 @@
 import { archiveProject } from "@/app/actions/projects";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Archive, FileText, Download, Loader2, MapPin } from "lucide-react";
+import { Archive, FileText, Download, Loader2, MapPin, Paperclip } from "lucide-react";
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
@@ -150,19 +150,36 @@ export default function ProjectOverview({ project, canTestNewReport }: ProjectOv
           )}
 
           {project.reports && project.reports.length > 0 && (
-            <div className="space-y-2 mt-4">
-              <h4 className="text-sm font-medium text-slate-500">Tidligere rapporter</h4>
+            <div className="space-y-4 mt-6">
+              <h4 className="text-sm font-medium text-slate-500 border-b pb-2">Tidligere rapporter</h4>
               {project.reports.map((report: any) => (
-                <a 
-                  key={report.id} 
-                  href={`/api/projects/reports/${report.id}`}
-                  target="_blank"
-                  className="flex items-center p-3 rounded-lg border hover:bg-slate-50 transition-colors text-sm"
-                >
-                  <FileText className="w-4 h-4 mr-2 text-slate-400" />
-                  <span className="flex-1">Rapport {new Date(report.createdAt).toLocaleString("no-NO")}</span>
-                  <Download className="w-4 h-4 text-slate-400" />
-                </a>
+                <div key={report.id} className="border rounded-lg p-3 text-sm hover:bg-slate-50 transition-colors">
+                  <a 
+                    href={report.pdfUrl}
+                    target="_blank"
+                    className="flex items-center text-slate-700 hover:text-blue-600 font-medium"
+                  >
+                    <FileText className="w-4 h-4 mr-2 text-slate-400" />
+                    <span className="flex-1">Rapport {new Date(report.createdAt).toLocaleString("no-NO")}</span>
+                    <Download className="w-4 h-4 text-slate-400" />
+                  </a>
+                  
+                  {report.attachments && Array.isArray(report.attachments) && report.attachments.length > 0 && (
+                    <div className="mt-3 pl-2 space-y-2 border-l-2 border-slate-200 ml-2">
+                      {report.attachments.map((att: any, i: number) => (
+                        <a 
+                          key={i} 
+                          href={att.url} 
+                          target="_blank" 
+                          className="flex items-center text-slate-500 hover:text-blue-600 text-xs py-1"
+                        >
+                          <Paperclip className="w-3 h-3 mr-2" /> 
+                          {att.title || `Vedlegg ${i + 1}`}
+                        </a>
+                      ))}
+                    </div>
+                  )}
+                </div>
               ))}
             </div>
           )}

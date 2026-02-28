@@ -421,6 +421,7 @@ model ProjectReport {
   project   Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
   pdfUrl    String
   pdfHash   String?
+  attachments Json? // Stores array of { title: string, url: string } for appendices
   createdAt DateTime @default(now())
 }
 

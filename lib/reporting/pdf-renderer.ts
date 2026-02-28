@@ -1,5 +1,7 @@
-import { PDFDocument, StandardFonts } from "pdf-lib";
-import { ReportDocument, Section, ContentBlock } from "./report-types";
+import { PDFDocument, StandardFonts, rgb } from "pdf-lib";
+import { ReportDocument, Section, ContentBlock, EvidenceItem } from "./report-types";
+// @ts-ignore
+import sharp from "sharp";
 
 const sanitizeText = (text: string): string => {
   return text
@@ -13,11 +15,264 @@ const sanitizeText = (text: string): string => {
     .replace(/[^\x09\x0A\x0D\x20-\x7E\u00A0-\u00FF]/g, "");
 };
 
+export interface ReportPackage {
+  main: Uint8Array;
+  parts: { name: string; data: Uint8Array }[];
+}
+
 export interface ReportRenderer {
   render(document: ReportDocument): Promise<Uint8Array>;
+  renderPackage(document: ReportDocument): Promise<ReportPackage>;
 }
 
 export class PdfReportRenderer implements ReportRenderer {
+  async renderPackage(document: ReportDocument): Promise<ReportPackage> {
+    // --- 1. Generate Main Report ---
+    const mainPdf = await PDFDocument.create();
+    const mainFont = await mainPdf.embedFont(StandardFonts.Helvetica);
+    const mainBoldFont = await mainPdf.embedFont(StandardFonts.HelveticaBold);
+    
+    let page = mainPdf.addPage();
+    let { width, height } = page.getSize();
+    let y = height - 50;
+
+    const ensureSpace = (needed: number) => {
+      if (y - needed < 50) {
+        page = mainPdf.addPage();
+        y = height - 50;
+      }
+    };
+
+    const drawLine = (text: string, size = 12, font = mainFont) => {
+      const safe = sanitizeText(text).replace(/\n/g, " ");
+      ensureSpace(size + 6);
+      page.drawText(safe, { x: 50, y, size, font });
+      y -= size + 6;
+    };
+
+    const drawWrappedText = (text: string, size = 12, font = mainFont) => {
+      const normalized = sanitizeText(text);
+      const paragraphs = normalized.split("\n");
+      for (const p of paragraphs) {
+        if (!p) { y -= size + 6; continue; }
+        const words = p.split(" ");
+        let line = "";
+        for (const w of words) {
+          const test = line ? line + " " + w : w;
+          if (font.widthOfTextAtSize(test, size) > width - 100) {
+            drawLine(line, size, font);
+            line = w;
+          } else {
+            line = test;
+          }
+        }
+        if (line) drawLine(line, size, font);
+      }
+    };
+
+    // Metadata
+    drawLine(document.metadata.documentType, 18, mainBoldFont);
+    drawLine(`Saksnummer: ${document.metadata.caseNumber}`);
+    drawLine(`Opprettet: ${document.metadata.createdAt.toLocaleString("no-NO")}`);
+    drawLine(`Ansvarlig: ${document.metadata.responsible}`);
+    drawLine("");
+
+    // Sections (Summary, Analysis, etc.)
+    // Note: We skip images in sections for Main Report to keep it small, 
+    // unless strictly necessary. Assuming text-heavy sections here.
+    for (const section of document.sections) {
+      drawLine(section.title, 16, mainBoldFont);
+      for (const block of section.blocks) {
+        if (block.kind === "PARAGRAPH") drawWrappedText(block.text);
+        if (block.kind === "HEADING") drawLine(block.text, 14, mainBoldFont);
+        if (block.kind === "LIST") block.items.forEach(i => drawWrappedText("- " + i));
+        // Skip heavy images in main report sections if possible, or keep logic simple
+      }
+      drawLine("");
+    }
+
+    // Evidence Index (Thumbnails)
+    if (document.evidenceIndex.length > 0) {
+      page = mainPdf.addPage();
+      y = height - 50;
+      drawLine("Bevisindeks", 16, mainBoldFont);
+      
+      for (let i = 0; i < document.evidenceIndex.length; i++) {
+        const item = document.evidenceIndex[i];
+        const partIndex = Math.floor(i / 200) + 1; // 200 items per part
+        
+        ensureSpace(120); // Space for item + thumbnail
+        
+        // Text info
+        drawLine(`${item.evidenceCode} - ${item.title}`, 12, mainBoldFont);
+        if (item.date) drawLine(`Dato: ${item.date.toLocaleDateString("no-NO")}`, 10);
+        drawLine(`Se Vedlegg Del ${partIndex}`, 10, mainFont);
+
+        // Thumbnail
+        if (item.imageUrl) {
+          try {
+            const response = await fetch(item.imageUrl);
+            if (response.ok) {
+              const buffer = await response.arrayBuffer();
+              // Resize to thumbnail
+              let imageBytes: Uint8Array = new Uint8Array(buffer);
+              try {
+                const sharpBuffer = await sharp(buffer).resize(300).jpeg({ quality: 60 }).toBuffer();
+                imageBytes = new Uint8Array(sharpBuffer);
+              } catch (e) {
+                console.warn("Sharp resize failed, using original:", e);
+              }
+
+              const image = await mainPdf.embedJpg(imageBytes).catch(() => mainPdf.embedPng(imageBytes).catch(() => null));
+              if (image) {
+                const dims = image.scale(1);
+                const aspect = dims.width / dims.height;
+                const thumbHeight = 80;
+                const thumbWidth = thumbHeight * aspect;
+                
+                page.drawImage(image, {
+                  x: 50,
+                  y: y - thumbHeight,
+                  width: thumbWidth,
+                  height: thumbHeight
+                });
+                y -= thumbHeight + 10;
+              }
+            }
+          } catch (e) {
+            console.error("Thumbnail fetch failed:", e);
+          }
+        }
+        y -= 20; // Spacing
+      }
+    }
+    
+    // Economy
+    if (document.economySummary && document.economyLines.length > 0) {
+      page = mainPdf.addPage();
+      y = height - 50;
+      drawLine("Økonomi", 16, mainBoldFont);
+      for (const line of document.economyLines) {
+        drawWrappedText(`${line.description}: ${line.amount.toFixed(2)}`);
+      }
+      drawLine("");
+      drawLine(`Totalt: ${document.economySummary.totalAmount.toFixed(2)}`, 14, mainBoldFont);
+    }
+
+    const mainBytes = await mainPdf.save();
+
+    // --- 2. Generate Appendices ---
+    const parts: { name: string; data: Uint8Array }[] = [];
+    const MAX_PART_SIZE = 45 * 1024 * 1024; // 45MB
+    const MAX_PART_IMAGES = 250;
+    
+    let currentPartNum = 1;
+    let currentPartSize = 0;
+    let currentPartImages = 0;
+    let currentPartStartEvidenceCode = document.evidenceIndex[0]?.evidenceCode || "";
+    
+    // Helper to init new part
+    const initPart = async () => {
+      const pdf = await PDFDocument.create();
+      const font = await pdf.embedFont(StandardFonts.Helvetica);
+      const bold = await pdf.embedFont(StandardFonts.HelveticaBold);
+      return { pdf, font, bold };
+    };
+
+    let { pdf: partPdf, font: partFont, bold: partBold } = await initPart();
+
+    for (let i = 0; i < document.evidenceIndex.length; i++) {
+      const item = document.evidenceIndex[i];
+      if (!item.imageUrl) continue;
+
+      try {
+        const res = await fetch(item.imageUrl);
+        if (!res.ok) continue;
+        const buf = await res.arrayBuffer();
+        const imgSize = buf.byteLength;
+        
+        // Check limits: If adding this image exceeds limit, save current part and start new
+        // Only if we already have images in current part (to avoid infinite loop if single image > limit)
+        if (currentPartImages > 0 && (currentPartSize + imgSize > MAX_PART_SIZE || currentPartImages >= MAX_PART_IMAGES)) {
+             // Add title page to the completed part
+             const titlePage = partPdf.insertPage(0);
+             const { height: tpHeight } = titlePage.getSize();
+             let pY = tpHeight - 100;
+             titlePage.drawText(`Vedlegg Del ${currentPartNum}`, { x: 50, y: pY, size: 24, font: partBold });
+             pY -= 40;
+             titlePage.drawText(`Til sak: ${document.metadata.caseNumber}`, { x: 50, y: pY, size: 14, font: partFont });
+             pY -= 20;
+             // Previous item was the last one in this part
+             const endCode = document.evidenceIndex[i-1]?.evidenceCode || currentPartStartEvidenceCode;
+             titlePage.drawText(`Inneholder bevis ${currentPartStartEvidenceCode} til ${endCode}`, { x: 50, y: pY, size: 12, font: partFont });
+
+             parts.push({
+                 name: `Vedlegg Del ${currentPartNum}`,
+                 data: await partPdf.save()
+             });
+
+             // Reset for new part
+             currentPartNum++;
+             currentPartSize = 0;
+             currentPartImages = 0;
+             currentPartStartEvidenceCode = item.evidenceCode;
+             
+             const newPart = await initPart();
+             partPdf = newPart.pdf;
+             partFont = newPart.font;
+             partBold = newPart.bold;
+        }
+
+        // Add image to current part
+        let pPage = partPdf.addPage();
+        const { width, height } = pPage.getSize();
+        let pY = height - 50;
+        
+        pPage.drawText(`${item.evidenceCode} - ${item.title}`, { x: 50, y: pY, size: 14, font: partBold });
+        pY -= 20;
+
+        const img = await partPdf.embedJpg(buf).catch(() => partPdf.embedPng(buf).catch(() => null));
+        if (img) {
+            const dims = img.scale(1);
+            const maxWidth = width - 100;
+            const maxHeight = height - 150; 
+            let scale = 1;
+            if (dims.width > maxWidth) scale = maxWidth / dims.width;
+            if (dims.height * scale > maxHeight) scale = maxHeight / dims.height;
+            const w = dims.width * scale;
+            const h = dims.height * scale;
+            pPage.drawImage(img, { x: 50, y: pY - h, width: w, height: h });
+        }
+        
+        currentPartSize += imgSize;
+        currentPartImages++;
+
+      } catch (e) {
+        console.error("Failed to embed evidence image:", e);
+      }
+    }
+
+    // Save last part if it has content
+    if (currentPartImages > 0) {
+         const titlePage = partPdf.insertPage(0);
+         const { height: tpHeight } = titlePage.getSize();
+         let pY = tpHeight - 100;
+         titlePage.drawText(`Vedlegg Del ${currentPartNum}`, { x: 50, y: pY, size: 24, font: partBold });
+         pY -= 40;
+         titlePage.drawText(`Til sak: ${document.metadata.caseNumber}`, { x: 50, y: pY, size: 14, font: partFont });
+         pY -= 20;
+         const endCode = document.evidenceIndex[document.evidenceIndex.length-1]?.evidenceCode || currentPartStartEvidenceCode;
+         titlePage.drawText(`Inneholder bevis ${currentPartStartEvidenceCode} til ${endCode}`, { x: 50, y: pY, size: 12, font: partFont });
+
+         parts.push({
+             name: `Vedlegg Del ${currentPartNum}`,
+             data: await partPdf.save()
+         });
+    }
+
+    return { main: mainBytes, parts };
+  }
+
   async render(document: ReportDocument): Promise<Uint8Array> {
     const pdfDoc = await PDFDocument.create();
     let page = pdfDoc.addPage();
