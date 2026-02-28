@@ -91,77 +91,7 @@ export class PdfReportRenderer implements ReportRenderer {
       drawLine("");
     }
 
-    // Evidence Index (Thumbnails)
-    if (document.evidenceIndex.length > 0) {
-      page = mainPdf.addPage();
-      y = height - 50;
-      drawLine("Bevisindeks", 16, mainBoldFont);
-      
-      for (let i = 0; i < document.evidenceIndex.length; i++) {
-        const item = document.evidenceIndex[i];
-        const partIndex = Math.floor(i / 200) + 1; // 200 items per part
-        
-        ensureSpace(120); // Space for item + thumbnail
-        
-        // Text info
-        drawLine(`${item.evidenceCode} - ${item.title}`, 12, mainBoldFont);
-        if (item.date) drawLine(`Dato: ${item.date.toLocaleDateString("no-NO")}`, 10);
-        drawLine(`Se Vedlegg Del ${partIndex}`, 10, mainFont);
-
-        // Thumbnail
-        if (item.imageUrl) {
-          try {
-            const response = await fetch(item.imageUrl);
-            if (response.ok) {
-              const buffer = await response.arrayBuffer();
-              // Resize to thumbnail
-              let imageBytes: Uint8Array = new Uint8Array(buffer);
-              try {
-                const sharpBuffer = await sharp(buffer).resize(300).jpeg({ quality: 60 }).toBuffer();
-                imageBytes = new Uint8Array(sharpBuffer);
-              } catch (e) {
-                console.warn("Sharp resize failed, using original:", e);
-              }
-
-              const image = await mainPdf.embedJpg(imageBytes).catch(() => mainPdf.embedPng(imageBytes).catch(() => null));
-              if (image) {
-                const dims = image.scale(1);
-                const aspect = dims.width / dims.height;
-                const thumbHeight = 80;
-                const thumbWidth = thumbHeight * aspect;
-                
-                page.drawImage(image, {
-                  x: 50,
-                  y: y - thumbHeight,
-                  width: thumbWidth,
-                  height: thumbHeight
-                });
-                y -= thumbHeight + 10;
-              }
-            }
-          } catch (e) {
-            console.error("Thumbnail fetch failed:", e);
-          }
-        }
-        y -= 20; // Spacing
-      }
-    }
-    
-    // Economy
-    if (document.economySummary && document.economyLines.length > 0) {
-      page = mainPdf.addPage();
-      y = height - 50;
-      drawLine("Økonomi", 16, mainBoldFont);
-      for (const line of document.economyLines) {
-        drawWrappedText(`${line.description}: ${line.amount.toFixed(2)}`);
-      }
-      drawLine("");
-      drawLine(`Totalt: ${document.economySummary.totalAmount.toFixed(2)}`, 14, mainBoldFont);
-    }
-
-    const mainBytes = await mainPdf.save();
-
-    // --- 2. Generate Appendices ---
+    // --- Evidence Index & Appendices (Integrated Loop) ---
     const parts: { name: string; data: Uint8Array }[] = [];
     const MAX_PART_SIZE = 45 * 1024 * 1024; // 45MB
     const MAX_PART_IMAGES = 250;
@@ -181,77 +111,137 @@ export class PdfReportRenderer implements ReportRenderer {
 
     let { pdf: partPdf, font: partFont, bold: partBold } = await initPart();
 
-    for (let i = 0; i < document.evidenceIndex.length; i++) {
-      const item = document.evidenceIndex[i];
-      if (!item.imageUrl) continue;
-
-      try {
-        const res = await fetch(item.imageUrl);
-        if (!res.ok) continue;
-        const buf = await res.arrayBuffer();
-        const imgSize = buf.byteLength;
+    // Evidence Index (Thumbnails) + Appendices Generation
+    if (document.evidenceIndex.length > 0) {
+      page = mainPdf.addPage();
+      y = height - 50;
+      drawLine("Bevisindeks", 16, mainBoldFont);
+      
+      for (let i = 0; i < document.evidenceIndex.length; i++) {
+        const item = document.evidenceIndex[i];
+        const partIndex = Math.floor(i / MAX_PART_IMAGES) + 1;
         
-        // Check limits: If adding this image exceeds limit, save current part and start new
-        // Only if we already have images in current part (to avoid infinite loop if single image > limit)
-        if (currentPartImages > 0 && (currentPartSize + imgSize > MAX_PART_SIZE || currentPartImages >= MAX_PART_IMAGES)) {
-             // Add title page to the completed part
-             const titlePage = partPdf.insertPage(0);
-             const { height: tpHeight } = titlePage.getSize();
-             let pY = tpHeight - 100;
-             titlePage.drawText(`Vedlegg Del ${currentPartNum}`, { x: 50, y: pY, size: 24, font: partBold });
-             pY -= 40;
-             titlePage.drawText(`Til sak: ${document.metadata.caseNumber}`, { x: 50, y: pY, size: 14, font: partFont });
-             pY -= 20;
-             // Previous item was the last one in this part
-             const endCode = document.evidenceIndex[i-1]?.evidenceCode || currentPartStartEvidenceCode;
-             titlePage.drawText(`Inneholder bevis ${currentPartStartEvidenceCode} til ${endCode}`, { x: 50, y: pY, size: 12, font: partFont });
+        // --- Main Report: Evidence Item Entry ---
+        ensureSpace(120); // Space for item + thumbnail
+        
+        // Text info
+        drawLine(`${item.evidenceCode} - ${item.title}`, 12, mainBoldFont);
+        if (item.date) drawLine(`Dato: ${item.date.toLocaleDateString("no-NO")}`, 10);
+        drawLine(`Se Vedlegg Del ${partIndex}`, 10, mainFont);
 
-             parts.push({
-                 name: `Vedlegg Del ${currentPartNum}`,
-                 data: await partPdf.save()
-             });
+        // Fetch Image ONCE for both Main and Appendix
+        if (item.imageUrl) {
+          try {
+            const response = await fetch(item.imageUrl);
+            if (response.ok) {
+              const buffer = await response.arrayBuffer();
+              const imgBytes = new Uint8Array(buffer);
+              const imgSize = imgBytes.byteLength;
 
-             // Reset for new part
-             currentPartNum++;
-             currentPartSize = 0;
-             currentPartImages = 0;
-             currentPartStartEvidenceCode = item.evidenceCode;
-             
-             const newPart = await initPart();
-             partPdf = newPart.pdf;
-             partFont = newPart.font;
-             partBold = newPart.bold;
+              // 1. Add Thumbnail to Main Report
+              try {
+                // Resize to thumbnail
+                let thumbBytes = imgBytes;
+                try {
+                  const sharpBuffer = await sharp(buffer).resize(300).jpeg({ quality: 60 }).toBuffer();
+                  thumbBytes = new Uint8Array(sharpBuffer);
+                } catch (e) {
+                  console.warn("Sharp resize failed, using original:", e);
+                }
+
+                const image = await mainPdf.embedJpg(thumbBytes).catch(() => mainPdf.embedPng(thumbBytes).catch(() => null));
+                if (image) {
+                  const dims = image.scale(1);
+                  const aspect = dims.width / dims.height;
+                  const thumbHeight = 80;
+                  const thumbWidth = thumbHeight * aspect;
+                  
+                  page.drawImage(image, {
+                    x: 50,
+                    y: y - thumbHeight,
+                    width: thumbWidth,
+                    height: thumbHeight
+                  });
+                  y -= thumbHeight + 10;
+                }
+              } catch (e) {
+                console.error("Thumbnail generation failed:", e);
+              }
+
+              // 2. Add Full Image to Appendix
+              try {
+                 // Check limits: If adding this image exceeds limit, save current part and start new
+                if (currentPartImages > 0 && (currentPartSize + imgSize > MAX_PART_SIZE || currentPartImages >= MAX_PART_IMAGES)) {
+                     // Add title page to the completed part
+                     const titlePage = partPdf.insertPage(0);
+                     const { height: tpHeight } = titlePage.getSize();
+                     let pY = tpHeight - 100;
+                     titlePage.drawText(`Vedlegg Del ${currentPartNum}`, { x: 50, y: pY, size: 24, font: partBold });
+                     pY -= 40;
+                     titlePage.drawText(`Til sak: ${document.metadata.caseNumber}`, { x: 50, y: pY, size: 14, font: partFont });
+                     pY -= 20;
+                     // Previous item was the last one in this part
+                     const endCode = document.evidenceIndex[i-1]?.evidenceCode || currentPartStartEvidenceCode;
+                     titlePage.drawText(`Inneholder bevis ${currentPartStartEvidenceCode} til ${endCode}`, { x: 50, y: pY, size: 12, font: partFont });
+
+                     parts.push({
+                         name: `Vedlegg Del ${currentPartNum}`,
+                         data: await partPdf.save()
+                     });
+
+                     // Reset for new part
+                     currentPartNum++;
+                     currentPartSize = 0;
+                     currentPartImages = 0;
+                     currentPartStartEvidenceCode = item.evidenceCode;
+                     
+                     const newPart = await initPart();
+                     partPdf = newPart.pdf;
+                     partFont = newPart.font;
+                     partBold = newPart.bold;
+                }
+
+                // Add image to current part
+                let pPage = partPdf.addPage();
+                const { width: pWidth, height: pHeight } = pPage.getSize();
+                let pY = pHeight - 50;
+                
+                pPage.drawText(`${item.evidenceCode} - ${item.title}`, { x: 50, y: pY, size: 14, font: partBold });
+                pY -= 20;
+
+                const img = await partPdf.embedJpg(imgBytes).catch(() => partPdf.embedPng(imgBytes).catch(() => null));
+                if (img) {
+                    const dims = img.scale(1);
+                    const maxWidth = pWidth - 100;
+                    const maxHeight = pHeight - 150; 
+                    let scale = 1;
+                    if (dims.width > maxWidth) scale = maxWidth / dims.width;
+                    if (dims.height * scale > maxHeight) scale = maxHeight / dims.height;
+                    const w = dims.width * scale;
+                    const h = dims.height * scale;
+                    pPage.drawImage(img, { x: 50, y: pY - h, width: w, height: h });
+                }
+                
+                currentPartSize += imgSize;
+                currentPartImages++;
+
+              } catch (e) {
+                console.error("Failed to embed evidence image into appendix:", e);
+              }
+
+            } else {
+                console.warn("Failed to fetch image:", item.imageUrl);
+            }
+          } catch (e) {
+            console.error("Image fetch failed:", e);
+          }
+        } else {
+            // No image URL
+            y -= 20;
         }
-
-        // Add image to current part
-        let pPage = partPdf.addPage();
-        const { width, height } = pPage.getSize();
-        let pY = height - 50;
-        
-        pPage.drawText(`${item.evidenceCode} - ${item.title}`, { x: 50, y: pY, size: 14, font: partBold });
-        pY -= 20;
-
-        const img = await partPdf.embedJpg(buf).catch(() => partPdf.embedPng(buf).catch(() => null));
-        if (img) {
-            const dims = img.scale(1);
-            const maxWidth = width - 100;
-            const maxHeight = height - 150; 
-            let scale = 1;
-            if (dims.width > maxWidth) scale = maxWidth / dims.width;
-            if (dims.height * scale > maxHeight) scale = maxHeight / dims.height;
-            const w = dims.width * scale;
-            const h = dims.height * scale;
-            pPage.drawImage(img, { x: 50, y: pY - h, width: w, height: h });
-        }
-        
-        currentPartSize += imgSize;
-        currentPartImages++;
-
-      } catch (e) {
-        console.error("Failed to embed evidence image:", e);
       }
     }
-
+    
     // Save last part if it has content
     if (currentPartImages > 0) {
          const titlePage = partPdf.insertPage(0);
@@ -269,6 +259,20 @@ export class PdfReportRenderer implements ReportRenderer {
              data: await partPdf.save()
          });
     }
+
+    // Economy
+    if (document.economySummary && document.economyLines.length > 0) {
+      page = mainPdf.addPage();
+      y = height - 50;
+      drawLine("Økonomi", 16, mainBoldFont);
+      for (const line of document.economyLines) {
+        drawWrappedText(`${line.description}: ${line.amount.toFixed(2)}`);
+      }
+      drawLine("");
+      drawLine(`Totalt: ${document.economySummary.totalAmount.toFixed(2)}`, 14, mainBoldFont);
+    }
+
+    const mainBytes = await mainPdf.save();
 
     return { main: mainBytes, parts };
   }
