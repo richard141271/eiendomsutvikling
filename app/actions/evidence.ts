@@ -166,6 +166,9 @@ export async function createReportSnapshot(projectId: string, reportInstanceId: 
     evidenceItemId: item.id,
     evidenceNumber: item.evidenceNumber,
     includedAt: new Date(),
+    title: item.title,
+    description: item.description,
+    fileId: item.fileId,
   }));
 
   await prisma.reportEvidenceSnapshot.createMany({
