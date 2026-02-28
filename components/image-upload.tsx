@@ -16,10 +16,24 @@ interface ImageUploadProps {
 export function ImageUpload({ value, onChange, label = "Bilde", onUploadStatusChange, allowMultiple = false }: ImageUploadProps) {
   const [uploading, setUploading] = useState(false);
   const [preview, setPreview] = useState<string | null>(value || null);
+  const [uploadProgress, setUploadProgress] = useState<{ current: number; total: number } | null>(null);
+  const [uploadComplete, setUploadComplete] = useState(false);
 
   useEffect(() => {
-    setPreview(value || null);
-  }, [value]);
+    if (!uploading) {
+      setPreview(value || null);
+    }
+  }, [value, uploading]);
+
+  useEffect(() => {
+    if (uploadComplete) {
+      const timer = setTimeout(() => {
+        setUploadComplete(false);
+        setUploadProgress(null);
+      }, 3000);
+      return () => clearTimeout(timer);
+    }
+  }, [uploadComplete]);
 
   const resizeImage = (file: File): Promise<Blob> => {
     return new Promise((resolve, reject) => {
@@ -70,9 +84,13 @@ export function ImageUpload({ value, onChange, label = "Bilde", onUploadStatusCh
     const selectedFiles = allowMultiple ? files : [files[0]];
 
     setUploading(true);
+    setUploadProgress({ current: 0, total: selectedFiles.length });
+    setUploadComplete(false);
+
     if (onUploadStatusChange) onUploadStatusChange(true);
 
     try {
+      let completedCount = 0;
       for (const file of selectedFiles) {
         const objectUrl = URL.createObjectURL(file);
         setPreview(objectUrl);
@@ -95,11 +113,17 @@ export function ImageUpload({ value, onChange, label = "Bilde", onUploadStatusCh
 
         const data = await res.json();
         onChange(data.imageUrl);
+        
+        completedCount++;
+        setUploadProgress({ current: completedCount, total: selectedFiles.length });
       }
+      
+      setUploadComplete(true);
     } catch (error) {
       console.error("Error uploading image:", error);
       alert(`Kunne ikke laste opp bilde: ${error instanceof Error ? error.message : "Ukjent feil"}`);
       setPreview(value || null); // Revert preview
+      setUploadProgress(null);
     } finally {
       setUploading(false);
       if (onUploadStatusChange) onUploadStatusChange(false);
@@ -156,7 +180,29 @@ export function ImageUpload({ value, onChange, label = "Bilde", onUploadStatusCh
             </div>
           </div>
         )}
-        {uploading && <p className="text-sm text-muted-foreground">Laster opp...</p>}
+        {uploading && uploadProgress && (
+          <p className="text-sm text-muted-foreground animate-pulse">
+            Laster opp bilde {uploadProgress.current} av {uploadProgress.total}...
+          </p>
+        )}
+        {uploadComplete && uploadProgress && (
+          <p className="text-sm text-green-600 font-medium flex items-center gap-2">
+            <svg
+              xmlns="http://www.w3.org/2000/svg"
+              width="16"
+              height="16"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+            >
+              <polyline points="20 6 9 17 4 12" />
+            </svg>
+            Alle {uploadProgress.total} bilder lastet opp!
+          </p>
+        )}
       </div>
     </div>
   );
