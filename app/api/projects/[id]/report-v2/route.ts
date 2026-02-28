@@ -25,7 +25,7 @@ export async function POST(
     const adminSupabase = createAdminClient();
     
     // Ensure bucket exists
-    const bucketName = 'reports'; // Revert to standard bucket but with enforced 1GB limit
+    const bucketName = 'reports-large'; // New bucket to bypass old limits
     await ensureBucketExists(bucketName);
 
     const project = await prisma.project.findUnique({

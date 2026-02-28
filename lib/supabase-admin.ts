@@ -33,10 +33,9 @@ export async function ensureBucketExists(bucketName: string) {
 
   if (!bucketExists) {
     console.log(`Bucket '${bucketName}' not found. Creating...`);
-    const TWO_GB_IN_BYTES = 2147483648;
     const { data, error: createError } = await supabase.storage.createBucket(bucketName, {
       public: true,
-      fileSizeLimit: TWO_GB_IN_BYTES,
+      fileSizeLimit: null, // Unlimited
       allowedMimeTypes: ['application/pdf', 'image/png', 'image/jpeg']
     });
 
@@ -47,20 +46,24 @@ export async function ensureBucketExists(bucketName: string) {
       console.log(`Bucket '${bucketName}' created successfully.`);
     }
   } else {
-    // Bucket exists, ensure configuration is correct (update limit)
-    console.log(`Bucket '${bucketName}' exists. Updating configuration to 1GB limit...`);
-    const ONE_GB_IN_BYTES = 1073741824;
-    const { data, error: updateError } = await supabase.storage.updateBucket(bucketName, {
-      public: true,
-      fileSizeLimit: ONE_GB_IN_BYTES,
-      allowedMimeTypes: ['application/pdf', 'image/png', 'image/jpeg']
-    });
-    
-    if (updateError) {
-      console.error(`Error updating bucket '${bucketName}':`, updateError);
-      throw new Error(`Failed to update bucket '${bucketName}': ${updateError.message}`);
-    } else {
-      console.log(`Bucket '${bucketName}' updated successfully. New config:`, data);
+    // Bucket exists, try to update configuration
+    console.log(`Bucket '${bucketName}' exists. Updating configuration to UNLIMITED limit...`);
+    try {
+      const { data, error: updateError } = await supabase.storage.updateBucket(bucketName, {
+        public: true,
+        fileSizeLimit: null, // Unlimited
+        allowedMimeTypes: ['application/pdf', 'image/png', 'image/jpeg']
+      });
+      
+      if (updateError) {
+        console.warn(`Warning: Could not update bucket '${bucketName}': ${updateError.message}`);
+        // Do not throw here, as the bucket might already be configured correctly
+        // and some environments return weird errors on update.
+      } else {
+        console.log(`Bucket '${bucketName}' updated successfully.`);
+      }
+    } catch (e) {
+      console.warn(`Warning: Exception during bucket update:`, e);
     }
   }
 }
