@@ -33,9 +33,11 @@ export async function ensureBucketExists(bucketName: string) {
 
   if (!bucketExists) {
     console.log(`Bucket '${bucketName}' not found. Creating...`);
+    // 500MB limit explicitly
+    const limit = 524288000;
     const { data, error: createError } = await supabase.storage.createBucket(bucketName, {
       public: true,
-      fileSizeLimit: null, // Unlimited
+      fileSizeLimit: limit,
       allowedMimeTypes: ['application/pdf', 'image/png', 'image/jpeg']
     });
 
@@ -43,22 +45,21 @@ export async function ensureBucketExists(bucketName: string) {
       console.error(`Error creating bucket '${bucketName}':`, createError);
       throw new Error(`Failed to create bucket '${bucketName}': ${createError.message}`);
     } else {
-      console.log(`Bucket '${bucketName}' created successfully.`);
+      console.log(`Bucket '${bucketName}' created successfully with limit ${limit}.`);
     }
   } else {
     // Bucket exists, try to update configuration
-    console.log(`Bucket '${bucketName}' exists. Updating configuration to UNLIMITED limit...`);
+    console.log(`Bucket '${bucketName}' exists. Updating configuration to 500MB limit...`);
     try {
+      const limit = 524288000;
       const { data, error: updateError } = await supabase.storage.updateBucket(bucketName, {
         public: true,
-        fileSizeLimit: null, // Unlimited
+        fileSizeLimit: limit,
         allowedMimeTypes: ['application/pdf', 'image/png', 'image/jpeg']
       });
       
       if (updateError) {
         console.warn(`Warning: Could not update bucket '${bucketName}': ${updateError.message}`);
-        // Do not throw here, as the bucket might already be configured correctly
-        // and some environments return weird errors on update.
       } else {
         console.log(`Bucket '${bucketName}' updated successfully.`);
       }
