@@ -112,7 +112,7 @@ export class PdfReportRenderer implements ReportRenderer {
     let { pdf: partPdf, font: partFont, bold: partBold } = await initPart();
 
     // Batch processing configuration
-    const BATCH_SIZE = 5; 
+    const BATCH_SIZE = 5; // Restore to 5, we handle timeouts better now
     
     if (document.evidenceIndex.length > 0) {
       page = mainPdf.addPage();
@@ -125,14 +125,17 @@ export class PdfReportRenderer implements ReportRenderer {
         // Process batch in parallel
         const processedBatch = await Promise.all(batch.map(async (item, batchIdx) => {
           const globalIdx = i + batchIdx;
+          // Calculate part index dynamically based on MAX_PART_IMAGES
+          // This is an estimate for the Main Report text. 
+          // Actual splitting depends on size/count during iteration.
           const partIndex = Math.floor(globalIdx / MAX_PART_IMAGES) + 1;
           
-          if (!item.imageUrl) return { item, globalIdx, partIndex, imgBytes: null, thumbBytes: null };
+          if (!item.imageUrl) return { item, globalIdx, partIndex, imgBytes: null, thumbBytes: null, error: null };
 
           try {
             // Fetch with timeout
             const controller = new AbortController();
-            const timeoutId = setTimeout(() => controller.abort(), 10000); // 10s timeout per image
+            const timeoutId = setTimeout(() => controller.abort(), 20000); 
             
             const response = await fetch(item.imageUrl, { signal: controller.signal });
             clearTimeout(timeoutId);
@@ -155,23 +158,27 @@ export class PdfReportRenderer implements ReportRenderer {
               }
             }
 
-            return { item, globalIdx, partIndex, imgBytes, thumbBytes };
+            return { item, globalIdx, partIndex, imgBytes, thumbBytes, error: null };
           } catch (e) {
             console.error(`Failed to process image ${item.evidenceCode}:`, e);
-            return { item, globalIdx, partIndex, imgBytes: null, thumbBytes: null };
+            return { item, globalIdx, partIndex, imgBytes: null, thumbBytes: null, error: e instanceof Error ? e.message : "Unknown error" };
           }
         }));
 
         // Embed processed batch into PDFs sequentially
         for (const result of processedBatch) {
-          const { item, partIndex, imgBytes, thumbBytes } = result;
+          const { item, partIndex, imgBytes, thumbBytes, error } = result;
           
           // --- Main Report: Evidence Item Entry ---
           ensureSpace(120); // Space for item + thumbnail
           
           // Text info
-          drawLine(`${item.evidenceCode} - ${item.title}`, 12, mainBoldFont);
+          const titleText = `${item.evidenceCode} - ${item.title}`;
+          drawWrappedText(titleText, 12, mainBoldFont);
+          
           if (item.date) drawLine(`Dato: ${item.date.toLocaleDateString("no-NO")}`, 10);
+          
+          // Use the calculated partIndex for the text, which should align with our splitting logic
           drawLine(`Se Vedlegg Del ${partIndex}`, 10, mainFont);
 
           // 1. Add Thumbnail to Main Report
@@ -195,80 +202,90 @@ export class PdfReportRenderer implements ReportRenderer {
             } catch (e) {
               console.error("Thumbnail embedding failed:", e);
             }
-          } else {
-             // If no thumbnail (failed fetch or too big fallback), leave empty space or text
-             if (item.imageUrl) y -= 20; 
+          } else if (error) {
+             drawLine(`[Feil ved bildehenting: ${error}]`, 10, mainFont);
+             y -= 10;
+          } else if (item.imageUrl) {
+             y -= 20; 
           }
 
-          // 2. Add Full Image to Appendix
-          if (imgBytes) {
-            try {
-               const imgSize = imgBytes.byteLength;
-               
-               // Check limits: If adding this image exceeds limit, save current part and start new
-              if (currentPartImages > 0 && (currentPartSize + imgSize > MAX_PART_SIZE || currentPartImages >= MAX_PART_IMAGES)) {
-                   // Add title page to the completed part
-                   const titlePage = partPdf.insertPage(0);
-                   const { height: tpHeight } = titlePage.getSize();
-                   let pY = tpHeight - 100;
-                   titlePage.drawText(`Vedlegg Del ${currentPartNum}`, { x: 50, y: pY, size: 24, font: partBold });
-                   pY -= 40;
-                   titlePage.drawText(`Til sak: ${document.metadata.caseNumber}`, { x: 50, y: pY, size: 14, font: partFont });
-                   pY -= 20;
-                   // Previous item was the last one in this part
-                   // We need to find the evidence code of the last added item. 
-                   // Since we are inside the loop, we can track it.
-                   // Or just use the current logic which might be slightly off if we don't track carefully.
-                   // Simpler: Just use currentPartStartEvidenceCode and the item BEFORE this one.
-                   // The item before this one is document.evidenceIndex[result.globalIdx - 1]
-                   
-                   const endCode = document.evidenceIndex[result.globalIdx - 1]?.evidenceCode || currentPartStartEvidenceCode;
-                   titlePage.drawText(`Inneholder bevis ${currentPartStartEvidenceCode} til ${endCode}`, { x: 50, y: pY, size: 12, font: partFont });
+          // 2. Add Full Image (or Error Placeholder) to Appendix
+          if (item.imageUrl) {
+            const imgSize = imgBytes ? imgBytes.byteLength : 0;
+            
+            // Check limits: If adding this image exceeds limit, save current part and start new
+            // Strict check: if we hit the limit, we MUST split.
+            // Using >= for count to ensure we don't exceed MAX_PART_IMAGES per part.
+            if (currentPartImages >= MAX_PART_IMAGES || (currentPartImages > 0 && currentPartSize + imgSize > MAX_PART_SIZE)) {
+                console.log(`Splitting part ${currentPartNum}. Images: ${currentPartImages}, Size: ${currentPartSize}`);
+                
+                // Add title page to the completed part
+                const titlePage = partPdf.insertPage(0);
+                const { height: tpHeight } = titlePage.getSize();
+                let pY = tpHeight - 100;
+                titlePage.drawText(`Vedlegg Del ${currentPartNum}`, { x: 50, y: pY, size: 24, font: partBold });
+                pY -= 40;
+                titlePage.drawText(`Til sak: ${document.metadata.caseNumber}`, { x: 50, y: pY, size: 14, font: partFont });
+                pY -= 20;
+                
+                // Calculate end code for this part
+                const endCode = document.evidenceIndex[result.globalIdx - 1]?.evidenceCode || "Ukjent";
+                titlePage.drawText(`Inneholder bevis ${currentPartStartEvidenceCode} til ${endCode}`, { x: 50, y: pY, size: 12, font: partFont });
 
-                   parts.push({
-                       name: `Vedlegg Del ${currentPartNum}`,
-                       data: await partPdf.save()
-                   });
+                parts.push({
+                    name: `Vedlegg Del ${currentPartNum}`,
+                    data: await partPdf.save()
+                });
 
-                   // Reset for new part
-                   currentPartNum++;
-                   currentPartSize = 0;
-                   currentPartImages = 0;
-                   currentPartStartEvidenceCode = item.evidenceCode;
-                   
-                   const newPart = await initPart();
-                   partPdf = newPart.pdf;
-                   partFont = newPart.font;
-                   partBold = newPart.bold;
-              }
-
-              // Add image to current part
-              let pPage = partPdf.addPage();
-              const { width: pWidth, height: pHeight } = pPage.getSize();
-              let pY = pHeight - 50;
-              
-              pPage.drawText(`${item.evidenceCode} - ${item.title}`, { x: 50, y: pY, size: 14, font: partBold });
-              pY -= 20;
-
-              const img = await partPdf.embedJpg(imgBytes).catch(() => partPdf.embedPng(imgBytes).catch(() => null));
-              if (img) {
-                  const dims = img.scale(1);
-                  const maxWidth = pWidth - 100;
-                  const maxHeight = pHeight - 150; 
-                  let scale = 1;
-                  if (dims.width > maxWidth) scale = maxWidth / dims.width;
-                  if (dims.height * scale > maxHeight) scale = maxHeight / dims.height;
-                  const w = dims.width * scale;
-                  const h = dims.height * scale;
-                  pPage.drawImage(img, { x: 50, y: pY - h, width: w, height: h });
-              }
-              
-              currentPartSize += imgSize;
-              currentPartImages++;
-
-            } catch (e) {
-              console.error("Failed to embed evidence image into appendix:", e);
+                // Reset for new part
+                currentPartNum++;
+                currentPartSize = 0;
+                currentPartImages = 0;
+                currentPartStartEvidenceCode = item.evidenceCode;
+                
+                // Init new PDF document to clear memory
+                const newPart = await initPart();
+                partPdf = newPart.pdf;
+                partFont = newPart.font;
+                partBold = newPart.bold;
             }
+
+            // Add page to current part
+            let pPage = partPdf.addPage();
+            const { width: pWidth, height: pHeight } = pPage.getSize();
+            let pY = pHeight - 50;
+            
+            pPage.drawText(`${item.evidenceCode} - ${item.title}`, { x: 50, y: pY, size: 14, font: partBold });
+            pY -= 20;
+
+            if (imgBytes) {
+                try {
+                    const img = await partPdf.embedJpg(imgBytes).catch(() => partPdf.embedPng(imgBytes).catch(() => null));
+                    if (img) {
+                        const dims = img.scale(1);
+                        const maxWidth = pWidth - 100;
+                        const maxHeight = pHeight - 150; 
+                        let scale = 1;
+                        if (dims.width > maxWidth) scale = maxWidth / dims.width;
+                        if (dims.height * scale > maxHeight) scale = maxHeight / dims.height;
+                        const w = dims.width * scale;
+                        const h = dims.height * scale;
+                        pPage.drawImage(img, { x: 50, y: pY - h, width: w, height: h });
+                    } else {
+                        pPage.drawText(`[Feil: Kunne ikke bygge inn bildeformat]`, { x: 50, y: pY, size: 12, font: partFont });
+                    }
+                } catch (e) {
+                    console.error("Failed to embed evidence image into appendix:", e);
+                    pPage.drawText(`[Feil ved innsetting av bilde: ${e}]`, { x: 50, y: pY, size: 12, font: partFont });
+                }
+            } else {
+                // Fetch failed
+                pPage.drawText(`[Bilde kunne ikke lastes ned: ${error || "Ukjent feil"}]`, { x: 50, y: pY, size: 12, font: partFont });
+                pPage.drawText(`URL: ${item.imageUrl}`, { x: 50, y: pY - 20, size: 8, font: partFont });
+            }
+            
+            currentPartSize += imgSize;
+            currentPartImages++;
           }
         }
       }
