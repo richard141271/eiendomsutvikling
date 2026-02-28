@@ -384,6 +384,12 @@ model Project {
   files           File[]
   evidenceItems   EvidenceItem[]
   reportInstances ReportInstance[]
+  sequence        ProjectSequence?
+  legalReportDraft LegalReportDraft?
+
+  // Legal Lock
+  legalLockActivated   Boolean   @default(false)
+  legalLockActivatedAt DateTime?
 }
 
 model ProjectAuditLog {
@@ -472,6 +478,47 @@ model EvidenceItem {
   @@unique([projectId, evidenceNumber])
 }
 
+model ProjectSequence {
+  id                 String   @id @default(uuid())
+  projectId          String   @unique
+  project            Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  lastEvidenceNumber Int      @default(0)
+  lastReportVersion  Int      @default(0)
+}
+
+model LegalReportDraft {
+  id                 String   @id @default(uuid())
+  projectId          String   @unique
+  project            Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  
+  // Section 2: Summary
+  summary            String?  // Executive Summary (1-2 pages)
+  
+  // Section 3: Facts
+  factualBasis       String?  // Chronological factual description
+  
+  // Section 4: Technical (Optional Module)
+  includeTechnical   Boolean  @default(false)
+  technicalAnalysis  String?  // Technical assessment (TEK17 etc)
+  
+  // Section 5: Legal
+  includeLegal       Boolean  @default(true)
+  legalAssessment    String?  // Deprecated: old single field
+  
+  // New structured legal fields
+  liabilityBasis           String? // Ansvarsgrunnlag
+  legalNormReference       String? // Lovhenvisning
+  causationAnalysis        String? // Årsakssammenheng
+  foreseeabilityAssessment String? // Påregnelighet
+  economicLoss             String? // Økonomisk tap
+  legalConclusion          String? // Juridisk konklusjon
+  
+  // Section 6: Conclusion
+  conclusion         String?  // Final claim/responsibility
+  
+  updatedAt          DateTime @updatedAt
+}
+
 model ReportInstance {
   id                 String   @id @default(uuid())
   projectId          String
@@ -481,6 +528,7 @@ model ReportInstance {
   totalEvidenceCount Int
   totalPages         Int?
   pdfUrl             String?
+  contentSnapshot    Json?    // Stores the full content structure (summary, legal, etc) at generation time
   createdAt          DateTime @default(now())
   
   snapshots          ReportEvidenceSnapshot[]
@@ -493,8 +541,12 @@ model ReportEvidenceSnapshot {
   reportId       String
   report         ReportInstance @relation(fields: [reportId], references: [id], onDelete: Cascade)
   evidenceItemId String
-  evidenceItem   EvidenceItem   @relation(fields: [evidenceItemId], references: [id])
+  evidenceItem   EvidenceItem   @relation(fields: [evidenceItemId], references: [id], onDelete: Cascade)
   evidenceNumber Int
+  title          String
+  description    String?
+  fileId         String
+  
   includedAt     DateTime       @default(now())
 }
 
