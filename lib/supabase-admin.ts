@@ -33,29 +33,29 @@ export async function ensureBucketExists(bucketName: string) {
 
   if (!bucketExists) {
     console.log(`Bucket '${bucketName}' not found. Creating...`);
-    // 500MB limit explicitly
-    const limit = 524288000;
+    // Create bucket without specific file size limit first to avoid errors
     const { data, error: createError } = await supabase.storage.createBucket(bucketName, {
       public: true,
-      fileSizeLimit: limit,
       allowedMimeTypes: ['application/pdf', 'image/png', 'image/jpeg']
     });
 
     if (createError) {
       console.error(`Error creating bucket '${bucketName}':`, createError);
+      // If error is "The object exceeded the maximum allowed size", it might be a misleading error
+      // Check if bucket was actually created despite error? No, that's unlikely.
       throw new Error(`Failed to create bucket '${bucketName}': ${createError.message}`);
     } else {
-      console.log(`Bucket '${bucketName}' created successfully with limit ${limit}.`);
+      console.log(`Bucket '${bucketName}' created successfully.`);
     }
   } else {
     // Bucket exists, try to update configuration
-    console.log(`Bucket '${bucketName}' exists. Updating configuration to 500MB limit...`);
+    console.log(`Bucket '${bucketName}' exists. Updating configuration...`);
     try {
-      const limit = 524288000;
+      // 50MB is usually a safe default, but let's just ensure public access
       const { data, error: updateError } = await supabase.storage.updateBucket(bucketName, {
         public: true,
-        fileSizeLimit: limit,
         allowedMimeTypes: ['application/pdf', 'image/png', 'image/jpeg']
+        // Removing explicit fileSizeLimit to use project default
       });
       
       if (updateError) {
