@@ -531,6 +531,14 @@ model ReportInstance {
   contentSnapshot    Json?    // Stores the full content structure (summary, legal, etc) at generation time
   createdAt          DateTime @default(now())
   
+  // Archiving & Backup
+  archived           Boolean  @default(false)
+  archivedAt         DateTime?
+  archivedBy         String?
+  
+  backupDownloaded   Boolean  @default(false)
+  backupDownloadedAt DateTime?
+  
   snapshots          ReportEvidenceSnapshot[]
 
   @@unique([projectId, versionNumber])

@@ -1,3 +1,4 @@
+import { ReportHistoryTable } from "@/components/report-history-table";
 import { LegalReportDraftForm } from "@/components/legal-report-form";
 import { getProjectWithEvidence } from "@/app/actions/reports";
 import { notFound } from "next/navigation";
@@ -49,40 +50,7 @@ export default async function LegalReportPage({ params }: { params: { id: string
 
       {/* Report History */}
       {project.reports && project.reports.length > 0 && (
-        <div className="mt-12 max-w-4xl mx-auto pb-12">
-          <h2 className="text-2xl font-bold mb-4">Rapporthistorikk</h2>
-          <div className="bg-white rounded-lg border shadow-sm overflow-hidden">
-            <table className="w-full text-sm text-left">
-              <thead className="bg-muted text-muted-foreground uppercase text-xs border-b">
-                <tr>
-                  <th className="px-6 py-3 font-medium">Versjon</th>
-                  <th className="px-6 py-3 font-medium">Generert</th>
-                  <th className="px-6 py-3 font-medium">Bevis</th>
-                  <th className="px-6 py-3 font-medium">Status</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y">
-                {project.reports.map((report: any) => (
-                  <tr key={report.id} className="hover:bg-muted/50 transition-colors">
-                    <td className="px-6 py-4 font-semibold text-primary">v{report.versionNumber}</td>
-                    <td className="px-6 py-4 text-muted-foreground">
-                      {new Date(report.createdAt).toLocaleDateString('nb-NO')} 
-                      <span className="ml-2 text-xs opacity-70">
-                        {new Date(report.createdAt).toLocaleTimeString('nb-NO', {hour: '2-digit', minute:'2-digit'})}
-                      </span>
-                    </td>
-                    <td className="px-6 py-4">{report.totalEvidenceCount} stk</td>
-                    <td className="px-6 py-4">
-                      <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800 border border-green-200">
-                        Låst & Generert
-                      </span>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        </div>
+        <ReportHistoryTable reports={project.reports} projectId={project.id} />
       )}
     </div>
   );
