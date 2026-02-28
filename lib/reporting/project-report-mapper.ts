@@ -41,7 +41,7 @@ export function mapProjectToReport(project: ProjectForReport): ReportDocument {
   const now = new Date();
 
   const metadata: DocumentMetadata = {
-    documentType: "PROJECT",
+    documentType: "PROSJEKTRAPPORT",
     caseNumber: project.id,
     createdAt: project.createdAt,
     updatedAt: project.updatedAt || now,
