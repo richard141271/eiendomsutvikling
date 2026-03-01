@@ -72,6 +72,7 @@ export default async function LegalReportPage({ params }: { params: { id: string
             backupDownloaded: r.backupDownloaded,
             backupDownloadedAt: r.backupDownloadedAt ? new Date(r.backupDownloadedAt).toISOString() : undefined,
             archivedAt: r.archivedAt ? new Date(r.archivedAt).toISOString() : undefined,
+            pdfUrl: r.pdfUrl,
           }))} 
           projectId={project.id} 
         />

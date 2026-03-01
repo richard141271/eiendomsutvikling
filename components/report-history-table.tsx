@@ -28,6 +28,7 @@ interface Report {
   backupDownloaded: boolean;
   backupDownloadedAt?: string;
   archivedAt?: string;
+  pdfUrl?: string | null;
 }
 
 interface ReportHistoryTableProps {
