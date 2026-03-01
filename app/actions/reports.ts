@@ -32,6 +32,8 @@ export async function generateLegalPdfFromSnapshot(reportId: string): Promise<{ 
   // 2. Prepare Data for Mapper
   // Fetch files to get storage paths
   const snapshots = report.snapshots as any[];
+  console.log(`Processing ${snapshots.length} snapshots for report ${reportId}`);
+
   const fileIds = snapshots.map((s: any) => s.fileId).filter(Boolean);
   
   // Using 'any' cast for file model access
@@ -42,41 +44,51 @@ export async function generateLegalPdfFromSnapshot(reportId: string): Promise<{ 
 
   const supabase = createClient();
   
-  const evidenceItems = await Promise.all(snapshots.map(async (s: any) => {
-      const file = s.fileId ? fileMap.get(s.fileId) : null;
-      let url = (file as any)?.storagePath;
-      
-      // Resolve public/signed URL if it's a path
-      if (url && !url.startsWith('http')) {
-        // Generate a signed URL valid for 1 hour
-        const { data, error } = await supabase.storage
-            .from("project-assets")
-            .createSignedUrl(url, 3600);
-            
-        if (data?.signedUrl) {
-            url = data.signedUrl;
-        } else {
-            console.error(`Failed to sign URL for file ${s.fileId}:`, error);
-            // Fallback to public URL if signing fails (e.g. if bucket is public)
-            const { data: publicData } = supabase.storage
-                .from("project-assets")
-                .getPublicUrl(url);
-            url = publicData.publicUrl;
+  // Batch processing for signed URLs to avoid rate limits or timeouts
+  const BATCH_SIZE = 5;
+  const evidenceItems: any[] = [];
+  
+  for (let i = 0; i < snapshots.length; i += BATCH_SIZE) {
+    const batch = snapshots.slice(i, i + BATCH_SIZE);
+    
+    const batchResults = await Promise.all(batch.map(async (s: any) => {
+        const file = s.fileId ? fileMap.get(s.fileId) : null;
+        let url = (file as any)?.storagePath;
+        
+        // Resolve public/signed URL if it's a path
+        if (url && !url.startsWith('http')) {
+          // Generate a signed URL valid for 1 hour
+          const { data, error } = await supabase.storage
+              .from("project-assets")
+              .createSignedUrl(url, 3600);
+              
+          if (data?.signedUrl) {
+              url = data.signedUrl;
+          } else {
+              console.error(`Failed to sign URL for file ${s.fileId}:`, error);
+              // Fallback to public URL if signing fails (e.g. if bucket is public)
+              const { data: publicData } = supabase.storage
+                  .from("project-assets")
+                  .getPublicUrl(url);
+              url = publicData.publicUrl;
+          }
         }
-      }
-
-      return {
-        id: s.evidenceItemId,
-        evidenceNumber: s.evidenceNumber,
-        title: s.title,
-        description: s.description,
-        fileId: s.fileId,
-        file: file ? {
-          url: url,
-          contentType: (file as any).fileType || 'image/jpeg'
-        } : undefined
-      };
-  }));
+  
+        return {
+          id: s.evidenceItemId,
+          evidenceNumber: s.evidenceNumber,
+          title: s.title,
+          description: s.description,
+          fileId: s.fileId,
+          file: file ? {
+            url: url,
+            contentType: (file as any).fileType || 'image/jpeg'
+          } : undefined
+        };
+    }));
+    
+    evidenceItems.push(...batchResults);
+  }
 
   // 3. Map to ReportDocument
   // contentSnapshot is JSON, cast to any

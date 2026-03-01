@@ -514,11 +514,12 @@ export class PdfReportRenderer implements ReportRenderer {
       drawLine("Bevisindeks", 16, bold);
       y -= 10;
 
-      const BATCH_SIZE = 5;
+      // Use sequential processing (BATCH_SIZE = 1) to prevent OOM/Crashes on serverless
+      const BATCH_SIZE = 1;
       for (let i = 0; i < document.evidenceIndex.length; i += BATCH_SIZE) {
         const batch = document.evidenceIndex.slice(i, i + BATCH_SIZE);
         
-        // Fetch batch in parallel
+        // Fetch batch (effectively sequential)
         const results = await Promise.all(batch.map(async (item) => {
           if (!item.imageUrl) return { item, imgBytes: null };
           try {
@@ -537,7 +538,7 @@ export class PdfReportRenderer implements ReportRenderer {
           return { item, imgBytes: null };
         }));
 
-        // Process results sequentially to maintain order and layout
+        // Process results
         for (const { item, imgBytes } of results) {
           ensureSpace(40);
           drawLine(`${item.evidenceCode} - ${item.title}`, 12, bold);
@@ -546,9 +547,21 @@ export class PdfReportRenderer implements ReportRenderer {
           if (imgBytes) {
              let image;
              try {
-                image = await pdfDoc.embedJpg(imgBytes).catch(() => pdfDoc.embedPng(imgBytes).catch(() => null));
+                // Try to use sharp for resizing to save memory/size, but handle failure gracefully
+                let thumbBuffer = imgBytes;
+                try {
+                    // Only use sharp if image is large (>200KB) to save CPU/Memory for small icons
+                    if (imgBytes.byteLength > 200 * 1024) {
+                        const sharpBuffer = await sharp(imgBytes).resize(300).jpeg({ quality: 60 }).toBuffer();
+                        thumbBuffer = new Uint8Array(sharpBuffer);
+                    }
+                } catch (e) {
+                    console.warn("Sharp resize failed, using original:", e);
+                }
+
+                image = await pdfDoc.embedJpg(thumbBuffer).catch(() => pdfDoc.embedPng(thumbBuffer).catch(() => null));
              } catch (e) {
-                // Ignore embed error
+                 // Ignore embed error
              }
 
              if (image) {
@@ -586,11 +599,12 @@ export class PdfReportRenderer implements ReportRenderer {
       page = pdfDoc.addPage();
       y = height - 50;
 
-      const BATCH_SIZE = 5;
+      // Use sequential processing (BATCH_SIZE = 1) for stability
+      const BATCH_SIZE = 1;
       for (let i = 0; i < document.evidenceIndex.length; i += BATCH_SIZE) {
         const batch = document.evidenceIndex.slice(i, i + BATCH_SIZE);
         
-        // Fetch batch in parallel
+        // Fetch batch
         const results = await Promise.all(batch.map(async (item) => {
           if (!item.imageUrl) return { item, imgBytes: null };
           try {
