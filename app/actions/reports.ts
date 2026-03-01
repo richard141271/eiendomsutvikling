@@ -228,6 +228,21 @@ export async function archiveReport(reportId: string, projectId: string) {
   // Assuming the caller will handle revalidation or we return success.
 }
 
+export async function deleteReport(reportId: string, projectId: string) {
+  const supabase = createClient();
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) throw new Error("Unauthorized");
+
+  // Verify ownership or admin status if needed, but for now basic auth check
+  
+  await (prisma as any).reportInstance.delete({
+    where: { id: reportId },
+  });
+
+  revalidatePath(`/projects/${projectId}`);
+  revalidatePath(`/projects/${projectId}/juridisk-rapport`);
+}
+
 export async function downloadProjectArchive(projectId: string) {
   const supabase = createClient();
   const { data: { user } } = await supabase.auth.getUser();

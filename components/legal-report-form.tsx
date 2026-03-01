@@ -32,6 +32,7 @@ interface LegalReportDraftFormProps {
 export function LegalReportDraftForm({ projectId, initialData, evidenceItems, onGenerateReport }: LegalReportDraftFormProps) {
   const [formData, setFormData] = useState(initialData || {});
   const [isSaving, setIsSaving] = useState(false);
+  const [isGenerating, setIsGenerating] = useState(false);
   const [debouncedFormData] = useDebounce(formData, 1000);
   const [evidenceSelection, setEvidenceSelection] = useState<Record<string, boolean>>(
     evidenceItems.reduce((acc, item) => ({ ...acc, [item.id]: item.includeInReport }), {})
@@ -56,23 +57,48 @@ export function LegalReportDraftForm({ projectId, initialData, evidenceItems, on
   };
 
   const handleGenerateClick = async () => {
-    // Optimistic feedback
-    toast.info("Genererer rapport...");
+    setIsGenerating(true);
+    toast.info("Genererer rapport... Dette kan ta litt tid.");
     try {
+        // Step 1: Create report version and snapshot in database
         const result: any = await generateLegalReport(projectId);
-        toast.success(`Juridisk rapport v${result.versionNumber} generert med ${result.evidenceCount} bevis!`);
         
-        if (result.pdfUrl) {
-            window.open(result.pdfUrl, '_blank');
+        // Step 2: Call API route to generate PDFs using renderPackage
+        const response = await fetch(`/api/reports/${result.reportId}/generate`, {
+            method: 'POST',
+        });
+
+        if (!response.ok) {
+            const errorText = await response.text();
+            throw new Error(`Feil under PDF-generering: ${errorText || response.statusText}`);
         }
 
-        // We might want to refresh the page or redirect to show the report status
-        // For now, let's trigger the parent callback if any
+        const data = await response.json();
+        
+        if (!data.success) {
+             throw new Error(data.error || "Ukjent feil ved generering");
+        }
+
+        toast.success(`Juridisk rapport v${result.versionNumber} generert!`);
+        
+        if (data.url) {
+            window.open(data.url, '_blank');
+        }
+        
+        if (data.attachments && data.attachments.length > 0) {
+             toast.info(`Laster ned ${data.attachments.length} vedlegg...`);
+             // Open attachments in new tabs
+             data.attachments.forEach((att: { url: string }) => window.open(att.url, '_blank'));
+        }
+
         if (onGenerateReport) {
             await onGenerateReport();
         }
     } catch (error) {
+        console.error("Report generation error:", error);
         toast.error(error instanceof Error ? error.message : "Kunne ikke generere rapport");
+    } finally {
+        setIsGenerating(false);
     }
   };
 
@@ -268,8 +294,9 @@ export function LegalReportDraftForm({ projectId, initialData, evidenceItems, on
             "Utkast lagret"
           )}
         </div>
-        <Button size="lg" onClick={handleGenerateClick}>
-          Generer Juridisk Rapport
+        <Button size="lg" onClick={handleGenerateClick} disabled={isGenerating}>
+          {isGenerating && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
+          {isGenerating ? "Genererer..." : "Generer Juridisk Rapport"}
         </Button>
       </div>
 

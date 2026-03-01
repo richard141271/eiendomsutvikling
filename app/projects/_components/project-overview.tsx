@@ -9,16 +9,15 @@ import { Archive, FileText, Download, Loader2, MapPin, Paperclip, Gavel, Refresh
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
+import ConvertProjectDialog from "./convert-project-dialog";
 
 interface ProjectOverviewProps {
   project: any;
-  canTestNewReport: boolean;
 }
 
-export default function ProjectOverview({ project, canTestNewReport }: ProjectOverviewProps) {
+export default function ProjectOverview({ project }: ProjectOverviewProps) {
   const router = useRouter();
   const [generating, setGenerating] = useState(false);
-  const [generatingV2, setGeneratingV2] = useState(false);
   const [regeneratingId, setRegeneratingId] = useState<string | null>(null);
 
   async function handleArchive() {
@@ -31,7 +30,7 @@ export default function ProjectOverview({ project, canTestNewReport }: ProjectOv
   async function handleGenerateReport() {
     setGenerating(true);
     try {
-      const res = await fetch(`/api/projects/${project.id}/report`, {
+      const res = await fetch(`/api/projects/${project.id}/report-v2`, {
         method: "POST",
       });
       
@@ -40,13 +39,24 @@ export default function ProjectOverview({ project, canTestNewReport }: ProjectOv
         throw new Error(data.details || "Generering feilet");
       }
       
-      // Handle PDF blob
-      const blob = await res.blob();
-      const url = window.URL.createObjectURL(blob);
-      window.open(url, "_blank");
+      const data = await res.json();
       
-      // Clean up URL after use
-      setTimeout(() => window.URL.revokeObjectURL(url), 1000);
+      // Open main report
+      if (data.url) {
+        window.open(data.url, "_blank");
+      } else {
+        throw new Error("Kunne ikke hente rapport-URL");
+      }
+
+      // Open attachments (if any)
+      if (data.attachments && Array.isArray(data.attachments)) {
+        // Add a small delay for popups
+        setTimeout(() => {
+          data.attachments.forEach((att: { url: string }) => {
+            if (att.url) window.open(att.url, "_blank");
+          });
+        }, 500);
+      }
       
       router.refresh();
     } catch (error) {
@@ -54,34 +64,6 @@ export default function ProjectOverview({ project, canTestNewReport }: ProjectOv
       alert(`Kunne ikke generere rapport: ${error instanceof Error ? error.message : String(error)}`);
     } finally {
       setGenerating(false);
-    }
-  }
-
-  async function handleGenerateReportV2() {
-    setGeneratingV2(true);
-    try {
-      const res = await fetch(`/api/projects/${project.id}/report-v2`, {
-        method: "POST",
-      });
-
-      if (!res.ok) {
-        const data = await res.json().catch(() => ({}));
-        throw new Error(data.details || "Generering feilet");
-      }
-
-      const data = await res.json();
-      if (data.url) {
-        window.open(data.url, "_blank");
-      } else {
-        throw new Error("Kunne ikke hente rapport-URL");
-      }
-      
-      router.refresh();
-    } catch (error) {
-      console.error(error);
-      alert(`Kunne ikke generere rapport (ny motor): ${error instanceof Error ? error.message : String(error)}`);
-    } finally {
-      setGeneratingV2(false);
     }
   }
 
@@ -156,21 +138,12 @@ export default function ProjectOverview({ project, canTestNewReport }: ProjectOv
             </Button>
           </Link>
 
-          {canTestNewReport && (
-            <Button
-              onClick={handleGenerateReportV2}
-              disabled={generatingV2}
-              className="w-full"
-              variant="outline"
-            >
-              {generatingV2 ? (
-                <Loader2 className="w-4 h-4 animate-spin mr-2" />
-              ) : (
-                <FileText className="w-4 h-4 mr-2" />
-              )}
-              Test ny rapportmotor
+          <Link href={`/projects/${project.id}/evidence`} className="block w-full">
+            <Button className="w-full bg-white hover:bg-slate-50 text-slate-800 border border-slate-200">
+              <FileText className="w-4 h-4 mr-2" />
+              Bevisbank & Tidslinje
             </Button>
-          )}
+          </Link>
 
           {project.reportInstances && project.reportInstances.length > 0 && (
             <div className="space-y-4 mt-6">
@@ -256,13 +229,19 @@ export default function ProjectOverview({ project, canTestNewReport }: ProjectOv
         </CardContent>
       </Card>
 
-      <div className="pt-8 border-t">
-        <Button variant="destructive" className="w-full" onClick={handleArchive}>
-          <Archive className="w-4 h-4 mr-2" /> Arkiver Prosjekt
-        </Button>
-        <p className="text-xs text-center text-slate-500 mt-2">
-          Arkiverte prosjekter låses for redigering men kan fortsatt leses.
-        </p>
+      <div className="pt-8 border-t space-y-4">
+        {project.reportType !== "LEGAL" && (
+          <ConvertProjectDialog project={project} />
+        )}
+        
+        <div>
+          <Button variant="destructive" className="w-full" onClick={handleArchive}>
+            <Archive className="w-4 h-4 mr-2" /> Arkiver Prosjekt
+          </Button>
+          <p className="text-xs text-center text-slate-500 mt-2">
+            Arkiverte prosjekter låses for redigering men kan fortsatt leses.
+          </p>
+        </div>
       </div>
     </div>
   );

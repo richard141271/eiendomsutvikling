@@ -327,6 +327,10 @@ export class PdfReportRenderer implements ReportRenderer {
             // Wrapped Title with proper spacing
             const titleLines = wordWrap(`${item.evidenceCode} - ${item.title}`, partBold, 14, pWidth - 100);
             for (const line of titleLines) {
+                if (pY < 60) {
+                     pPage = partPdf.addPage();
+                     pY = pHeight - 50;
+                }
                 pPage.drawText(line, { x: 50, y: pY, size: 14, font: partBold });
                 pY -= 20; // Line height
             }
@@ -338,16 +342,32 @@ export class PdfReportRenderer implements ReportRenderer {
                     if (img) {
                         const dims = img.scale(1);
                         const maxWidth = pWidth - 100;
-                        // Calculate available height based on current pY, leaving 50px margin at bottom
-                        const availableHeight = pY - 50;
-                        const maxHeight = availableHeight > 0 ? availableHeight : pHeight - 150; 
-
+                        
+                        // User request: "Standard på bilder. halv side"
+                        // Vi setter maks høyde til 50% av sidehøyden (ca A5 landskap høyde)
+                        const targetMaxHeight = pHeight * 0.5; 
+                        
                         let scale = 1;
+                        // 1. Scale to fit width first
                         if (dims.width > maxWidth) scale = maxWidth / dims.width;
-                        if (dims.height * scale > maxHeight) scale = maxHeight / dims.height;
+                        
+                        // 2. Then limit by height (standard size)
+                        if (dims.height * scale > targetMaxHeight) scale = targetMaxHeight / dims.height;
+                        
                         const w = dims.width * scale;
                         const h = dims.height * scale;
+                        
+                        // 3. Check if it fits on current page. If not, add new page.
+                        // "trengs mer plass, så kjører man bare på neste side"
+                        if (pY - h < 50) {
+                            pPage = partPdf.addPage();
+                            pY = pHeight - 50;
+                        }
+
                         pPage.drawImage(img, { x: 50, y: pY - h, width: w, height: h });
+                        // Update pY (though we start new page for next item anyway)
+                        pY -= (h + 10);
+
                     } else {
                         pPage.drawText(`[Feil: Kunne ikke bygge inn bildeformat]`, { x: 50, y: pY, size: 12, font: partFont });
                     }
@@ -639,7 +659,8 @@ export class PdfReportRenderer implements ReportRenderer {
                     if (image) {
                         const dims = image.scale(1);
                         const maxWidth = width - 100;
-                        const maxHeight = height - 150; // Leave space for title
+                        const targetMaxHeight = height / 2; // A5 equivalent
+                        const maxHeight = Math.min(height - 150, targetMaxHeight);
 
                         let scale = 1;
                         if (dims.width > maxWidth) scale = maxWidth / dims.width;

@@ -3,7 +3,6 @@
 import { prisma } from "@/lib/prisma";
 import { createClient } from "@/lib/supabase-server";
 import { revalidatePath } from "next/cache";
-import { generateLegalPdfFromSnapshot } from "@/app/actions/reports";
 
 export async function generateLegalReport(projectId: string) {
   const supabase = createClient();
@@ -13,11 +12,13 @@ export async function generateLegalReport(projectId: string) {
   const result = await generateLegalReportInternal(projectId);
   
   // Generate PDF immediately after creating the report record
-  const pdfResult = await generateLegalPdfFromSnapshot(result.reportId);
+  // MODIFIED: We no longer generate PDF here to avoid Server Action timeouts.
+  // The client must call the API route /api/reports/[id]/generate
+  // const pdfResult = await generateLegalPdfFromSnapshot(result.reportId);
 
   return {
     ...result,
-    pdfUrl: pdfResult.pdfUrl
+    pdfUrl: null // pdfResult.pdfUrl
   };
 }
 
@@ -33,14 +34,14 @@ export async function generateLegalReportInternal(projectId: string) {
 
     // Ensure sequence exists (create if missing, though it should exist from evidence creation)
     // We try to upsert it to be safe
-    const sequence = await tx.projectSequence.upsert({
+    const sequence = await (tx as any).projectSequence.upsert({
         where: { projectId },
         create: { projectId, lastEvidenceNumber: 0, lastReportVersion: 0 },
         update: {} // No update needed if exists
     });
 
     // Step 3: Fetch included evidence items
-    const evidenceItems = await tx.evidenceItem.findMany({
+    const evidenceItems = await (tx as any).evidenceItem.findMany({
       where: {
         projectId,
         includeInReport: true,
@@ -56,18 +57,18 @@ export async function generateLegalReportInternal(projectId: string) {
 
     // Step 4: Create ReportInstance
     // Increment report version via ProjectSequence for concurrency safety
-    const updatedSequence = await tx.projectSequence.update({
+    const updatedSequence = await (tx as any).projectSequence.update({
         where: { projectId },
         data: { lastReportVersion: { increment: 1 } }
     });
     const newVersion = updatedSequence.lastReportVersion;
     
     // Fetch draft content for snapshot
-    const draft = await tx.legalReportDraft.findUnique({
+    const draft = await (tx as any).legalReportDraft.findUnique({
         where: { projectId }
     });
 
-    const reportInstance = await tx.reportInstance.create({
+    const reportInstance = await (tx as any).reportInstance.create({
       data: {
         projectId,
         reportType: "LEGAL", // Juridisk rapport
@@ -81,7 +82,7 @@ export async function generateLegalReportInternal(projectId: string) {
 
     // Step 5: Create Snapshots (ReportEvidenceSnapshot)
     // We explicitly COPY data (title, description, fileId) to freeze the evidence state
-    await tx.reportEvidenceSnapshot.createMany({
+    await (tx as any).reportEvidenceSnapshot.createMany({
         data: evidenceItems.map((item: any) => ({
             reportId: reportInstance.id,
             evidenceItemId: item.id,
@@ -109,7 +110,7 @@ export async function generateLegalReportInternal(projectId: string) {
     // Only lock the items included in this report version
     const evidenceIdsToLock = evidenceItems.map((item: any) => item.id);
     if (evidenceIdsToLock.length > 0) {
-        await tx.evidenceItem.updateMany({
+        await (tx as any).evidenceItem.updateMany({
             where: { id: { in: evidenceIdsToLock } },
             data: { locked: true }
         });

@@ -1,10 +1,10 @@
 "use client";
 
 import { useState } from "react";
-import { archiveReport, markReportAsDownloaded, generateLegalPdfFromSnapshot } from "@/app/actions/reports";
+import { archiveReport, markReportAsDownloaded, generateLegalPdfFromSnapshot, deleteReport } from "@/app/actions/reports";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
-import { Download, Archive, Lock, Check, AlertTriangle } from "lucide-react";
+import { Download, Archive, Lock, Check, AlertTriangle, Trash2 } from "lucide-react";
 import { useRouter } from "next/navigation";
 import {
   AlertDialog,
@@ -78,6 +78,20 @@ export function ReportHistoryTable({ reports, projectId }: ReportHistoryTablePro
       router.refresh();
     } catch (error: any) {
       toast.error(error.message || "Kunne ikke arkivere rapport");
+    } finally {
+      setIsProcessing(null);
+    }
+  };
+
+  const handleDelete = async (reportId: string) => {
+    try {
+      setIsProcessing(reportId);
+      await deleteReport(reportId, projectId);
+      toast.success("Rapport slettet");
+      router.refresh();
+    } catch (error: any) {
+      console.error("Delete error:", error);
+      toast.error(error.message || "Kunne ikke slette rapport");
     } finally {
       setIsProcessing(null);
     }
@@ -165,38 +179,71 @@ export function ReportHistoryTable({ reports, projectId }: ReportHistoryTablePro
                       </Button>
 
                       {!report.archived && (
-                        <AlertDialog>
-                          <AlertDialogTrigger asChild>
-                            <Button 
-                              variant="ghost" 
-                              size="sm"
-                              className="text-muted-foreground hover:text-destructive"
-                            >
-                              <Archive className="w-4 h-4 mr-2" />
-                              Arkiver
-                            </Button>
-                          </AlertDialogTrigger>
-                          <AlertDialogContent>
-                            <AlertDialogHeader>
-                              <AlertDialogTitle>Arkiver juridisk rapport v{report.versionNumber}</AlertDialogTitle>
-                              <AlertDialogDescription>
-                                Denne rapporten vil flyttes til arkivet. Den kan ikke redigeres etter arkivering.
-                                <br/><br/>
-                                <strong>Krav:</strong> Du må bekrefte at du har lastet ned en kopi før arkivering.
-                              </AlertDialogDescription>
-                            </AlertDialogHeader>
-                            <AlertDialogFooter>
-                              <AlertDialogCancel>Avbryt</AlertDialogCancel>
-                              <AlertDialogAction 
-                                onClick={() => handleArchive(report.id)}
-                                className={!report.backupDownloaded ? "opacity-50 cursor-not-allowed" : ""}
-                                disabled={!report.backupDownloaded}
+                        <div className="flex items-center gap-1">
+                          <AlertDialog>
+                            <AlertDialogTrigger asChild>
+                              <Button 
+                                variant="ghost" 
+                                size="sm"
+                                className="text-muted-foreground hover:text-destructive"
                               >
-                                {report.backupDownloaded ? "Bekreft Arkivering" : "Må lastes ned først"}
-                              </AlertDialogAction>
-                            </AlertDialogFooter>
-                          </AlertDialogContent>
-                        </AlertDialog>
+                                <Archive className="w-4 h-4 mr-2" />
+                                Arkiver
+                              </Button>
+                            </AlertDialogTrigger>
+                            <AlertDialogContent>
+                              <AlertDialogHeader>
+                                <AlertDialogTitle>Arkiver juridisk rapport v{report.versionNumber}</AlertDialogTitle>
+                                <AlertDialogDescription>
+                                  Denne rapporten vil flyttes til arkivet. Den kan ikke redigeres etter arkivering.
+                                  <br/><br/>
+                                  <strong>Krav:</strong> Du må bekrefte at du har lastet ned en kopi før arkivering.
+                                </AlertDialogDescription>
+                              </AlertDialogHeader>
+                              <AlertDialogFooter>
+                                <AlertDialogCancel>Avbryt</AlertDialogCancel>
+                                <AlertDialogAction 
+                                  onClick={() => handleArchive(report.id)}
+                                  className={!report.backupDownloaded ? "opacity-50 cursor-not-allowed" : ""}
+                                  disabled={!report.backupDownloaded}
+                                >
+                                  {report.backupDownloaded ? "Bekreft Arkivering" : "Må lastes ned først"}
+                                </AlertDialogAction>
+                              </AlertDialogFooter>
+                            </AlertDialogContent>
+                          </AlertDialog>
+                          
+                          <AlertDialog>
+                            <AlertDialogTrigger asChild>
+                              <Button 
+                                variant="ghost" 
+                                size="sm"
+                                className="text-muted-foreground hover:text-destructive hover:bg-destructive/10"
+                                title="Slett rapport"
+                              >
+                                <Trash2 className="w-4 h-4" />
+                              </Button>
+                            </AlertDialogTrigger>
+                            <AlertDialogContent>
+                              <AlertDialogHeader>
+                                <AlertDialogTitle>Slett rapport v{report.versionNumber}?</AlertDialogTitle>
+                                <AlertDialogDescription>
+                                  Dette vil slette rapporten permanent. Handlingen kan ikke angres.
+                                  Hvis generering har hengt seg opp, er dette trygt å gjøre.
+                                </AlertDialogDescription>
+                              </AlertDialogHeader>
+                              <AlertDialogFooter>
+                                <AlertDialogCancel>Avbryt</AlertDialogCancel>
+                                <AlertDialogAction 
+                                  onClick={() => handleDelete(report.id)}
+                                  className="bg-destructive hover:bg-destructive/90"
+                                >
+                                  Slett
+                                </AlertDialogAction>
+                              </AlertDialogFooter>
+                            </AlertDialogContent>
+                          </AlertDialog>
+                        </div>
                       )}
                     </div>
                   </td>

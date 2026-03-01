@@ -202,3 +202,54 @@ export async function getEvidenceItems(projectId: string) {
     }
   });
 }
+
+export async function updateEvidenceItem(id: string, data: { 
+  title?: string; 
+  description?: string; 
+  legalDate?: Date; 
+  legalPriority?: number; 
+}) {
+  const supabase = createClient();
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) throw new Error("Unauthorized");
+
+  return await prisma.evidenceItem.update({
+    where: { id },
+    data
+  });
+}
+
+export async function updateEvidenceOrder(items: { id: string; legalPriority: number }[]) {
+  const supabase = createClient();
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) throw new Error("Unauthorized");
+
+  // Transaction to update multiple items
+  return await prisma.$transaction(
+    items.map(item => 
+      (prisma as any).evidenceItem.update({
+        where: { id: item.id },
+        data: { legalPriority: item.legalPriority }
+      })
+    )
+  );
+}
+
+export async function updateEvidenceItems(items: { id: string; legalDate?: Date; legalPriority?: number }[]) {
+  const supabase = createClient();
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) throw new Error("Unauthorized");
+
+  // Transaction to update multiple items
+  return await prisma.$transaction(
+    items.map(item => 
+      (prisma as any).evidenceItem.update({
+        where: { id: item.id },
+        data: { 
+          ...(item.legalDate !== undefined && { legalDate: item.legalDate }),
+          ...(item.legalPriority !== undefined && { legalPriority: item.legalPriority })
+        }
+      })
+    )
+  );
+}

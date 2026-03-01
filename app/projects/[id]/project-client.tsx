@@ -3,7 +3,7 @@
 
 import { useState } from "react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { FileText, CheckSquare, Info, MapPin } from "lucide-react";
+import { FileText, CheckSquare, Info, MapPin, Gavel } from "lucide-react";
 import ProjectLog from "../_components/project-log";
 import ProjectTasks from "../_components/project-tasks";
 import ProjectOverview from "../_components/project-overview";
@@ -13,10 +13,9 @@ import { getProjectAuditLogs } from "@/app/actions/projects";
 
 interface ProjectClientProps {
   project: any;
-  canTestNewReport: boolean;
 }
 
-export default function ProjectClient({ project, canTestNewReport }: ProjectClientProps) {
+export default function ProjectClient({ project }: ProjectClientProps) {
   const [activeTab, setActiveTab] = useState("log");
   const [auditLogs, setAuditLogs] = useState<any[] | null>(null);
   const [loadingLogs, setLoadingLogs] = useState(false);
@@ -43,7 +42,7 @@ export default function ProjectClient({ project, canTestNewReport }: ProjectClie
 
   return (
     <Tabs defaultValue="log" className="w-full" onValueChange={handleTabChange}>
-      <TabsList className="grid w-full grid-cols-4 h-14 mb-6">
+      <TabsList className="grid w-full grid-cols-5 h-14 mb-6">
         <TabsTrigger value="log" className="flex flex-col gap-1 py-2">
           <FileText className="h-4 w-4" />
           <span className="text-xs">Logg</span>
@@ -56,6 +55,14 @@ export default function ProjectClient({ project, canTestNewReport }: ProjectClie
           <Info className="h-4 w-4" />
           <span className="text-xs">Oversikt</span>
         </TabsTrigger>
+        {project.reportType === "LEGAL" && (
+          <Link href={`/projects/${project.id}/evidence`} className="w-full">
+            <div className="inline-flex items-center justify-center whitespace-nowrap rounded-sm px-3 py-1.5 text-sm font-medium ring-offset-background transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 hover:bg-background/50 hover:text-accent-foreground h-full w-full flex-col gap-1">
+              <Gavel className="h-4 w-4" />
+              <span className="text-xs">Bevis</span>
+            </div>
+          </Link>
+        )}
         <Link href={`/tasks?projectId=${project.id}`} className="w-full">
           <div className="inline-flex items-center justify-center whitespace-nowrap rounded-sm px-3 py-1.5 text-sm font-medium ring-offset-background transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 hover:bg-background/50 hover:text-accent-foreground h-full w-full flex-col gap-1">
             <MapPin className="h-4 w-4" />
@@ -73,7 +80,7 @@ export default function ProjectClient({ project, canTestNewReport }: ProjectClie
       </TabsContent>
       
       <TabsContent value="overview">
-        <ProjectOverview project={project} canTestNewReport={canTestNewReport} />
+        <ProjectOverview project={project} />
         <div className="mt-8">
           {auditLogs && <ProjectAuditLogs logs={auditLogs} />}
         </div>

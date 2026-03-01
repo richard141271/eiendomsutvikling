@@ -13,6 +13,12 @@ export async function createProject(data: {
   propertyId?: string;
   unitId?: string;
   customPropertyName?: string;
+  reportType?: string;
+  counterparty?: string;
+  caseSubject?: string;
+  caseStartDate?: Date;
+  caseEndDate?: Date;
+  category?: string;
 }) {
   const supabase = createClient();
   const { data: { user } } = await supabase.auth.getUser();
@@ -25,6 +31,12 @@ export async function createProject(data: {
       propertyId: data.propertyId,
       unitId: data.unitId,
       customPropertyName: data.customPropertyName,
+      reportType: data.reportType || "STANDARD",
+      counterparty: data.counterparty,
+      caseSubject: data.caseSubject,
+      caseStartDate: data.caseStartDate,
+      caseEndDate: data.caseEndDate,
+      category: data.category,
     },
   });
 
@@ -87,6 +99,31 @@ export async function getProject(id: string) {
   });
 
   return { ...project, reportInstances };
+}
+
+export async function updateProject(id: string, data: {
+  title?: string;
+  description?: string;
+  reportType?: string;
+  counterparty?: string;
+  caseSubject?: string;
+  caseStartDate?: Date;
+  caseEndDate?: Date;
+  category?: string;
+}) {
+  const supabase = createClient();
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) throw new Error("Unauthorized");
+
+  const project = await prisma.project.update({
+    where: { id },
+    data,
+  });
+
+  revalidatePath(`/projects/${id}`);
+  revalidatePath("/projects");
+  
+  return project;
 }
 
 export async function archiveProject(id: string) {

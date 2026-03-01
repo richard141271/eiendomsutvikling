@@ -364,6 +364,14 @@ model Project {
   description String?  
   status      String   @default("ACTIVE") // ACTIVE, ARCHIVED
   reportType  String   @default("STANDARD") // STANDARD, DOCUMENTATION, LEGAL
+  
+  // Legal Project Fields
+  counterparty   String?
+  caseSubject    String?
+  caseStartDate  DateTime?
+  caseEndDate    DateTime?
+  category       String?
+
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
   
@@ -469,6 +477,12 @@ model EvidenceItem {
   
   includeInReport Boolean  @default(true)
   locked          Boolean  @default(false)
+  
+  // Legal specific fields
+  legalDate       DateTime? // Manual override date for timeline
+  originalDate    DateTime? // File metadata date (lastModified)
+  legalPriority   Int?      // For manual ordering
+  
   createdAt       DateTime @default(now())
   updatedAt       DateTime @updatedAt
   deletedAt       DateTime? // Soft delete to preserve evidence number history

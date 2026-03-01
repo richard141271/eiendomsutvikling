@@ -23,11 +23,6 @@ export default async function ProjectPage({ params }: { params: { id: string } }
     select: { role: true },
   });
 
-  const canTestNewReport =
-    dbUser?.role === "OWNER" ||
-    dbUser?.role === "ADMIN" ||
-    dbUser?.role === "MANAGER";
-
   return (
     <div className="container max-w-lg mx-auto p-4 pb-24">
       <div className="mb-4">
@@ -44,7 +39,7 @@ export default async function ProjectPage({ params }: { params: { id: string } }
         </p>
       </div>
 
-      <ProjectClient project={project} canTestNewReport={!!canTestNewReport} />
+      <ProjectClient project={project} />
     </div>
   );
 }
