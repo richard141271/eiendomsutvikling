@@ -51,11 +51,42 @@ export async function POST(
       );
     }
 
-    const entriesWithTransformedUrls = project.entries.map((entry) => {
+    const entriesWithTransformedUrls = await Promise.all(project.entries.map(async (entry) => {
       if (!entry.imageUrl) return entry;
-      console.log("TRANSFORMED URL:", entry.imageUrl);
-      return entry;
-    });
+      
+      // Filter out non-image types to prevent pdf-lib crash
+      const isDocument = (entry as any).type === "DOCUMENT" || 
+                         entry.imageUrl.toLowerCase().includes(".pdf") ||
+                         entry.imageUrl.toLowerCase().includes(".doc") ||
+                         entry.imageUrl.toLowerCase().includes(".xls") ||
+                         entry.imageUrl.toLowerCase().includes(".msg") ||
+                         entry.imageUrl.toLowerCase().includes(".eml");
+
+      if (isDocument) {
+        console.log("Skipping image rendering for document entry:", entry.id);
+        return { ...entry, imageUrl: null };
+      }
+
+      // If it's a public URL, use it directly
+      if (entry.imageUrl.startsWith("http")) {
+         return entry;
+      }
+
+      // Otherwise try to sign it (fallback for legacy/private paths)
+      try {
+        const { data } = await adminSupabase.storage
+          .from("project-assets") 
+          .createSignedUrl(entry.imageUrl, 3600);
+          
+        if (data?.signedUrl) {
+           return { ...entry, imageUrl: data.signedUrl };
+        }
+      } catch (e) {
+        console.error("Failed to sign URL:", e);
+      }
+      
+      return { ...entry, imageUrl: null }; // Fallback: no image if signing fails
+    }));
 
     const projectForReport = {
       ...project,
@@ -133,7 +164,8 @@ export async function POST(
       data: {
         projectId: project.id,
         pdfUrl: mainUrl,
-        attachments: attachments as any, // Cast to any or InputJsonValue if needed
+        // @ts-ignore
+        attachments: attachments, 
       },
     });
 

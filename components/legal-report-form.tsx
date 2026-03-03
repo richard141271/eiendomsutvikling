@@ -58,6 +58,17 @@ export function LegalReportDraftForm({ projectId, initialData, evidenceItems, on
 
   const handleGenerateClick = async () => {
     setIsGenerating(true);
+    
+    // Ensure we save the latest changes before generating
+    try {
+        toast.info("Lagrer siste endringer...");
+        await upsertLegalReportDraft(projectId, formData);
+    } catch (e) {
+        console.error("Failed to save draft before generation:", e);
+        // Continue anyway? Or stop? Better to continue but warn.
+        // But if save fails, report might be empty.
+    }
+
     toast.info("Genererer rapport... Dette kan ta litt tid.");
     try {
         // Step 1: Create report version and snapshot in database

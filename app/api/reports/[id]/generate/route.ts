@@ -78,8 +78,19 @@ export async function POST(
       const batchResults = await Promise.all(batch.map(async (s: any) => {
           const file = s.fileId ? fileMap.get(s.fileId) : null;
           let url = (file as any)?.storagePath;
+          const fileType = (file as any)?.fileType || "";
           
-          if (url && !url.startsWith('http')) {
+          // Check if it's an image suitable for embedding
+          const isImage = fileType.startsWith("image/") || 
+                          (url && (url.toLowerCase().endsWith(".jpg") || 
+                                   url.toLowerCase().endsWith(".jpeg") || 
+                                   url.toLowerCase().endsWith(".png") ||
+                                   url.toLowerCase().endsWith(".webp")));
+
+          if (!isImage) {
+             console.log(`Skipping image URL for non-image file ${s.fileId} (${fileType})`);
+             url = undefined; // Don't try to embed as image
+          } else if (url && !url.startsWith('http')) {
             const { data, error } = await adminSupabase.storage
                 .from(bucketName)
                 .createSignedUrl(url, 3600);
@@ -112,9 +123,18 @@ export async function POST(
     }
 
     // 3. Map to ReportDocument
+    console.log("Mapping draft to report document. Draft keys:", report.contentSnapshot ? Object.keys(report.contentSnapshot as object) : "null");
+    if (report.contentSnapshot) {
+        console.log("Draft snapshot summary length:", (report.contentSnapshot as any).summary?.length || 0);
+        console.log("Draft snapshot factualBasis length:", (report.contentSnapshot as any).factualBasis?.length || 0);
+    }
+    
+    // Ensure draft is a valid object
+    const draftSnapshot = (report.contentSnapshot as any) || {};
+    
     const reportDoc = mapLegalDraftToReport(
       report.project as any,
-      report.contentSnapshot as any,
+      draftSnapshot,
       evidenceItems,
       report.versionNumber
     );

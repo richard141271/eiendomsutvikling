@@ -32,6 +32,7 @@ interface EvidenceItem {
     fileType: string;
     storagePath: string;
     url?: string;
+    originalName?: string;
   };
   createdAt: Date;
 }
@@ -125,18 +126,28 @@ export function EditPanel({ item, isOpen, onClose, onSave }: EditPanelProps) {
 
         <div className="grid gap-6 py-6">
           {/* Preview */}
-          <div className="aspect-video bg-slate-100 rounded-lg flex items-center justify-center overflow-hidden border">
+          <div className="aspect-video bg-slate-100 rounded-lg flex items-center justify-center overflow-hidden border relative group">
             {isImage ? (
-               // Note: In a real app we would use a signed URL or public URL here
-               // For now assuming storagePath is usable or we need a way to get it
-               <div className="flex flex-col items-center text-slate-400">
-                 <ImageIcon className="h-12 w-12 mb-2" />
-                 <span className="text-xs">Bildeforhåndsvisning</span>
-               </div>
+               item.file.url || item.file.storagePath ? (
+                 <div className="relative w-full h-full">
+                   <Image 
+                     src={item.file.url || item.file.storagePath} 
+                     alt={item.title}
+                     fill
+                     className="object-contain"
+                   />
+                 </div>
+               ) : (
+                 <div className="flex flex-col items-center text-slate-400">
+                   <ImageIcon className="h-12 w-12 mb-2" />
+                   <span className="text-xs">Ingen bilde-URL tilgjengelig</span>
+                 </div>
+               )
             ) : (
-              <div className="flex flex-col items-center text-slate-400">
+              <div className="flex flex-col items-center text-slate-400 cursor-pointer hover:text-slate-600" onClick={() => (item.file.url || item.file.storagePath) && window.open(item.file.url || item.file.storagePath, '_blank')}>
                 <FileText className="h-12 w-12 mb-2" />
-                <span className="text-xs">{item.file.fileType}</span>
+                <span className="text-xs font-medium">{item.file.originalName || "Dokument"}</span>
+                <span className="text-[10px] mt-1 text-slate-500 uppercase">{item.file.fileType.split('/')[1] || "FIL"}</span>
               </div>
             )}
           </div>

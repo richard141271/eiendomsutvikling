@@ -83,9 +83,14 @@ export function mapProjectToReport(project: ProjectForReport): ReportDocument {
   const logBlocks: ContentBlock[] = [];
 
   project.entries.forEach((entry, index) => {
+    let typeLabel = "Oppføring";
+    if (entry.type === "NOTE") typeLabel = "Notat";
+    else if (entry.type === "IMAGE") typeLabel = "Bilde";
+    else if ((entry as any).type === "DOCUMENT") typeLabel = "Dokument";
+
     logBlocks.push({
       kind: "HEADING",
-      text: `${entry.type === "NOTE" ? "Notat" : "Bilde"} ${
+      text: `${typeLabel} ${
         index + 1
       } – ${entry.createdAt.toLocaleDateString("no-NO")} ${entry.createdAt.toLocaleTimeString("no-NO", {
         hour: "2-digit",

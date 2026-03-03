@@ -75,6 +75,7 @@ export async function generateLegalReportInternal(projectId: string) {
         versionNumber: newVersion,
         totalEvidenceCount: evidenceItems.length,
         // We store the full draft content as a snapshot JSON
+        // Ensure we always store an object, even if draft is null
         contentSnapshot: draft ? JSON.parse(JSON.stringify(draft)) : {}, 
         createdAt: new Date(),
       }
