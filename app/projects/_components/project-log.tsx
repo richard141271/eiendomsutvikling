@@ -8,11 +8,13 @@ import { Textarea } from "@/components/ui/textarea";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Label } from "@/components/ui/label";
 import { ImageUpload } from "@/components/image-upload";
+import { FileUpload } from "@/components/file-upload";
 import { useEffect, useState } from "react";
-import { Loader2, Camera, Send, FileText, Image as ImageIcon, Trash2, Pencil, X, Check, Maximize2, RotateCw } from "lucide-react";
+import { Loader2, Camera, Send, FileText, Image as ImageIcon, Trash2, Pencil, X, Check, Maximize2, RotateCw, FileIcon, ExternalLink } from "lucide-react";
 import Image from "next/image";
 import { cn } from "@/lib/utils";
 import { useRouter } from "next/navigation";
+import { toast } from "sonner";
 
 interface Entry {
   id: string;
@@ -34,7 +36,7 @@ function LogForm({ projectId, onEntryAdded }: { projectId: string, onEntryAdded:
   const [content, setContent] = useState("");
   const [imageUrls, setImageUrls] = useState<string[]>([]);
   const [loading, setLoading] = useState(false);
-  const [mode, setMode] = useState<"TEXT" | "IMAGE">("TEXT");
+  const [mode, setMode] = useState<"TEXT" | "IMAGE" | "DOCUMENT">("TEXT");
   const [includeInReport, setIncludeInReport] = useState(true);
 
   async function handleSubmit() {
@@ -43,9 +45,12 @@ function LogForm({ projectId, onEntryAdded }: { projectId: string, onEntryAdded:
     setLoading(true);
     try {
       if (imageUrls.length > 0) {
+        // Determine type based on mode
+        const type = mode === "DOCUMENT" ? "DOCUMENT" : "IMAGE";
+        
         await addProjectEntries({
           projectId,
-          type: "IMAGE",
+          type,
           content,
           imageUrls,
           includeInReport,
@@ -63,9 +68,10 @@ function LogForm({ projectId, onEntryAdded }: { projectId: string, onEntryAdded:
       setMode("TEXT");
       setIncludeInReport(true);
       onEntryAdded();
+      toast.success("Loggføring lagret");
     } catch (error) {
       console.error(error);
-      alert("Kunne ikke lagre loggføring");
+      toast.error("Kunne ikke lagre loggføring");
     } finally {
       setLoading(false);
     }
@@ -88,6 +94,13 @@ function LogForm({ projectId, onEntryAdded }: { projectId: string, onEntryAdded:
         >
           <Camera className="w-4 h-4 mr-2" /> Bilde
         </Button>
+        <Button 
+          variant={mode === "DOCUMENT" ? "default" : "outline"} 
+          onClick={() => setMode("DOCUMENT")}
+          className="flex-1"
+        >
+          <FileIcon className="w-4 h-4 mr-2" /> Dokument
+        </Button>
       </div>
 
       <div className="space-y-4">
@@ -99,9 +112,19 @@ function LogForm({ projectId, onEntryAdded }: { projectId: string, onEntryAdded:
              allowMultiple
            />
         )}
+
+        {mode === "DOCUMENT" && (
+           <FileUpload 
+             value={imageUrls[0] || null} 
+             onChange={(url) => setImageUrls((prev) => [...prev, url])} 
+             label="Last opp dokument (PDF, EML, etc.)"
+             allowMultiple
+             accept=".pdf,.eml,.msg,.docx,.xlsx,.txt"
+           />
+        )}
         
         <Textarea 
-          placeholder={mode === "IMAGE" ? "Beskrivelse av bildet..." : "Skriv et notat..."}
+          placeholder={mode === "IMAGE" ? "Beskrivelse av bildet..." : mode === "DOCUMENT" ? "Beskrivelse av dokumentet..." : "Skriv et notat..."}
           value={content}
           onChange={(e) => setContent(e.target.value)}
           rows={3}
@@ -296,32 +319,46 @@ export default function ProjectLog({ projectId, entries }: ProjectLogProps) {
                   {entry.content && <p className="text-sm text-slate-800 whitespace-pre-wrap mb-2">{entry.content}</p>}
                   
                   {entry.imageUrl && (
-                    <div className="space-y-2">
-                      <div 
-                        className="relative h-48 w-full rounded-md overflow-hidden bg-slate-100 border cursor-pointer group"
-                        onClick={() => setFullScreenImage(entry.imageUrl)}
-                      >
-                        <Image 
-                          src={entry.imageUrl} 
-                          alt="Log image" 
-                          fill 
-                          className="object-cover transition-transform duration-300 group-hover:scale-105" 
-                          style={{ transform: `rotate(${entry.rotation || 0}deg)` }}
-                        />
-                        <div className="absolute inset-0 bg-black/0 group-hover:bg-black/10 transition-colors flex items-center justify-center">
-                          <Maximize2 className="text-white opacity-0 group-hover:opacity-100 transition-opacity w-8 h-8 drop-shadow-md" />
-                        </div>
+                    entry.type === "DOCUMENT" ? (
+                      <div className="mt-2">
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => window.open(entry.imageUrl!, '_blank')}
+                          className="w-full justify-start text-blue-600 hover:text-blue-800"
+                        >
+                          <FileIcon className="w-4 h-4 mr-2" />
+                          Åpne dokument
+                        </Button>
                       </div>
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => handleRotate(entry.id, entry.rotation || 0)}
-                        className="w-full"
-                      >
-                        <RotateCw className="w-4 h-4 mr-2" />
-                        Roter bilde
-                      </Button>
-                    </div>
+                    ) : (
+                      <div className="space-y-2">
+                        <div 
+                          className="relative h-48 w-full rounded-md overflow-hidden bg-slate-100 border cursor-pointer group"
+                          onClick={() => setFullScreenImage(entry.imageUrl)}
+                        >
+                          <Image 
+                            src={entry.imageUrl} 
+                            alt="Log image" 
+                            fill 
+                            className="object-cover transition-transform duration-300 group-hover:scale-105" 
+                            style={{ transform: `rotate(${entry.rotation || 0}deg)` }}
+                          />
+                          <div className="absolute inset-0 bg-black/0 group-hover:bg-black/10 transition-colors flex items-center justify-center">
+                            <Maximize2 className="text-white opacity-0 group-hover:opacity-100 transition-opacity w-8 h-8 drop-shadow-md" />
+                          </div>
+                        </div>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => handleRotate(entry.id, entry.rotation || 0)}
+                          className="w-full"
+                        >
+                          <RotateCw className="w-4 h-4 mr-2" />
+                          Roter bilde
+                        </Button>
+                      </div>
+                    )
                   )}
                 </>
               )}

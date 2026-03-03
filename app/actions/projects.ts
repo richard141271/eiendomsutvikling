@@ -143,7 +143,7 @@ export async function archiveProject(id: string) {
 
 export async function addProjectEntry(data: {
   projectId: string;
-  type: "NOTE" | "IMAGE" | "MEASUREMENT";
+  type: "NOTE" | "IMAGE" | "MEASUREMENT" | "DOCUMENT";
   content?: string;
   imageUrl?: string;
   includeInReport?: boolean;
@@ -171,7 +171,7 @@ export async function addProjectEntry(data: {
 
 export async function addProjectEntries(data: {
   projectId: string;
-  type: "NOTE" | "IMAGE" | "MEASUREMENT";
+  type: "NOTE" | "IMAGE" | "MEASUREMENT" | "DOCUMENT";
   content?: string;
   imageUrls: string[];
   includeInReport?: boolean;

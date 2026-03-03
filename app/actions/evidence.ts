@@ -5,7 +5,7 @@ import { createClient } from "@/lib/supabase-server";
 
 export async function getNextEvidenceNumber(projectId: string): Promise<number> {
   // Use ProjectSequence for atomic, concurrency-safe ID generation
-  const sequence = await prisma.projectSequence.upsert({
+  const sequence = await (prisma as any).projectSequence.upsert({
     where: { projectId },
     create: { 
       projectId, 
@@ -22,18 +22,18 @@ export async function getNextEvidenceNumber(projectId: string): Promise<number> 
 
 // Helper to ensure sequence is in sync with actual items
 async function ensureSequenceSynced(projectId: string) {
-  const lastItem = await prisma.evidenceItem.findFirst({
+  const lastItem = await (prisma as any).evidenceItem.findFirst({
     where: { projectId },
     orderBy: { evidenceNumber: 'desc' },
   });
 
   if (lastItem) {
-    const sequence = await prisma.projectSequence.findUnique({
+    const sequence = await (prisma as any).projectSequence.findUnique({
       where: { projectId },
     });
 
     if (!sequence || sequence.lastEvidenceNumber < lastItem.evidenceNumber) {
-      await prisma.projectSequence.upsert({
+      await (prisma as any).projectSequence.upsert({
         where: { projectId },
         create: {
           projectId,
@@ -57,7 +57,7 @@ export async function ensureEvidenceItems(projectId: string) {
   const project = await prisma.project.findUnique({
     where: { id: projectId },
     include: { entries: true, evidenceItems: true },
-  });
+  }) as any;
 
   if (!project) throw new Error("Project not found");
 
@@ -65,70 +65,153 @@ export async function ensureEvidenceItems(projectId: string) {
   const existingEvidenceMap = new Set(project.evidenceItems.map((e: any) => e.originalEntryId).filter(Boolean));
 
   // Filter entries that need evidence items (Images primarily)
-  const entriesToProcess = project.entries.filter(
-    (e: any) => (e.type === "IMAGE" || e.imageUrl) && !existingEvidenceMap.has(e.id)
-  );
+  // Sort by createdAt to ensure chronological numbering
+  const entriesToProcess = project.entries
+    .filter((e: any) => (e.type === "IMAGE" || e.imageUrl) && !existingEvidenceMap.has(e.id))
+    .sort((a: any, b: any) => a.createdAt.getTime() - b.createdAt.getTime());
 
   if (entriesToProcess.length === 0) return;
-
-  // Sort entries by creation time to ensure chronological numbering
-  entriesToProcess.sort((a: any, b: any) => a.createdAt.getTime() - b.createdAt.getTime());
 
   // HEAL: Ensure sequence is in sync with actual items before processing
   await ensureSequenceSynced(projectId);
 
-  for (const entry of entriesToProcess) {
-    if (!entry.imageUrl) continue;
+  // --- Optimization: Batch Processing ---
 
-    // 1. Ensure File exists
-    let file = await prisma.file.findFirst({
-      where: { 
-        projectId, 
-        storagePath: entry.imageUrl 
-      }
-    });
+  // 1. Identify and create missing Files
+  const imageUrls = entriesToProcess.map((e: any) => e.imageUrl).filter(Boolean) as string[];
+  
+  // Fetch existing files for these URLs
+   const existingFiles = await (prisma as any).file.findMany({
+     where: {
+       projectId,
+       storagePath: { in: imageUrls }
+     }
+   });
 
-    if (!file) {
-      file = await prisma.file.create({
-        data: {
-          projectId,
-          storagePath: entry.imageUrl,
-          fileType: "image/jpeg", // Default assumption, can be refined if we have metadata
-          originalName: "Project Entry Image",
-        }
-      });
-    }
+   const existingFileMap = new Map(existingFiles.map((f: any) => [f.storagePath, f]));
+   const filesToCreate = imageUrls.filter(url => !existingFileMap.has(url));
 
-    // 2. Create EvidenceItem
-    // ALWAYS get a fresh number for each item to ensure atomic increments
-    const evidenceNumber = await getNextEvidenceNumber(projectId);
+   // Create missing files in batch
+   if (filesToCreate.length > 0) {
+     // Deduplicate URLs just in case
+     const uniqueFilesToCreate = Array.from(new Set(filesToCreate));
+     
+     await (prisma as any).file.createMany({
+       data: uniqueFilesToCreate.map(url => {
+         let fileType = "image/jpeg";
+         let originalName = "Project Entry Image";
+         
+         const ext = url.split('.').pop()?.toLowerCase();
+         if (ext === "pdf") {
+            fileType = "application/pdf";
+            originalName = "Dokument (PDF)";
+         } else if (ext === "eml" || ext === "msg") {
+            fileType = "message/rfc822";
+            originalName = "E-post";
+         } else if (ext === "docx" || ext === "doc") {
+            fileType = "application/vnd.openxmlformats-officedocument.wordprocessingml.document";
+            originalName = "Dokument (Word)";
+         } else if (ext === "xlsx" || ext === "xls") {
+            fileType = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet";
+            originalName = "Dokument (Excel)";
+         } else if (ext === "txt") {
+            fileType = "text/plain";
+            originalName = "Tekstdokument";
+         }
 
-    await prisma.evidenceItem.create({
-      data: {
-        projectId,
-        evidenceNumber,
-        title: entry.content || "Prosjektbilde",
-        description: entry.content,
-        fileId: file.id,
-        originalEntryId: entry.id,
-        includeInReport: entry.includeInReport,
-        createdAt: entry.createdAt,
-      },
-    });
-  }
+         return {
+           projectId,
+           storagePath: url,
+           fileType,
+           originalName,
+         };
+       }),
+       skipDuplicates: true // Safety against race conditions
+     });
+   }
+
+   // Re-fetch all needed files to get IDs (including newly created ones)
+   const allFiles = await (prisma as any).file.findMany({
+     where: {
+       projectId,
+       storagePath: { in: imageUrls }
+     }
+   });
+   
+   const fileMap = new Map(allFiles.map((f: any) => [f.storagePath, f.id]));
+
+   // 2. Reserve Evidence Numbers Range
+   // Atomic update to reserve N numbers
+   const count = entriesToProcess.length;
+   
+   const sequence = await (prisma as any).projectSequence.upsert({
+     where: { projectId },
+     create: { 
+       projectId, 
+       lastEvidenceNumber: count,
+       lastReportVersion: 0 
+     },
+     update: { 
+       lastEvidenceNumber: { increment: count } 
+     }
+   });
+
+   // Calculate start number (inclusive)
+   const endSeq = sequence.lastEvidenceNumber;
+   const startSeq = endSeq - count + 1;
+
+   // 3. Prepare Evidence Items
+   const evidenceItemsData = entriesToProcess.map((entry: any, index: number) => {
+     if (!entry.imageUrl) return null;
+     
+     const fileId = fileMap.get(entry.imageUrl);
+     if (!fileId) {
+       console.error(`File ID not found for url: ${entry.imageUrl}`);
+       return null;
+     }
+
+     return {
+       projectId,
+       evidenceNumber: startSeq + index,
+       title: entry.content || "Prosjektbilde",
+       description: entry.content,
+       fileId: fileId,
+       originalEntryId: entry.id,
+       includeInReport: entry.includeInReport,
+       createdAt: entry.createdAt,
+       updatedAt: new Date(), // Explicitly set updatedAt for createMany
+     };
+   }).filter(Boolean); // Remove nulls
+
+   // 4. Create Evidence Items in Batch
+   if (evidenceItemsData.length > 0) {
+     await (prisma as any).evidenceItem.createMany({
+       data: evidenceItemsData as any,
+       skipDuplicates: true // Safety
+     });
+   }
 }
 
 export async function createEvidenceItemForEntry(entry: any) {
-  // Only create evidence for images
-  if ((entry.type !== "IMAGE" && !entry.imageUrl) || !entry.imageUrl) {
+  // Create evidence for IMAGES and DOCUMENTS
+  if ((entry.type !== "IMAGE" && entry.type !== "DOCUMENT" && !entry.imageUrl) || !entry.imageUrl) {
     return;
   }
 
   // HEAL: Ensure sequence is in sync
   await ensureSequenceSynced(entry.projectId);
 
+  // Determine file type
+  let fileType = "image/jpeg";
+  if (entry.type === "DOCUMENT") {
+    const ext = entry.imageUrl.split('.').pop()?.toLowerCase();
+    if (ext === "pdf") fileType = "application/pdf";
+    else if (ext === "eml") fileType = "message/rfc822";
+    else fileType = "application/octet-stream";
+  }
+
   // 1. Ensure File exists
-  let file = await prisma.file.findFirst({
+  let file = await (prisma as any).file.findFirst({
     where: { 
       projectId: entry.projectId, 
       storagePath: entry.imageUrl 
@@ -136,25 +219,24 @@ export async function createEvidenceItemForEntry(entry: any) {
   });
 
   if (!file) {
-    file = await prisma.file.create({
+    file = await (prisma as any).file.create({
       data: {
         projectId: entry.projectId,
         storagePath: entry.imageUrl,
-        fileType: "image/jpeg",
-        originalName: "Project Entry Image",
+        fileType: fileType,
+        originalName: entry.type === "DOCUMENT" ? "Dokument" : "Project Entry Image",
       }
     });
   }
 
   // 2. Create EvidenceItem
-  // Get next number from sequence (atomic increment)
   const evidenceNumber = await getNextEvidenceNumber(entry.projectId);
   
-  await prisma.evidenceItem.create({
+  await (prisma as any).evidenceItem.create({
     data: {
       projectId: entry.projectId,
       evidenceNumber,
-      title: entry.content || "Prosjektbilde",
+      title: entry.content || (entry.type === "DOCUMENT" ? "Dokument" : "Prosjektbilde"),
       description: entry.content,
       fileId: file.id,
       originalEntryId: entry.id,
@@ -162,6 +244,58 @@ export async function createEvidenceItemForEntry(entry: any) {
       createdAt: entry.createdAt,
     },
   });
+}
+
+export async function createEvidenceItem(data: {
+  projectId: string;
+  url: string;
+  title: string;
+  description?: string;
+  fileType: string;
+  originalName?: string;
+}) {
+  const supabase = createClient();
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) throw new Error("Unauthorized");
+
+  // HEAL: Ensure sequence is in sync
+  await ensureSequenceSynced(data.projectId);
+
+  // 1. Ensure File exists
+  let file = await (prisma as any).file.findFirst({
+    where: { 
+      projectId: data.projectId, 
+      storagePath: data.url 
+    }
+  });
+
+  if (!file) {
+    file = await (prisma as any).file.create({
+      data: {
+        projectId: data.projectId,
+        storagePath: data.url,
+        fileType: data.fileType,
+        originalName: data.originalName || "Uploaded File",
+      }
+    });
+  }
+
+  // 2. Create EvidenceItem
+  const evidenceNumber = await getNextEvidenceNumber(data.projectId);
+  
+  const item = await (prisma as any).evidenceItem.create({
+    data: {
+      projectId: data.projectId,
+      evidenceNumber,
+      title: data.title,
+      description: data.description,
+      fileId: file.id,
+      includeInReport: true, // Default to true
+      // No originalEntryId since it's direct upload
+    },
+  });
+
+  return item;
 }
 
 // --- LOCKING & SNAPSHOTS ---
