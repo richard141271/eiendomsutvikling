@@ -29,7 +29,7 @@ export async function POST(
     const bucketName = 'reports-v3'; // Fresh start with 500MB limit
     await ensureBucketExists(bucketName);
 
-    const project = await prisma.project.findUnique({
+    const project = await (prisma as any).project.findUnique({
       where: { id: params.id },
       include: {
         property: true,
@@ -41,6 +41,15 @@ export async function POST(
         tasks: {
           orderBy: { createdAt: "asc" },
         },
+        evidenceItems: {
+          select: {
+            id: true,
+            evidenceNumber: true,
+            originalEntryId: true,
+            title: true,
+            description: true,
+          }
+        },
       },
     });
 
@@ -51,7 +60,7 @@ export async function POST(
       );
     }
 
-    const entriesWithTransformedUrls = await Promise.all(project.entries.map(async (entry) => {
+    const entriesWithTransformedUrls = await Promise.all(project.entries.map(async (entry: any) => {
       if (!entry.imageUrl) return entry;
       
       // Filter out non-image types to prevent pdf-lib crash

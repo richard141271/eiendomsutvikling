@@ -35,6 +35,13 @@ interface ProjectForReport {
   } | null;
   entries: ProjectEntry[];
   tasks: ProjectTask[];
+  evidenceItems?: {
+    id: string;
+    evidenceNumber: number;
+    originalEntryId: string | null;
+    title: string;
+    description: string | null;
+  }[];
 }
 
 export function mapProjectToReport(project: ProjectForReport): ReportDocument {
@@ -141,18 +148,44 @@ export function mapProjectToReport(project: ProjectForReport): ReportDocument {
   }
 
   let evidenceCounter = 1;
+  const evidenceMap = new Map<string, { evidenceNumber: number; title: string; description: string | null }>();
+
+  if (project.evidenceItems) {
+    project.evidenceItems.forEach((item) => {
+      if (item.originalEntryId) {
+        evidenceMap.set(item.originalEntryId, {
+          evidenceNumber: item.evidenceNumber,
+          title: item.title,
+          description: item.description,
+        });
+      }
+    });
+  }
 
   project.entries
     .filter((entry) => entry.imageUrl)
     .forEach((entry) => {
-      const evidenceCode = `B-${String(evidenceCounter).padStart(3, "0")}`;
-      evidenceCounter += 1;
+      const mapped = evidenceMap.get(entry.id);
+      let evidenceCode: string;
+      let title = entry.content || "Prosjektbilde";
+      let description = entry.content || undefined;
+
+      if (mapped) {
+        evidenceCode = `B-${String(mapped.evidenceNumber).padStart(3, "0")}`;
+        title = mapped.title;
+        description = mapped.description || undefined;
+      } else {
+        // SSOT: Never generate "B-xxx" for items not in Bevisbanken.
+        // Use "L-" (Logg) prefix to avoid collision and clearly distinguish non-evidence.
+        evidenceCode = `L-${String(evidenceCounter).padStart(3, "0")}`;
+        evidenceCounter += 1;
+      }
 
       builder.addEvidence({
         id: entry.id,
         evidenceCode,
-        title: entry.content || "Prosjektbilde",
-        description: entry.content || undefined,
+        title,
+        description,
         category: "Bilde",
         date: entry.createdAt,
         source: propertyName,

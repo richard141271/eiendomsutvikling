@@ -77,9 +77,11 @@ export async function generateLegalPdfFromSnapshot(reportId: string): Promise<{ 
         return {
           id: s.evidenceItemId,
           evidenceNumber: s.evidenceNumber,
+          evidenceCode: `B-${String(s.evidenceNumber).padStart(3, '0')}`,
           title: s.title,
           description: s.description,
           fileId: s.fileId,
+          imageUrl: url,
           file: file ? {
             url: url,
             contentType: (file as any).fileType || 'image/jpeg'

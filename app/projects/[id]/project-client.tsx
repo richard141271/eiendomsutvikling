@@ -72,7 +72,7 @@ export default function ProjectClient({ project }: ProjectClientProps) {
       </TabsList>
       
       <TabsContent value="log">
-        <ProjectLog projectId={project.id} entries={project.entries} />
+        <ProjectLog projectId={project.id} entries={project.entries} evidenceItems={project.evidenceItems} />
       </TabsContent>
       
       <TabsContent value="tasks">

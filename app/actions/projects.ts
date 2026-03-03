@@ -87,6 +87,16 @@ export async function getProject(id: string) {
       entries: { orderBy: { createdAt: "desc" } },
       tasks: { orderBy: { createdAt: "asc" } },
       reports: { orderBy: { createdAt: "desc" } },
+      // @ts-ignore
+      evidenceItems: {
+        select: {
+           id: true,
+           evidenceNumber: true,
+           originalEntryId: true,
+           title: true,
+           description: true
+        }
+      },
     },
   });
 

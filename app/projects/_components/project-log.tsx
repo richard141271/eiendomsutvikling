@@ -29,6 +29,13 @@ interface Entry {
 interface ProjectLogProps {
   projectId: string;
   entries: Entry[];
+  evidenceItems?: {
+    id: string;
+    evidenceNumber: number;
+    originalEntryId: string | null;
+    title: string;
+    description: string | null;
+  }[];
 }
 
 // Separate client component for the form to handle state
@@ -150,13 +157,21 @@ function LogForm({ projectId, onEntryAdded }: { projectId: string, onEntryAdded:
 
 // Main Log Component
 
-export default function ProjectLog({ projectId, entries }: ProjectLogProps) {
+export default function ProjectLog({ projectId, entries, evidenceItems }: ProjectLogProps) {
   const router = useRouter();
   const [localEntries, setLocalEntries] = useState(entries);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editContent, setEditContent] = useState("");
   const [loading, setLoading] = useState(false);
   const [fullScreenImage, setFullScreenImage] = useState<string | null>(null);
+
+  // Map originalEntryId to evidenceNumber for quick lookup
+  const evidenceMap = new Map<string, number>();
+  evidenceItems?.forEach(item => {
+    if (item.originalEntryId) {
+      evidenceMap.set(item.originalEntryId, item.evidenceNumber);
+    }
+  });
 
   useEffect(() => {
     setLocalEntries(entries);
@@ -266,6 +281,11 @@ export default function ProjectLog({ projectId, entries }: ProjectLogProps) {
               <div className="flex justify-between items-start mb-1">
                 <span className="text-xs text-slate-400">
                   {new Date(entry.createdAt).toLocaleString("no-NO")}
+                  {evidenceMap.has(entry.id) && (
+                    <span className="ml-2 px-2 py-0.5 bg-orange-100 text-orange-800 rounded-full text-xs font-medium">
+                      B-{String(evidenceMap.get(entry.id)).padStart(3, '0')}
+                    </span>
+                  )}
                 </span>
                 <div className="flex items-center space-x-2">
                    {!editingId && (
