@@ -20,11 +20,27 @@ export async function generateLegalPdfFromSnapshot(reportId: string): Promise<{ 
   if (!report) throw new Error("Rapport ikke funnet");
   if (!report.contentSnapshot) throw new Error("Mangler innholds-snapshot");
 
-  // If PDF already exists, return it (idempotency)
+  // If PDF already exists, generate a signed URL for it (in case bucket is private)
   if (report.pdfUrl) {
+    const supabase = createClient();
+    let path = report.pdfUrl;
+    
+    // Extract path from public URL if present
+    if (report.pdfUrl.includes('/project-assets/')) {
+      const parts = report.pdfUrl.split('/project-assets/');
+      if (parts.length > 1) {
+        path = parts[1];
+      }
+    }
+
+    // Attempt to sign the URL
+    const { data } = await supabase.storage
+      .from("project-assets")
+      .createSignedUrl(path, 3600); // 1 hour
+
     return { 
       success: true, 
-      pdfUrl: report.pdfUrl, 
+      pdfUrl: data?.signedUrl || report.pdfUrl, 
       isNew: false 
     };
   }
@@ -117,10 +133,15 @@ export async function generateLegalPdfFromSnapshot(reportId: string): Promise<{ 
 
   if (uploadError) throw new Error(`Upload failed: ${uploadError.message}`);
 
-  // Get Public URL
+  // Get Public URL (for DB storage)
   const { data: { publicUrl } } = supabase.storage
     .from("project-assets")
     .getPublicUrl(fileName);
+
+  // Generate Signed URL (for immediate download)
+  const { data: signedData } = await supabase.storage
+    .from("project-assets")
+    .createSignedUrl(fileName, 3600);
 
   // 6. Update ReportInstance with URL
   await (prisma as any).reportInstance.update({
@@ -132,7 +153,7 @@ export async function generateLegalPdfFromSnapshot(reportId: string): Promise<{ 
     }
   });
 
-  return { success: true, pdfUrl: publicUrl, isNew: true };
+  return { success: true, pdfUrl: signedData?.signedUrl || publicUrl, isNew: true };
 }
 
 // Helper to get project with evidence (used by legal-report-mapper or other consumers)
