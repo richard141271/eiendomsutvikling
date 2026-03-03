@@ -1,7 +1,13 @@
 import { PDFDocument, StandardFonts, rgb } from "pdf-lib";
 import { ReportDocument, Section, ContentBlock, EvidenceItem } from "./report-types";
-// @ts-ignore
-import sharp from "sharp";
+
+// Dynamic import for sharp to avoid build/runtime crashes if missing
+let sharp: any;
+try {
+  sharp = require("sharp");
+} catch (e) {
+  console.warn("Sharp module not found, image processing will be limited.");
+}
 
 const sanitizeText = (text: string): string => {
   return text
@@ -209,8 +215,15 @@ export class PdfReportRenderer implements ReportRenderer {
             // Generate thumbnail
             let thumbBytes: Uint8Array | null = null;
             try {
-              const sharpBuffer = await sharp(buffer).resize(300).jpeg({ quality: 60 }).toBuffer();
-              thumbBytes = new Uint8Array(sharpBuffer);
+              if (sharp) {
+                const sharpBuffer = await sharp(buffer).resize(300).jpeg({ quality: 60 }).toBuffer();
+                thumbBytes = new Uint8Array(sharpBuffer);
+              } else {
+                console.warn("Sharp not available, skipping resize");
+                if (imgBytes.byteLength < 500 * 1024) {
+                   thumbBytes = imgBytes;
+                }
+              }
             } catch (e) {
               console.warn("Sharp resize failed:", e);
               // Fallback: If image is small enough (<500KB), use original as thumb, else skip thumb to save memory
