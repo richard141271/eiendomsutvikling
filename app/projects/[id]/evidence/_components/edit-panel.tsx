@@ -11,7 +11,7 @@ import { Label } from "@/components/ui/label";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Calendar } from "@/components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
-import { Calendar as CalendarIcon, Clock, Lock, Save, Trash2, FileText, Image as ImageIcon } from "lucide-react";
+import { Calendar as CalendarIcon, Clock, Lock, Save, Trash2, FileText, Image as ImageIcon, Copy } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { updateEvidenceItem } from "@/app/actions/evidence";
 import { toast } from "sonner";
@@ -233,9 +233,25 @@ export function EditPanel({ item, isOpen, onClose, onSave }: EditPanelProps) {
               </span>
               {format(item.createdAt, "dd.MM.yyyy HH:mm")}
             </div>
-            <div>
+            <div 
+              className={cn(
+                "group relative transition-colors rounded p-1 -m-1",
+                item.originalDate && "hover:bg-blue-50 cursor-pointer"
+              )}
+              onClick={() => {
+                if (item.originalDate) {
+                  setLegalDate(item.originalDate);
+                  setTime(format(item.originalDate, "HH:mm"));
+                  toast.success("Dato og tid kopiert fra fil");
+                }
+              }}
+              title={item.originalDate ? "Klikk for å bruke denne datoen" : undefined}
+            >
               <span className="block text-xs font-medium text-slate-500 mb-1 flex items-center">
                 <Lock className="w-3 h-3 mr-1" /> Fil-dato
+                {item.originalDate && (
+                  <Copy className="w-3 h-3 ml-2 opacity-0 group-hover:opacity-100 transition-opacity text-blue-500" />
+                )}
               </span>
               {item.originalDate ? format(item.originalDate, "dd.MM.yyyy HH:mm") : "-"}
             </div>

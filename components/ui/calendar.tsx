@@ -34,7 +34,9 @@ function Calendar({
         String.raw`rtl:**:[.rdp-button\_previous>svg]:rotate-180`,
         className
       )}
-      captionLayout={captionLayout}
+      captionLayout="dropdown" // Changed from captionLayout to "dropdown"
+      startMonth={new Date(2000, 0)} // Allow going back to year 2000
+      endMonth={new Date(2030, 11)} // Allow going forward to year 2030
       formatters={{
         formatMonthDropdown: (date) =>
           date.toLocaleString("default", { month: "short" }),
