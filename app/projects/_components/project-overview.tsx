@@ -28,14 +28,11 @@ export default function ProjectOverview({ project }: ProjectOverviewProps) {
     }
   }
 
-  async function handleGenerateLegalReport() {
+  async function handleGenerateReport() {
     setGenerating(true);
     try {
-      // 1. Create Report Instance (Snapshot)
-      const reportResult = await generateLegalReport(project.id);
-      
-      // 2. Generate PDF via API (uses PdfReportRenderer - the new motor)
-      const res = await fetch(`/api/reports/${reportResult.reportId}/generate`, {
+      // Use the robust V2 report motor (Project Report) that handles 700+ images via batching
+      const res = await fetch(`/api/projects/${project.id}/report-v2`, {
         method: "POST",
       });
       
@@ -46,17 +43,16 @@ export default function ProjectOverview({ project }: ProjectOverviewProps) {
       
       const data = await res.json();
       
-      if (!data.success) {
-        throw new Error(data.error || "Ukjent feil ved generering");
-      }
-      
-      // 3. Open Report
+      // Open main report
       if (data.url) {
         window.open(data.url, "_blank");
+      } else {
+        throw new Error("Kunne ikke hente rapport-URL");
       }
-      
-      // 4. Open Attachments
+
+      // Open attachments (if any)
       if (data.attachments && Array.isArray(data.attachments)) {
+        // Add a small delay for popups
         setTimeout(() => {
           data.attachments.forEach((att: { url: string }) => {
             if (att.url) window.open(att.url, "_blank");
@@ -65,9 +61,8 @@ export default function ProjectOverview({ project }: ProjectOverviewProps) {
       }
       
       router.refresh();
-      
     } catch (error) {
-      console.error("Legal Report Error:", error);
+      console.error("Report Generation Error:", error);
       alert(`Kunne ikke generere rapport: ${error instanceof Error ? error.message : String(error)}`);
     } finally {
       setGenerating(false);
@@ -133,9 +128,9 @@ export default function ProjectOverview({ project }: ProjectOverviewProps) {
           <CardTitle>Rapporter</CardTitle>
         </CardHeader>
         <CardContent className="space-y-4">
-          <Button onClick={handleGenerateLegalReport} disabled={generating} className="w-full bg-slate-900 text-white hover:bg-slate-800">
-            {generating ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : <Gavel className="w-4 h-4 mr-2" />}
-            Generer Juridisk Rapport
+          <Button onClick={handleGenerateReport} disabled={generating} className="w-full bg-slate-900 text-white hover:bg-slate-800">
+            {generating ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : <FileText className="w-4 h-4 mr-2" />}
+            Generer Rapport (Ny Motor)
           </Button>
 
           {/* 
