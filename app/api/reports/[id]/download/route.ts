@@ -2,6 +2,9 @@
 import { prisma } from "@/lib/prisma";
 import { createClient } from "@/lib/supabase-server";
 import { NextResponse } from "next/server";
+import { generateLegalReportPdf } from "@/lib/reporting/report-generator";
+
+export const maxDuration = 300; // 5 minutes timeout for generation fallback
 
 export async function GET(
   request: Request,
@@ -20,7 +23,7 @@ export async function GET(
     const reportId = params.id;
 
     // Fetch report
-    const report = await (prisma as any).reportInstance.findUnique({
+    let report = await (prisma as any).reportInstance.findUnique({
       where: { id: reportId },
     });
 
@@ -33,7 +36,26 @@ export async function GET(
     // But ideally verify project membership.
     // The previous actions also checked auth but not strictly project membership beyond user context.
 
+    // FALLBACK: If PDF is missing, generate it now!
     if (!report.pdfUrl) {
+      console.log(`PDF missing for report ${reportId}, generating fallback...`);
+      try {
+        const result = await generateLegalReportPdf(reportId);
+        if (result.success && result.url) {
+           // Refresh report data
+           report = await (prisma as any).reportInstance.findUnique({
+              where: { id: reportId },
+           });
+        } else {
+           throw new Error("Generering feilet ved fallback");
+        }
+      } catch (genError) {
+        console.error("Fallback generation failed:", genError);
+        return NextResponse.json({ error: "Kunne ikke generere PDF. Vennligst prøv å generere rapporten på nytt fra prosjektsiden." }, { status: 500 });
+      }
+    }
+
+    if (!report?.pdfUrl) {
       return NextResponse.json({ error: "Ingen PDF generert for denne rapporten" }, { status: 404 });
     }
 
