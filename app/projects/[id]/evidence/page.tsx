@@ -4,7 +4,7 @@ import { prisma } from "@/lib/prisma";
 import { redirect, notFound } from "next/navigation";
 import Link from "next/link";
 import { ChevronLeft } from "lucide-react";
-import TimelineEditor from "./_components/timeline-editor";
+import EvidenceTabs from "./_components/evidence-tabs";
 
 export default async function EvidencePage({ params }: { params: { id: string } }) {
   const supabase = createClient();
@@ -44,7 +44,7 @@ export default async function EvidencePage({ params }: { params: { id: string } 
         </p>
       </div>
 
-      <TimelineEditor project={project} />
+      <EvidenceTabs initialItems={project.evidenceItems} projectId={project.id} />
     </div>
   );
 }

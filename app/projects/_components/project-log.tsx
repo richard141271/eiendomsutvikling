@@ -35,6 +35,7 @@ function LogForm({ projectId, onEntryAdded }: { projectId: string, onEntryAdded:
   const [imageUrls, setImageUrls] = useState<string[]>([]);
   const [loading, setLoading] = useState(false);
   const [mode, setMode] = useState<"TEXT" | "IMAGE">("TEXT");
+  const [includeInReport, setIncludeInReport] = useState(true);
 
   async function handleSubmit() {
     if (!content && imageUrls.length === 0) return;
@@ -47,19 +48,20 @@ function LogForm({ projectId, onEntryAdded }: { projectId: string, onEntryAdded:
           type: "IMAGE",
           content,
           imageUrls,
-          includeInReport: true,
+          includeInReport,
         });
       } else {
         await addProjectEntry({
           projectId,
           type: "NOTE",
           content,
-          includeInReport: true,
+          includeInReport,
         });
       }
       setContent("");
       setImageUrls([]);
       setMode("TEXT");
+      setIncludeInReport(true);
       onEntryAdded();
     } catch (error) {
       console.error(error);
@@ -106,7 +108,11 @@ function LogForm({ projectId, onEntryAdded }: { projectId: string, onEntryAdded:
         />
 
         <div className="flex items-center space-x-2">
-           <Checkbox id="include" defaultChecked />
+           <Checkbox 
+             id="include" 
+             checked={includeInReport}
+             onCheckedChange={(c) => setIncludeInReport(!!c)}
+           />
            <Label htmlFor="include">Ta med i rapport</Label>
         </div>
 

@@ -482,6 +482,7 @@ model EvidenceItem {
   legalDate       DateTime? // Manual override date for timeline
   originalDate    DateTime? // File metadata date (lastModified)
   legalPriority   Int?      // For manual ordering
+  category        String?   // User defined category (e.g. "Skade", "Utbedring")
   
   createdAt       DateTime @default(now())
   updatedAt       DateTime @updatedAt

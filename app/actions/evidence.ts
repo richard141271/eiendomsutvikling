@@ -20,6 +20,33 @@ export async function getNextEvidenceNumber(projectId: string): Promise<number> 
   return sequence.lastEvidenceNumber;
 }
 
+// Helper to ensure sequence is in sync with actual items
+async function ensureSequenceSynced(projectId: string) {
+  const lastItem = await prisma.evidenceItem.findFirst({
+    where: { projectId },
+    orderBy: { evidenceNumber: 'desc' },
+  });
+
+  if (lastItem) {
+    const sequence = await prisma.projectSequence.findUnique({
+      where: { projectId },
+    });
+
+    if (!sequence || sequence.lastEvidenceNumber < lastItem.evidenceNumber) {
+      await prisma.projectSequence.upsert({
+        where: { projectId },
+        create: {
+          projectId,
+          lastEvidenceNumber: lastItem.evidenceNumber,
+        },
+        update: {
+          lastEvidenceNumber: lastItem.evidenceNumber,
+        }
+      });
+    }
+  }
+}
+
 // NOTE: This function is primarily for migration or bulk updates. 
 // For single entry creation, use createEvidenceItemForEntry.
 export async function ensureEvidenceItems(projectId: string) {
@@ -35,19 +62,20 @@ export async function ensureEvidenceItems(projectId: string) {
   if (!project) throw new Error("Project not found");
 
   // Map existing evidence by original entry ID
-  const existingEvidenceMap = new Set(project.evidenceItems.map(e => e.originalEntryId).filter(Boolean));
+  const existingEvidenceMap = new Set(project.evidenceItems.map((e: any) => e.originalEntryId).filter(Boolean));
 
   // Filter entries that need evidence items (Images primarily)
   const entriesToProcess = project.entries.filter(
-    e => (e.type === "IMAGE" || e.imageUrl) && !existingEvidenceMap.has(e.id)
+    (e: any) => (e.type === "IMAGE" || e.imageUrl) && !existingEvidenceMap.has(e.id)
   );
 
   if (entriesToProcess.length === 0) return;
 
   // Sort entries by creation time to ensure chronological numbering
-  entriesToProcess.sort((a, b) => a.createdAt.getTime() - b.createdAt.getTime());
+  entriesToProcess.sort((a: any, b: any) => a.createdAt.getTime() - b.createdAt.getTime());
 
-  let currentNumber = await getNextEvidenceNumber(projectId);
+  // HEAL: Ensure sequence is in sync with actual items before processing
+  await ensureSequenceSynced(projectId);
 
   for (const entry of entriesToProcess) {
     if (!entry.imageUrl) continue;
@@ -72,10 +100,13 @@ export async function ensureEvidenceItems(projectId: string) {
     }
 
     // 2. Create EvidenceItem
+    // ALWAYS get a fresh number for each item to ensure atomic increments
+    const evidenceNumber = await getNextEvidenceNumber(projectId);
+
     await prisma.evidenceItem.create({
       data: {
         projectId,
-        evidenceNumber: currentNumber,
+        evidenceNumber,
         title: entry.content || "Prosjektbilde",
         description: entry.content,
         fileId: file.id,
@@ -84,8 +115,6 @@ export async function ensureEvidenceItems(projectId: string) {
         createdAt: entry.createdAt,
       },
     });
-
-    currentNumber++;
   }
 }
 
@@ -94,6 +123,9 @@ export async function createEvidenceItemForEntry(entry: any) {
   if ((entry.type !== "IMAGE" && !entry.imageUrl) || !entry.imageUrl) {
     return;
   }
+
+  // HEAL: Ensure sequence is in sync
+  await ensureSequenceSynced(entry.projectId);
 
   // 1. Ensure File exists
   let file = await prisma.file.findFirst({
@@ -208,6 +240,8 @@ export async function updateEvidenceItem(id: string, data: {
   description?: string; 
   legalDate?: Date; 
   legalPriority?: number; 
+  includeInReport?: boolean;
+  category?: string;
 }) {
   const supabase = createClient();
   const { data: { user } } = await supabase.auth.getUser();

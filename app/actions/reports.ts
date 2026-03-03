@@ -1,7 +1,7 @@
 "use server";
 
 import { prisma } from "@/lib/prisma";
-import { mapLegalReportToDocument } from "@/lib/reporting/legal-report-mapper";
+import { mapLegalDraftToReport } from "@/lib/reporting/legal-report-mapper";
 import { PdfReportRenderer } from "@/lib/reporting/pdf-renderer";
 import { createClient } from "@/lib/supabase-server";
 import { revalidatePath } from "next/cache";
@@ -92,14 +92,14 @@ export async function generateLegalPdfFromSnapshot(reportId: string): Promise<{ 
 
   // 3. Map to ReportDocument
   // contentSnapshot is JSON, cast to any
-  const reportDoc = mapLegalReportToDocument({
-    project: report.project,
-    draft: report.contentSnapshot as any,
-    evidenceItems: evidenceItems as any,
-    versionNumber: report.versionNumber
-  });
+  const reportDoc = mapLegalDraftToReport(
+    report.project as any,
+    report.contentSnapshot as any,
+    evidenceItems as any,
+    report.versionNumber
+  );
 
-  // 4. Generate PDF
+  // 4. Render PDF
   const renderer = new PdfReportRenderer();
   const pdfBuffer = await renderer.render(reportDoc);
 
