@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { archiveReport, markReportAsDownloaded, generateLegalPdfFromSnapshot, deleteReport } from "@/app/actions/reports";
+import { archiveReport, deleteReport } from "@/app/actions/reports";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Download, Archive, Lock, Check, AlertTriangle, Trash2 } from "lucide-react";
@@ -45,30 +45,16 @@ export function ReportHistoryTable({ reports, projectId }: ReportHistoryTablePro
     filter === "active" ? !r.archived : r.archived
   );
 
-  const handleDownload = async (reportId: string) => {
-    try {
-      setIsProcessing(reportId);
-      
-      // 1. Generate PDF (or get existing URL)
-      const result = await generateLegalPdfFromSnapshot(reportId);
-      
-      if (result.success && result.pdfUrl) {
-        // 2. Open PDF in new tab
-        window.open(result.pdfUrl, '_blank');
-        
-        // 3. Mark as downloaded
-        await markReportAsDownloaded(reportId);
-        toast.success("PDF åpnet og markert som lastet ned");
-        router.refresh();
-      } else {
-        throw new Error("Kunne ikke generere PDF");
-      }
-    } catch (error: any) {
-      console.error("Download error:", error);
-      toast.error(error.message || "Kunne ikke laste ned rapport");
-    } finally {
-      setIsProcessing(null);
-    }
+  const handleDownload = (reportId: string) => {
+    // Direct download via API route to avoid popup blockers and handle auth/signing
+    window.open(`/api/reports/${reportId}/download`, '_blank');
+    
+    toast.success("Nedlasting startet");
+    
+    // Refresh to show "Lastet ned" status (API updates this)
+    setTimeout(() => {
+      router.refresh();
+    }, 2000);
   };
 
   const handleArchive = async (reportId: string) => {
