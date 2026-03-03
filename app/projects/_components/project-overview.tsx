@@ -3,6 +3,7 @@
 
 import { archiveProject } from "@/app/actions/projects";
 import { regenerateReport } from "@/app/actions/reports";
+import { generateLegalReport } from "@/app/actions/generate-report";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Archive, FileText, Download, Loader2, MapPin, Paperclip, Gavel, RefreshCw } from "lucide-react";
@@ -27,30 +28,35 @@ export default function ProjectOverview({ project }: ProjectOverviewProps) {
     }
   }
 
-  async function handleGenerateReport() {
+  async function handleGenerateLegalReport() {
     setGenerating(true);
     try {
-      const res = await fetch(`/api/projects/${project.id}/report-v2`, {
+      // 1. Create Report Instance (Snapshot)
+      const reportResult = await generateLegalReport(project.id);
+      
+      // 2. Generate PDF via API (uses PdfReportRenderer - the new motor)
+      const res = await fetch(`/api/reports/${reportResult.reportId}/generate`, {
         method: "POST",
       });
       
       if (!res.ok) {
-        const data = await res.json().catch(() => ({}));
-        throw new Error(data.details || "Generering feilet");
+        const errorText = await res.text();
+        throw new Error(errorText || "Generering feilet");
       }
       
       const data = await res.json();
       
-      // Open main report
+      if (!data.success) {
+        throw new Error(data.error || "Ukjent feil ved generering");
+      }
+      
+      // 3. Open Report
       if (data.url) {
         window.open(data.url, "_blank");
-      } else {
-        throw new Error("Kunne ikke hente rapport-URL");
       }
-
-      // Open attachments (if any)
+      
+      // 4. Open Attachments
       if (data.attachments && Array.isArray(data.attachments)) {
-        // Add a small delay for popups
         setTimeout(() => {
           data.attachments.forEach((att: { url: string }) => {
             if (att.url) window.open(att.url, "_blank");
@@ -59,8 +65,9 @@ export default function ProjectOverview({ project }: ProjectOverviewProps) {
       }
       
       router.refresh();
+      
     } catch (error) {
-      console.error(error);
+      console.error("Legal Report Error:", error);
       alert(`Kunne ikke generere rapport: ${error instanceof Error ? error.message : String(error)}`);
     } finally {
       setGenerating(false);
@@ -126,6 +133,12 @@ export default function ProjectOverview({ project }: ProjectOverviewProps) {
           <CardTitle>Rapporter</CardTitle>
         </CardHeader>
         <CardContent className="space-y-4">
+          <Button onClick={handleGenerateLegalReport} disabled={generating} className="w-full bg-slate-900 text-white hover:bg-slate-800">
+            {generating ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : <Gavel className="w-4 h-4 mr-2" />}
+            Generer Juridisk Rapport
+          </Button>
+
+          {/* 
           <Button onClick={handleGenerateReport} disabled={generating} className="w-full" variant="outline">
             {generating ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : <FileText className="w-4 h-4 mr-2" />}
             Generer Prosjektrapport (PDF)
@@ -136,6 +149,11 @@ export default function ProjectOverview({ project }: ProjectOverviewProps) {
               <Gavel className="w-4 h-4 mr-2" />
               Opprett Dokumentasjonsrapport
             </Button>
+          </Link> 
+          */}
+
+          <Link href={`/projects/${project.id}/juridisk-rapport`} className="block w-full text-center text-sm text-slate-500 hover:text-slate-900 hover:underline">
+             Rediger rapportinnhold
           </Link>
 
           <Link href={`/projects/${project.id}/evidence`} className="block w-full">
