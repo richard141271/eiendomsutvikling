@@ -56,7 +56,8 @@ export async function GET(
     }
 
     if (!report?.pdfUrl) {
-      return NextResponse.json({ error: "Ingen PDF generert for denne rapporten" }, { status: 404 });
+      console.error("PDF generation failed or returned no URL even after fallback attempt");
+      return NextResponse.json({ error: "Ingen PDF generert for denne rapporten (V2)" }, { status: 404 });
     }
 
     // Sign the URL
