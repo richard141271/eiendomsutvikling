@@ -179,7 +179,7 @@ export class PdfReportRenderer implements ReportRenderer {
     let { pdf: partPdf, font: partFont, bold: partBold } = await initPart();
 
     // Batch processing configuration
-    const BATCH_SIZE = 5; // Restore to 5, we handle timeouts better now
+    const BATCH_SIZE = 1; // Strictly sequential for maximum stability
     
     if (document.evidenceIndex.length > 0) {
       page = mainPdf.addPage();
@@ -189,7 +189,7 @@ export class PdfReportRenderer implements ReportRenderer {
       for (let i = 0; i < document.evidenceIndex.length; i += BATCH_SIZE) {
         const batch = document.evidenceIndex.slice(i, i + BATCH_SIZE);
         
-        // Process batch in parallel
+        // Process batch sequentially (effectively) due to BATCH_SIZE=1
         const processedBatch = await Promise.all(batch.map(async (item, batchIdx) => {
           const globalIdx = i + batchIdx;
           // Calculate part index dynamically based on MAX_PART_IMAGES

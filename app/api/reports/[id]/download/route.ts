@@ -51,7 +51,9 @@ export async function GET(
         }
       } catch (genError) {
         console.error("Fallback generation failed:", genError);
-        return NextResponse.json({ error: "Kunne ikke generere PDF. Vennligst prøv å generere rapporten på nytt fra prosjektsiden." }, { status: 500 });
+        return NextResponse.json({ 
+          error: `Kunne ikke generere PDF (Fallback V3): ${genError instanceof Error ? genError.message : String(genError)}` 
+        }, { status: 500 });
       }
     }
 
