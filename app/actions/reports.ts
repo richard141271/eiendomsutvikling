@@ -5,6 +5,7 @@ import { mapLegalDraftToReport } from "@/lib/reporting/legal-report-mapper";
 import { PdfReportRenderer } from "@/lib/reporting/pdf-renderer";
 import { createClient } from "@/lib/supabase-server";
 import { revalidatePath } from "next/cache";
+import { generateLegalReportPdf } from "@/lib/reporting/report-generator";
 
 export async function generateLegalPdfFromSnapshot(reportId: string): Promise<{ success: boolean; pdfUrl: string; isNew: boolean }> {
   // 1. Fetch Report with Snapshots
@@ -45,134 +46,26 @@ export async function generateLegalPdfFromSnapshot(reportId: string): Promise<{ 
     };
   }
 
-  // 2. Prepare Data for Mapper
-  // Fetch files to get storage paths
-  const snapshots = report.snapshots as any[];
-  console.log(`Processing ${snapshots.length} snapshots for report ${reportId}`);
-
-  const fileIds = snapshots.map((s: any) => s.fileId).filter(Boolean);
-  
-  // Using 'any' cast for file model access
-  const files = await (prisma as any).file.findMany({
-    where: { id: { in: fileIds } }
-  });
-  const fileMap = new Map(files.map((f: any) => [f.id, f]));
-
-  const supabase = createClient();
-  
-  // Batch processing for signed URLs to avoid rate limits or timeouts
-  const BATCH_SIZE = 5;
-  const evidenceItems: any[] = [];
-  
-  for (let i = 0; i < snapshots.length; i += BATCH_SIZE) {
-    const batch = snapshots.slice(i, i + BATCH_SIZE);
-    
-    const batchResults = await Promise.all(batch.map(async (s: any) => {
-        const file = s.fileId ? fileMap.get(s.fileId) : null;
-        let url = (file as any)?.storagePath;
-        
-        // Resolve public/signed URL if it's a path
-        if (url && !url.startsWith('http')) {
-          // Generate a signed URL valid for 1 hour
-          const { data, error } = await supabase.storage
-              .from("project-assets")
-              .createSignedUrl(url, 3600);
-              
-          if (data?.signedUrl) {
-              url = data.signedUrl;
-          } else {
-              console.error(`Failed to sign URL for file ${s.fileId}:`, error);
-              // Fallback to public URL if signing fails (e.g. if bucket is public)
-              const { data: publicData } = supabase.storage
-                  .from("project-assets")
-                  .getPublicUrl(url);
-              url = publicData.publicUrl;
-          }
-        }
-  
-        return {
-          id: s.evidenceItemId,
-          evidenceNumber: s.evidenceNumber,
-          evidenceCode: `B-${String(s.evidenceNumber).padStart(3, '0')}`,
-          title: s.title,
-          description: s.description,
-          fileId: s.fileId,
-          imageUrl: url,
-          file: file ? {
-            url: url,
-            contentType: (file as any).fileType || 'image/jpeg'
-          } : undefined
-        };
-    }));
-    
-    evidenceItems.push(...batchResults);
+  // 2. Generate PDF using the centralized utility (SSOT)
+  // This ensures consistent sorting, batch processing, and error handling
+  try {
+    const result = await generateLegalReportPdf(reportId);
+    return { 
+      success: result.success, 
+      pdfUrl: result.url, 
+      isNew: true 
+    };
+  } catch (error) {
+    console.error("Error in generateLegalPdfFromSnapshot:", error);
+    throw error;
   }
-
-  // 3. Map to ReportDocument
-  // contentSnapshot is JSON, cast to any
-  const reportDoc = mapLegalDraftToReport(
-    report.project as any,
-    report.contentSnapshot as any,
-    evidenceItems as any,
-    report.versionNumber
-  );
-
-  // 4. Render PDF
-  const renderer = new PdfReportRenderer();
-  const pdfBuffer = await renderer.render(reportDoc);
-
-  // 5. Upload to Supabase
-  const fileName = `reports/legal/${report.project.id}/${report.versionNumber}-${Date.now()}.pdf`;
-  
-  const { data: uploadData, error: uploadError } = await supabase.storage
-    .from("project-assets")
-    .upload(fileName, pdfBuffer, {
-      contentType: "application/pdf",
-      upsert: true
-    });
-
-  if (uploadError) throw new Error(`Upload failed: ${uploadError.message}`);
-
-  // Get Public URL (for DB storage)
-  const { data: { publicUrl } } = supabase.storage
-    .from("project-assets")
-    .getPublicUrl(fileName);
-
-  // Generate Signed URL (for immediate download)
-  const { data: signedData } = await supabase.storage
-    .from("project-assets")
-    .createSignedUrl(fileName, 3600);
-
-  // 6. Update ReportInstance with URL
-  await (prisma as any).reportInstance.update({
-    where: { id: reportId },
-    data: {
-      pdfUrl: publicUrl,
-      pdfGeneratedAt: new Date(),
-      pdfSize: pdfBuffer.length
-    }
-  });
-
-  return { success: true, pdfUrl: signedData?.signedUrl || publicUrl, isNew: true };
 }
+
+import { getProjectWithEvidence as getProjectWithEvidenceLib } from "@/lib/data/project";
 
 // Helper to get project with evidence (used by legal-report-mapper or other consumers)
 export async function getProjectWithEvidence(projectId: string) {
-  return await (prisma as any).project.findUnique({
-    where: { id: projectId },
-    include: {
-      evidenceItems: {
-        where: { deletedAt: null },
-        orderBy: { evidenceNumber: 'asc' }
-      } as any, // Cast to avoid strict type checks on include
-      legalReportDraft: true,
-      sequence: true,
-      reportInstances: {
-        orderBy: { versionNumber: 'desc' },
-        include: { snapshots: true }
-      } as any
-    }
-  });
+  return getProjectWithEvidenceLib(projectId);
 }
 
 export async function updateEvidenceInclusion(evidenceId: string, includeInReport: boolean) {

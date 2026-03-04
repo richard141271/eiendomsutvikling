@@ -74,41 +74,14 @@ export async function getProjects(filter?: { status?: string; propertyId?: strin
   });
 }
 
+import { getProject as getProjectLib } from "@/lib/data/project";
+
 export async function getProject(id: string) {
   const supabase = createClient();
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) throw new Error("Unauthorized");
 
-  const project = await prisma.project.findUnique({
-    where: { id },
-    include: {
-      property: true,
-      unit: true,
-      entries: { orderBy: { createdAt: "desc" } },
-      tasks: { orderBy: { createdAt: "asc" } },
-      reports: { orderBy: { createdAt: "desc" } },
-      // @ts-ignore
-      evidenceItems: {
-        select: {
-           id: true,
-           evidenceNumber: true,
-           originalEntryId: true,
-           title: true,
-           description: true
-        }
-      },
-    },
-  });
-
-  if (!project) return null;
-
-  // Fetch report instances manually to avoid type issues
-  const reportInstances = await (prisma as any).reportInstance.findMany({
-    where: { projectId: id },
-    orderBy: { createdAt: "desc" },
-  });
-
-  return { ...project, reportInstances };
+  return getProjectLib(id);
 }
 
 export async function updateProject(id: string, data: {

@@ -1,18 +1,19 @@
 
-import { getProject } from "@/app/actions/projects";
+import { getProject } from "@/lib/data/project";
 import { notFound, redirect } from "next/navigation";
 import ProjectClient from "./project-client";
 import { ChevronLeft } from "lucide-react";
 import Link from "next/link";
 import { createClient } from "@/lib/supabase-server";
 import { prisma } from "@/lib/prisma";
+import { serialize } from "@/lib/utils/serialization";
 
 export default async function ProjectPage({ params }: { params: { id: string } }) {
   const supabase = createClient();
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) redirect("/login");
 
-  const project = await getProject(params.id);
+  const project = await getProject(params.id) as any;
 
   if (!project) {
     notFound();
@@ -39,7 +40,7 @@ export default async function ProjectPage({ params }: { params: { id: string } }
         </p>
       </div>
 
-      <ProjectClient project={project} />
+      <ProjectClient project={serialize(project)} />
     </div>
   );
 }

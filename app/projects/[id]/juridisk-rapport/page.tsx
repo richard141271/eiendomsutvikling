@@ -1,18 +1,22 @@
 import { ReportHistoryTable } from "@/components/report-history-table";
 import { LegalReportDraftForm } from "@/components/legal-report-form";
-import { getProjectWithEvidence } from "@/app/actions/reports";
+import { getProjectWithEvidence } from "@/lib/data/project";
 import { notFound } from "next/navigation";
 import { revalidatePath } from "next/cache";
 import Link from "next/link";
 import { ChevronLeft } from "lucide-react";
+import { serialize } from "@/lib/utils/serialization";
 
 export default async function LegalReportPage({ params }: { params: { id: string } }) {
   try {
-    const project = await getProjectWithEvidence(params.id) as any;
+    const rawProject = await getProjectWithEvidence(params.id) as any;
     
-    if (!project) {
+    if (!rawProject) {
       notFound();
     }
+
+    // Serialize to handle Dates before passing to Client Components
+    const project = serialize(rawProject);
 
     // Get draft or empty object
     const draft = project.legalReportDraft || {};
@@ -67,12 +71,12 @@ export default async function LegalReportPage({ params }: { params: { id: string
             reports={project.reportInstances.map((r: any) => ({
               id: r.id,
               versionNumber: r.versionNumber,
-              createdAt: new Date(r.createdAt).toISOString(),
+              createdAt: r.createdAt, // Already serialized string
               totalEvidenceCount: r.snapshots ? r.snapshots.length : 0,
               archived: r.archived,
               backupDownloaded: r.backupDownloaded,
-              backupDownloadedAt: r.backupDownloadedAt ? new Date(r.backupDownloadedAt).toISOString() : undefined,
-              archivedAt: r.archivedAt ? new Date(r.archivedAt).toISOString() : undefined,
+              backupDownloadedAt: r.backupDownloadedAt,
+              archivedAt: r.archivedAt,
               pdfUrl: r.pdfUrl,
             }))} 
             projectId={project.id} 

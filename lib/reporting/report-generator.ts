@@ -212,9 +212,27 @@ export async function generateLegalReportPdf(reportId: string) {
     }
   });
 
+  // Generate Signed URLs for immediate download
+  const { data: signedMain } = await adminSupabase.storage
+    .from(bucketName)
+    .createSignedUrl(mainFileName, 3600);
+
+  const signedAttachments = await Promise.all(attachments.map(async (att, idx) => {
+    // Extract path from public URL if possible, or use the filename we just used
+    // We know the filename pattern: reports/legal/{projectId}/{version}-{timestamp}-part{i+1}.pdf
+    const partFileName = `reports/legal/${report.project.id}/${report.versionNumber}-${timestamp}-part${idx+1}.pdf`;
+    const { data } = await adminSupabase.storage
+        .from(bucketName)
+        .createSignedUrl(partFileName, 3600);
+    return {
+        title: att.title,
+        url: data?.signedUrl || att.url
+    };
+  }));
+
   return { 
     success: true, 
-    url: mainUrl,
-    attachments
+    url: signedMain?.signedUrl || mainUrl,
+    attachments: signedAttachments
   };
 }
