@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { useDebounce } from "use-debounce";
 import { toast } from "sonner";
 import { Loader2 } from "lucide-react";
@@ -48,14 +48,7 @@ export function LegalReportDraftForm({ projectId, initialData, evidenceItems, on
   const resolvedLinks = evidenceItems.filter(e => e.missingLink && e.missingLinkResolved).length;
   const isReady = missingLinks === 0 && includedEvidence > 0;
 
-  // Autosave effect
-  useEffect(() => {
-    if (debouncedFormData) {
-      handleSave(debouncedFormData);
-    }
-  }, [debouncedFormData]);
-
-  const handleSave = async (data: any) => {
+  const handleSave = useCallback(async (data: any) => {
     setIsSaving(true);
     try {
       await upsertLegalReportDraft(projectId, data);
@@ -64,7 +57,14 @@ export function LegalReportDraftForm({ projectId, initialData, evidenceItems, on
     } finally {
       setIsSaving(false);
     }
-  };
+  }, [projectId]);
+
+  // Autosave effect
+  useEffect(() => {
+    if (debouncedFormData) {
+      handleSave(debouncedFormData);
+    }
+  }, [debouncedFormData, handleSave]);
 
   const handleGenerateClick = async () => {
     setIsGenerating(true);
@@ -168,7 +168,7 @@ export function LegalReportDraftForm({ projectId, initialData, evidenceItems, on
                 <div className="flex flex-col p-3 bg-slate-50 rounded-lg border">
                     <span className="text-slate-500 font-medium">Avklarte mangler</span>
                     <span className="text-2xl font-bold text-blue-600">{resolvedLinks}</span>
-                    <span className="text-xs text-slate-400">Godkjent som "Avklart"</span>
+                    <span className="text-xs text-slate-400">Godkjent som &quot;Avklart&quot;</span>
                 </div>
             </div>
         </CardContent>
