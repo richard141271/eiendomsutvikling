@@ -3,7 +3,7 @@
 import { useState, useEffect } from "react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
-import { Plus, LayoutList, Table as TableIcon, AlertTriangle } from "lucide-react";
+import { Plus, LayoutList, Table as TableIcon, AlertTriangle, Music, MessageSquare, Landmark, Ruler } from "lucide-react";
 import TimelineView from "./timeline-view";
 import EvidenceBankView from "./evidence-bank-view";
 import NewEvidenceDialog from "./new-evidence-dialog";
@@ -75,6 +75,10 @@ export default function EvidenceTabs({ initialItems, projectId }: EvidenceTabsPr
     if (filter === "all") return true;
     if (filter === "report") return item.includeInReport;
     if (filter === "image") return item.file.fileType.startsWith("image/");
+    if (filter === "audio") return item.sourceType === "audio" || item.file.fileType.startsWith("audio/");
+    if (filter === "sms") return item.sourceType === "sms";
+    if (filter === "public_document") return item.sourceType === "public_document";
+    if (filter === "measurement") return item.sourceType === "measurement";
     if (filter === "no-date") return !item.legalDate;
     if (filter === "missing-link") return item.missingLink;
     if (filter === "no-category") return !item.category;
@@ -111,6 +115,22 @@ export default function EvidenceTabs({ initialItems, projectId }: EvidenceTabsPr
             <Button variant={filter === "all" ? "secondary" : "ghost"} size="sm" onClick={() => setFilter("all")} className="text-xs h-8">Vis alle</Button>
             <Button variant={filter === "report" ? "secondary" : "ghost"} size="sm" onClick={() => setFilter("report")} className="text-xs h-8">Kun rapport</Button>
             <Button variant={filter === "image" ? "secondary" : "ghost"} size="sm" onClick={() => setFilter("image")} className="text-xs h-8">Kun bilder</Button>
+            <Button variant={filter === "audio" ? "secondary" : "ghost"} size="sm" onClick={() => setFilter("audio")} className="text-xs h-8">
+              <Music className="w-3 h-3 mr-1" />
+              Lydopptak
+            </Button>
+            <Button variant={filter === "sms" ? "secondary" : "ghost"} size="sm" onClick={() => setFilter("sms")} className="text-xs h-8">
+              <MessageSquare className="w-3 h-3 mr-1" />
+              SMS
+            </Button>
+            <Button variant={filter === "public_document" ? "secondary" : "ghost"} size="sm" onClick={() => setFilter("public_document")} className="text-xs h-8">
+              <Landmark className="w-3 h-3 mr-1" />
+              Offentlig
+            </Button>
+            <Button variant={filter === "measurement" ? "secondary" : "ghost"} size="sm" onClick={() => setFilter("measurement")} className="text-xs h-8">
+              <Ruler className="w-3 h-3 mr-1" />
+              Måling
+            </Button>
             <Button variant={filter === "no-date" ? "secondary" : "ghost"} size="sm" onClick={() => setFilter("no-date")} className="text-xs h-8">Uten dato</Button>
             <Button variant={filter === "missing-link" ? "secondary" : "ghost"} size="sm" onClick={() => setFilter("missing-link")} className="text-xs h-8 text-amber-700 hover:text-amber-800 hover:bg-amber-50">
               <AlertTriangle className="w-3 h-3 mr-1" />

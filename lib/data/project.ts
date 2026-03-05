@@ -59,7 +59,6 @@ export async function getProject(id: string) {
            file: {
                select: {
                  storagePath: true,
-                 url: true, // In case we have it in DB later
                  fileType: true
                }
              },

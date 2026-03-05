@@ -11,7 +11,7 @@ import { Label } from "@/components/ui/label";
 import { Checkbox } from "@/components/ui/checkbox";
 import { DatePicker } from "@/components/ui/date-picker";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Clock, Lock, Save, Trash2, FileText, Image as ImageIcon, Copy, AlertTriangle } from "lucide-react";
+import { Clock, Lock, Save, Trash2, FileText, Image as ImageIcon, Copy, AlertTriangle, Music, Film, Mail, MessageSquare, Landmark, Ruler } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { updateEvidenceItem } from "@/app/actions/evidence";
 import { toast } from "sonner";
@@ -23,8 +23,8 @@ interface EvidenceItem {
   title: string;
   description: string | null;
   fileId: string;
-  legalDate: Date | null;
-  originalDate: Date | null;
+  legalDate: Date | string | null;
+  originalDate: Date | string | null;
   includeInReport: boolean;
   legalPriority: number | null;
   category: string | null;
@@ -40,7 +40,7 @@ interface EvidenceItem {
     url?: string;
     originalName?: string;
   };
-  createdAt: Date;
+  createdAt: Date | string;
 }
 
 interface EditPanelProps {
@@ -80,8 +80,9 @@ export function EditPanel({ item, availableEvidence, isOpen, onClose, onSave }: 
       setLinkedEvidenceId(item.linkedEvidenceId || "none");
       
       if (item.legalDate) {
-        setLegalDate(item.legalDate);
-        setTime(format(item.legalDate, "HH:mm"));
+        const d = new Date(item.legalDate);
+        setLegalDate(d);
+        setTime(format(d, "HH:mm"));
       } else {
         setLegalDate(undefined);
         setTime("12:00");
@@ -184,7 +185,21 @@ export function EditPanel({ item, availableEvidence, isOpen, onClose, onSave }: 
                )
             ) : (
               <div className="flex flex-col items-center text-slate-400 cursor-pointer hover:text-slate-600" onClick={() => (item.file.url || item.file.storagePath) && window.open(item.file.url || item.file.storagePath, '_blank')}>
-                <FileText className="h-12 w-12 mb-2" />
+                {(item.sourceType === "audio" || item.file.fileType.startsWith("audio/")) ? (
+                  <Music className="h-12 w-12 mb-2" />
+                ) : (item.sourceType === "video" || item.file.fileType.startsWith("video/")) ? (
+                  <Film className="h-12 w-12 mb-2" />
+                ) : (item.sourceType === "email" || item.file.fileType === "message/rfc822") ? (
+                  <Mail className="h-12 w-12 mb-2" />
+                ) : (item.sourceType === "sms") ? (
+                  <MessageSquare className="h-12 w-12 mb-2" />
+                ) : (item.sourceType === "public_document") ? (
+                  <Landmark className="h-12 w-12 mb-2" />
+                ) : (item.sourceType === "measurement") ? (
+                  <Ruler className="h-12 w-12 mb-2" />
+                ) : (
+                  <FileText className="h-12 w-12 mb-2" />
+                )}
                 <span className="text-xs font-medium">{item.file.originalName || "Dokument"}</span>
                 <span className="text-[10px] mt-1 text-slate-500 uppercase">{item.file.fileType.split('/')[1] || "FIL"}</span>
               </div>
@@ -231,8 +246,12 @@ export function EditPanel({ item, availableEvidence, isOpen, onClose, onSave }: 
                 <SelectContent>
                   <SelectItem value="photo">Foto</SelectItem>
                   <SelectItem value="video">Video</SelectItem>
+                  <SelectItem value="audio">Lydopptak</SelectItem>
                   <SelectItem value="email">E-post</SelectItem>
                   <SelectItem value="document">Dokument</SelectItem>
+                  <SelectItem value="sms">SMS / melding</SelectItem>
+                  <SelectItem value="public_document">Offentlig dokument</SelectItem>
+                  <SelectItem value="measurement">Teknisk måling</SelectItem>
                   <SelectItem value="expert_report">Sakkyndig rapport</SelectItem>
                   <SelectItem value="witness_statement">Vitneforklaring</SelectItem>
                 </SelectContent>
@@ -306,7 +325,7 @@ export function EditPanel({ item, availableEvidence, isOpen, onClose, onSave }: 
               <span className="block text-xs font-medium text-slate-500 mb-1 flex items-center">
                 <Lock className="w-3 h-3 mr-1" /> Registrert
               </span>
-              {format(item.createdAt, "dd.MM.yyyy HH:mm")}
+              {format(new Date(item.createdAt), "dd.MM.yyyy HH:mm")}
             </div>
             <div 
               className={cn(
@@ -315,8 +334,9 @@ export function EditPanel({ item, availableEvidence, isOpen, onClose, onSave }: 
               )}
               onClick={() => {
                 if (item.originalDate) {
-                  setLegalDate(item.originalDate);
-                  setTime(format(item.originalDate, "HH:mm"));
+                  const d = new Date(item.originalDate);
+                  setLegalDate(d);
+                  setTime(format(d, "HH:mm"));
                   toast.success("Dato og tid kopiert fra fil");
                 }
               }}
@@ -328,7 +348,7 @@ export function EditPanel({ item, availableEvidence, isOpen, onClose, onSave }: 
                   <Copy className="w-3 h-3 ml-2 opacity-0 group-hover:opacity-100 transition-opacity text-blue-500" />
                 )}
               </span>
-              {item.originalDate ? format(item.originalDate, "dd.MM.yyyy HH:mm") : "-"}
+              {item.originalDate ? format(new Date(item.originalDate), "dd.MM.yyyy HH:mm") : "-"}
             </div>
           </div>
 

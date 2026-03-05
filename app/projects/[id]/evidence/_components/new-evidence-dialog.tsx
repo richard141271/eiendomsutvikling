@@ -158,6 +158,9 @@ export default function NewEvidenceDialog({ projectId, onSuccess }: NewEvidenceD
         } else if (['mp4', 'mov', 'avi', 'webm'].includes(ext || '')) {
           fileType = "video/mp4";
           sourceType = "video";
+        } else if (['mp3', 'wav', 'm4a', 'aac', 'ogg', 'wma'].includes(ext || '')) {
+          fileType = "audio/mpeg";
+          sourceType = "audio";
         } else if (ext === 'pdf') {
           fileType = "application/pdf";
           sourceType = "document";
@@ -255,6 +258,7 @@ export default function NewEvidenceDialog({ projectId, onSuccess }: NewEvidenceD
                     // Map fileType to sourceType
                     if (data.fileType.startsWith("image/")) setDetectedSourceType("photo");
                     else if (data.fileType.startsWith("video/")) setDetectedSourceType("video");
+                    else if (data.fileType.startsWith("audio/")) setDetectedSourceType("audio");
                     else if (data.fileType === "message/rfc822") setDetectedSourceType("email");
                     else setDetectedSourceType("document");
                   }

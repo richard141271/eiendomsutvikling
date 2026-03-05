@@ -8,7 +8,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Checkbox } from "@/components/ui/checkbox";
-import { FileText, Image as ImageIcon, Search, ArrowUpDown, Filter, AlertTriangle } from "lucide-react";
+import { FileText, Image as ImageIcon, Search, ArrowUpDown, Filter, AlertTriangle, Music, Film, Mail, MessageSquare, Landmark, Ruler } from "lucide-react";
 import { EditPanel } from "./edit-panel";
 
 interface EvidenceItem {
@@ -17,8 +17,8 @@ interface EvidenceItem {
   title: string;
   description: string | null;
   fileId: string;
-  legalDate: Date | null;
-  originalDate: Date | null;
+  legalDate: Date | string | null;
+  originalDate: Date | string | null;
   includeInReport: boolean;
   legalPriority: number | null;
   category: string | null;
@@ -33,7 +33,7 @@ interface EvidenceItem {
     storagePath: string;
     url?: string;
   };
-  createdAt: Date;
+  createdAt: Date | string;
 }
 
 interface EvidenceBankViewProps {
@@ -68,9 +68,16 @@ export default function EvidenceBankView({ items, allItems, onUpdateItem }: Evid
     let valA = a[sortField];
     let valB = b[sortField];
 
-    // Handle dates
+    // Handle dates (Date object or string)
     if (valA instanceof Date) valA = valA.getTime();
+    else if (typeof valA === 'string' && (sortField === 'legalDate' || sortField === 'createdAt' || sortField === 'originalDate')) {
+        valA = new Date(valA).getTime();
+    }
+    
     if (valB instanceof Date) valB = valB.getTime();
+    else if (typeof valB === 'string' && (sortField === 'legalDate' || sortField === 'createdAt' || sortField === 'originalDate')) {
+        valB = new Date(valB).getTime();
+    }
 
     // Handle nulls
     if (valA === null || valA === undefined) return 1;
@@ -151,7 +158,21 @@ export default function EvidenceBankView({ items, allItems, onUpdateItem }: Evid
                     </div>
                   ) : (
                     <div className="h-10 w-10 rounded-md flex items-center justify-center border border-slate-200 bg-slate-50 cursor-pointer" onClick={() => window.open(getFileUrl(item.file.url || item.file.storagePath), '_blank')}>
-                      <FileText className="h-5 w-5 text-slate-400" />
+                      {(item.sourceType === "audio" || item.file.fileType.startsWith("audio/")) ? (
+                        <Music className="h-5 w-5 text-slate-400" />
+                      ) : (item.sourceType === "video" || item.file.fileType.startsWith("video/")) ? (
+                        <Film className="h-5 w-5 text-slate-400" />
+                      ) : (item.sourceType === "email" || item.file.fileType === "message/rfc822") ? (
+                        <Mail className="h-5 w-5 text-slate-400" />
+                      ) : (item.sourceType === "sms") ? (
+                        <MessageSquare className="h-5 w-5 text-slate-400" />
+                      ) : (item.sourceType === "public_document") ? (
+                        <Landmark className="h-5 w-5 text-slate-400" />
+                      ) : (item.sourceType === "measurement") ? (
+                        <Ruler className="h-5 w-5 text-slate-400" />
+                      ) : (
+                        <FileText className="h-5 w-5 text-slate-400" />
+                      )}
                     </div>
                   )}
                 </TableCell>
@@ -180,14 +201,14 @@ export default function EvidenceBankView({ items, allItems, onUpdateItem }: Evid
                 <TableCell>
                   {item.legalDate ? (
                     <span className="font-medium">
-                      {format(item.legalDate, "dd.MM.yyyy")}
+                      {format(new Date(item.legalDate), "dd.MM.yyyy")}
                     </span>
                   ) : (
                     <span className="text-slate-400 italic text-xs">Ikke satt</span>
                   )}
                 </TableCell>
                 <TableCell className="text-muted-foreground text-sm">
-                  {format(item.createdAt, "dd.MM.yyyy")}
+                  {format(new Date(item.createdAt), "dd.MM.yyyy")}
                 </TableCell>
                 <TableCell>
                   {item.includeInReport ? (

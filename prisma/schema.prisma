@@ -499,7 +499,7 @@ model EvidenceItem {
   legalPriority   Int?      // For manual ordering
   category        String?   // User defined category (e.g. "Skade", "Utbedring")
   
-  sourceType       String? // photo, video, email, document, expert_report, witness_statement
+  sourceType       String? // photo, video, audio, email, document, expert_report, witness_statement
   reliabilityLevel String? // primary, secondary, supporting
   
   missingLink      Boolean @default(false)

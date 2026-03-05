@@ -3,7 +3,7 @@
 import { useState, useMemo } from "react";
 import { format, isValid, parseISO, isSameDay } from "date-fns";
 import { nb } from "date-fns/locale";
-import { Calendar as CalendarIcon, GripVertical, FileText, Image as ImageIcon, Loader2, Check, AlertCircle, Clock, AlertTriangle } from "lucide-react";
+import { Calendar as CalendarIcon, GripVertical, FileText, Image as ImageIcon, Loader2, Check, AlertCircle, Clock, AlertTriangle, Music, Film, Mail, MessageSquare, Landmark, Ruler } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
@@ -18,8 +18,8 @@ interface EvidenceItem {
   title: string;
   description: string | null;
   fileId: string;
-  legalDate: Date | null;
-  originalDate: Date | null;
+  legalDate: Date | string | null;
+  originalDate: Date | string | null;
   includeInReport: boolean;
   legalPriority: number | null;
   category: string | null;
@@ -55,8 +55,8 @@ export default function TimelineView({ items, allItems, onUpdateItem }: Timeline
 
     // Sort items: Legal Date -> Priority -> Evidence Number
     const sorted = [...items].sort((a, b) => {
-      const dateA = a.legalDate ? a.legalDate.getTime() : 0;
-      const dateB = b.legalDate ? b.legalDate.getTime() : 0;
+      const dateA = a.legalDate ? new Date(a.legalDate).getTime() : 0;
+      const dateB = b.legalDate ? new Date(b.legalDate).getTime() : 0;
       if (dateA !== dateB) return dateB - dateA; // Newest first
       
       const priA = a.legalPriority ?? a.evidenceNumber;
@@ -68,10 +68,11 @@ export default function TimelineView({ items, allItems, onUpdateItem }: Timeline
       if (!item.legalDate) {
         noDateItems.push(item);
       } else {
-        const dateStr = format(item.legalDate, "yyyy-MM-dd");
+        const dateObj = new Date(item.legalDate);
+        const dateStr = format(dateObj, "yyyy-MM-dd");
         let group = groups.find(g => g.dateStr === dateStr);
         if (!group) {
-          group = { dateStr, dateObj: item.legalDate, items: [] };
+          group = { dateStr, dateObj: dateObj, items: [] };
           groups.push(group);
         }
         group.items.push(item);
@@ -119,16 +120,18 @@ export default function TimelineView({ items, allItems, onUpdateItem }: Timeline
       newDate = parseISO(targetDateStr);
       // Keep original time if possible, otherwise noon
       if (item.legalDate) {
-        newDate.setHours(item.legalDate.getHours(), item.legalDate.getMinutes());
+        const current = new Date(item.legalDate);
+        newDate.setHours(current.getHours(), current.getMinutes());
       } else {
         newDate.setHours(12, 0, 0, 0);
       }
     }
 
     // Check if date actually changed
+    const currentLegalDate = item.legalDate ? new Date(item.legalDate) : null;
     if (
-      (newDate === null && item.legalDate === null) ||
-      (newDate && item.legalDate && isSameDay(newDate, item.legalDate))
+      (newDate === null && currentLegalDate === null) ||
+      (newDate && currentLegalDate && isSameDay(newDate, currentLegalDate))
     ) {
       setDraggedItemId(null);
       return;
@@ -209,6 +212,18 @@ export default function TimelineView({ items, allItems, onUpdateItem }: Timeline
                       alt="Bevis" 
                       className="h-full w-full object-cover" 
                     />
+                  ) : (item.sourceType === "audio" || item.file.fileType.startsWith("audio/")) ? (
+                    <Music className="w-5 h-5" />
+                  ) : (item.sourceType === "video" || item.file.fileType.startsWith("video/")) ? (
+                    <Film className="w-5 h-5" />
+                  ) : (item.sourceType === "email" || item.file.fileType === "message/rfc822") ? (
+                    <Mail className="w-5 h-5" />
+                  ) : (item.sourceType === "sms") ? (
+                    <MessageSquare className="w-5 h-5" />
+                  ) : (item.sourceType === "public_document") ? (
+                    <Landmark className="w-5 h-5" />
+                  ) : (item.sourceType === "measurement") ? (
+                    <Ruler className="w-5 h-5" />
                   ) : (
                     <FileText className="w-5 h-5" />
                   )}
@@ -240,7 +255,7 @@ export default function TimelineView({ items, allItems, onUpdateItem }: Timeline
                     {item.legalDate && (
                       <span className="flex items-center">
                         <Clock className="w-3 h-3 mr-1" />
-                        {format(item.legalDate, "HH:mm")}
+                        {format(new Date(item.legalDate), "HH:mm")}
                       </span>
                     )}
                     {item.description && (
@@ -271,7 +286,12 @@ export default function TimelineView({ items, allItems, onUpdateItem }: Timeline
         isOpen={!!selectedItem}
         onClose={() => setSelectedItem(null)}
         onSave={(updated) => {
-          onUpdateItem(updated);
+          onUpdateItem({
+            ...updated,
+            createdAt: new Date(updated.createdAt),
+            legalDate: updated.legalDate ? new Date(updated.legalDate) : null,
+            originalDate: updated.originalDate ? new Date(updated.originalDate) : null,
+          } as EvidenceItem);
           setSelectedItem(null);
         }}
       />
