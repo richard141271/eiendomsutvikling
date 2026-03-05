@@ -185,7 +185,7 @@ export function mapLegalDraftToReport(
   }
 
   // 8. Missing Links Section (if any)
-  const missingLinkItems = evidenceItems.filter(e => e.missingLink);
+  const missingLinkItems = evidenceItems.filter(e => e.missingLink && !e.missingLinkResolved);
   if (missingLinkItems.length > 0) {
     builder.addSection({
       id: "missing-links",
@@ -213,7 +213,14 @@ export function mapLegalDraftToReport(
           kind: "LIST", 
           items: evidenceItems.map(e => {
             const dateStr = e.date ? e.date.toLocaleDateString("no-NO") : "Ingen dato";
-            const missingStr = e.missingLink ? " (⚠️ Mangler link" + (e.missingLinkNote ? `: ${e.missingLinkNote}` : "") + ")" : "";
+            let missingStr = "";
+            if (e.missingLink) {
+                if (e.missingLinkResolved) {
+                    missingStr = " (Avklart)";
+                } else {
+                    missingStr = " (⚠️ Mangler link" + (e.missingLinkNote ? `: ${e.missingLinkNote}` : "") + ")";
+                }
+            }
             const linkedStr = e.linkedEvidenceNumber ? ` (🔗 Ref: B-${String(e.linkedEvidenceNumber).padStart(3, '0')})` : "";
             return `${e.evidenceCode}: ${e.title} (${dateStr})${missingStr}${linkedStr}`;
           }) 

@@ -4,6 +4,7 @@ import { prisma } from "@/lib/prisma";
 import { createClient } from "@/lib/supabase-server";
 import { revalidatePath } from "next/cache";
 import { createEvidenceItemForEntry, ensureEvidenceItems } from "@/app/actions/evidence";
+import { getProject as getProjectLib } from "@/lib/data/project";
 
 // --- Project CRUD ---
 
@@ -73,8 +74,6 @@ export async function getProjects(filter?: { status?: string; propertyId?: strin
     },
   });
 }
-
-import { getProject as getProjectLib } from "@/lib/data/project";
 
 export async function getProject(id: string) {
   const supabase = createClient();

@@ -197,14 +197,19 @@ export class PdfReportRenderer implements ReportRenderer {
           // Actual splitting depends on size/count during iteration.
           const partIndex = Math.floor(globalIdx / MAX_PART_IMAGES) + 1;
           
-          if (!item.imageUrl) return { item, globalIdx, partIndex, imgBytes: null, thumbBytes: null, error: null };
+          if (!item.imageUrl && !item.sourceType) return { item, globalIdx, partIndex, imgBytes: null, thumbBytes: null, error: null };
+
+          // If source type exists but no image URL (e.g. audio/video), return placeholder info immediately
+          if (!item.imageUrl && item.sourceType) {
+             return { item, globalIdx, partIndex, imgBytes: null, thumbBytes: null, error: null };
+          }
 
           try {
             // Fetch with timeout
             const controller = new AbortController();
             const timeoutId = setTimeout(() => controller.abort(), 20000); 
             
-            const response = await fetch(item.imageUrl, { signal: controller.signal });
+            const response = await fetch(item.imageUrl!, { signal: controller.signal });
             clearTimeout(timeoutId);
             
             if (!response.ok) throw new Error(`Status ${response.status}`);
@@ -293,10 +298,20 @@ export class PdfReportRenderer implements ReportRenderer {
              y -= 10;
           } else if (item.imageUrl) {
              y -= 20; 
+          } else if (item.sourceType) {
+             let typeLabel = "ANNET FILVEDLEGG";
+             if (item.sourceType === 'audio') typeLabel = "LYDOPPTAK";
+             if (item.sourceType === 'video') typeLabel = "VIDEO";
+             if (item.sourceType === 'sms') typeLabel = "SMS / MELDING";
+             if (item.sourceType === 'public_document') typeLabel = "OFFENTLIG DOKUMENT";
+             if (item.sourceType === 'measurement') typeLabel = "TEKNISK MÅLING";
+             
+             drawLine(`[${typeLabel}] (Se vedlegg)`, 10, mainFont);
+             y -= 20;
           }
 
           // 2. Add Full Image (or Error Placeholder) to Appendix
-          if (item.imageUrl) {
+          if (item.imageUrl || item.sourceType) {
             const imgSize = imgBytes ? imgBytes.byteLength : 0;
             
             // Check limits: If adding this image exceeds limit, save current part and start new
@@ -389,9 +404,41 @@ export class PdfReportRenderer implements ReportRenderer {
                         pPage.drawText(`[Feil: Kunne ikke bygge inn bildeformat]`, { x: 50, y: pY, size: 12, font: partFont });
                     }
                 } catch (e) {
-                    console.error("Failed to embed evidence image into appendix:", e);
-                    pPage.drawText(`[Feil ved innsetting av bilde: ${e}]`, { x: 50, y: pY, size: 12, font: partFont });
+                     pPage.drawText(`[Feil ved bildebehandling: ${e instanceof Error ? e.message : 'Ukjent'}]`, { x: 50, y: pY, size: 12, font: partFont });
                 }
+            } else if (item.sourceType) {
+                 let typeLabel = "ANNET FILVEDLEGG";
+                 let desc = "Dette beviset er et filvedlegg som ikke kan vises direkte i PDF-en.";
+                 
+                 if (item.sourceType === 'audio') { 
+                     typeLabel = "LYDOPPTAK"; 
+                     desc = "Dette beviset er et lydopptak. Vennligst se vedlagt lydfil.";
+                 }
+                 else if (item.sourceType === 'video') { 
+                     typeLabel = "VIDEO"; 
+                     desc = "Dette beviset er en video. Vennligst se vedlagt videofil.";
+                 }
+                 else if (item.sourceType === 'sms') { 
+                     typeLabel = "SMS / MELDING"; 
+                     desc = "Dette beviset er en SMS/Melding. Se vedlagt fil.";
+                 }
+                 else if (item.sourceType === 'public_document') { 
+                     typeLabel = "OFFENTLIG DOKUMENT"; 
+                     desc = "Dette beviset er et offentlig dokument (PDF/Bilde). Se vedlagt fil.";
+                 }
+                 else if (item.sourceType === 'measurement') { 
+                     typeLabel = "TEKNISK MÅLING"; 
+                     desc = "Dette beviset er en teknisk måling. Se vedlagt fil.";
+                 }
+
+                 pPage.drawText(`[${typeLabel}]`, { x: 50, y: pY, size: 18, font: partBold });
+                 pY -= 30;
+                 
+                 const descLines = wordWrap(desc, partFont, 12, pWidth - 100);
+                 for (const line of descLines) {
+                     pPage.drawText(line, { x: 50, y: pY, size: 12, font: partFont });
+                     pY -= 16;
+                 }
             } else {
                 // Fetch failed
                 pPage.drawText(`[Bilde kunne ikke lastes ned: ${error || "Ukjent feil"}]`, { x: 50, y: pY, size: 12, font: partFont });

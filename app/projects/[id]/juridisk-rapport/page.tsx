@@ -27,6 +27,9 @@ export default async function LegalReportPage({ params }: { params: { id: string
       evidenceNumber: item.evidenceNumber,
       title: item.title,
       includeInReport: item.includeInReport,
+      missingLink: item.missingLink,
+      missingLinkResolved: item.missingLinkResolved,
+      sourceType: item.sourceType,
     }));
 
     return (

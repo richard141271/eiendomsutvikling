@@ -20,6 +20,9 @@ interface EvidenceItem {
   evidenceNumber: number;
   title: string;
   includeInReport: boolean;
+  missingLink?: boolean;
+  missingLinkResolved?: boolean;
+  sourceType?: string;
 }
 
 interface LegalReportDraftFormProps {
@@ -37,6 +40,13 @@ export function LegalReportDraftForm({ projectId, initialData, evidenceItems, on
   const [evidenceSelection, setEvidenceSelection] = useState<Record<string, boolean>>(
     evidenceItems.reduce((acc, item) => ({ ...acc, [item.id]: item.includeInReport }), {})
   );
+
+  // Stats calculation
+  const totalEvidence = evidenceItems.length;
+  const includedEvidence = Object.values(evidenceSelection).filter(Boolean).length;
+  const missingLinks = evidenceItems.filter(e => e.missingLink && !e.missingLinkResolved).length;
+  const resolvedLinks = evidenceItems.filter(e => e.missingLink && e.missingLinkResolved).length;
+  const isReady = missingLinks === 0 && includedEvidence > 0;
 
   // Autosave effect
   useEffect(() => {
@@ -131,6 +141,39 @@ export function LegalReportDraftForm({ projectId, initialData, evidenceItems, on
   return (
     <div className="space-y-8 max-w-4xl mx-auto pb-20">
       
+      {/* 0. Status Sammendrag (Sammendragsboks) */}
+      <Card className={`border-l-4 ${missingLinks > 0 ? "border-l-red-500" : isReady ? "border-l-emerald-500" : "border-l-amber-500"}`}>
+        <CardHeader className="pb-2">
+          <CardTitle className="flex items-center justify-between">
+            <span>Rapportstatus: {missingLinks > 0 ? "Mangler dokumentasjon" : isReady ? "Klar til generering" : "Under arbeid"}</span>
+            {isReady && <span className="text-sm font-normal bg-emerald-100 text-emerald-800 px-2 py-1 rounded-full">Klar</span>}
+            {missingLinks > 0 && <span className="text-sm font-normal bg-red-100 text-red-800 px-2 py-1 rounded-full">Mangler info</span>}
+          </CardTitle>
+          <CardDescription>Oversikt over bevis og dokumentasjon.</CardDescription>
+        </CardHeader>
+        <CardContent>
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-sm">
+                <div className="flex flex-col p-3 bg-slate-50 rounded-lg border">
+                    <span className="text-slate-500 font-medium">Totalt antall bevis</span>
+                    <span className="text-2xl font-bold">{totalEvidence}</span>
+                    <span className="text-xs text-slate-400">Inkludert i rapport: {includedEvidence}</span>
+                </div>
+                <div className="flex flex-col p-3 bg-slate-50 rounded-lg border">
+                    <span className="text-slate-500 font-medium">Manglende koblinger</span>
+                    <span className={`text-2xl font-bold ${missingLinks > 0 ? "text-red-600" : "text-emerald-600"}`}>
+                        {missingLinks}
+                    </span>
+                    <span className="text-xs text-slate-400">Må løses før ferdigstillelse</span>
+                </div>
+                <div className="flex flex-col p-3 bg-slate-50 rounded-lg border">
+                    <span className="text-slate-500 font-medium">Avklarte mangler</span>
+                    <span className="text-2xl font-bold text-blue-600">{resolvedLinks}</span>
+                    <span className="text-xs text-slate-400">Godkjent som "Avklart"</span>
+                </div>
+            </div>
+        </CardContent>
+      </Card>
+
       {/* 1. Sammendrag */}
       <Card>
         <CardHeader>
@@ -287,9 +330,18 @@ export function LegalReportDraftForm({ projectId, initialData, evidenceItems, on
                   checked={evidenceSelection[item.id] ?? false}
                   onCheckedChange={(checked) => toggleEvidence(item.id, checked as boolean)}
                 />
-                <Label htmlFor={`evidence-${item.id}`} className="cursor-pointer flex-1">
-                  <span className="font-mono font-bold mr-2">B-{String(item.evidenceNumber).padStart(3, '0')}</span>
-                  {item.title}
+                <Label htmlFor={`evidence-${item.id}`} className="cursor-pointer flex-1 flex items-center justify-between">
+                  <div>
+                    <span className="font-mono font-bold mr-2">B-{String(item.evidenceNumber).padStart(3, '0')}</span>
+                    {item.title}
+                  </div>
+                  {item.missingLink && (
+                    item.missingLinkResolved ? (
+                        <span className="text-xs bg-blue-100 text-blue-700 px-2 py-0.5 rounded-full ml-2">Avklart</span>
+                    ) : (
+                        <span className="text-xs bg-red-100 text-red-700 px-2 py-0.5 rounded-full ml-2">Mangler kobling</span>
+                    )
+                  )}
                 </Label>
               </div>
             ))}

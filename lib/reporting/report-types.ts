@@ -68,10 +68,12 @@ export interface EvidenceItem {
   category?: string;
   date?: Date;
   source?: string;
+  sourceType?: string;
   imageUrl?: string;
   attachmentId?: string;
   missingLink?: boolean;
   missingLinkNote?: string;
+  missingLinkResolved?: boolean;
   linkedEvidenceNumber?: number;
 }
 

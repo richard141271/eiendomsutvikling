@@ -15,6 +15,9 @@ export default async function EvidencePage({ params }: { params: { id: string } 
 
   if (!project) notFound();
 
+  // Serialize dates to strings to avoid "Date object" warning in Client Components
+  const serializedEvidenceItems = JSON.parse(JSON.stringify(project.evidenceItems));
+
   return (
     <div className="container max-w-6xl mx-auto p-4 pb-24">
       <div className="mb-4">
@@ -30,7 +33,7 @@ export default async function EvidencePage({ params }: { params: { id: string } 
         </p>
       </div>
 
-      <EvidenceTabs initialItems={project.evidenceItems} projectId={project.id} />
+      <EvidenceTabs initialItems={serializedEvidenceItems} projectId={project.id} />
     </div>
   );
 }
