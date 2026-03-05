@@ -305,6 +305,10 @@ export class PdfReportRenderer implements ReportRenderer {
              if (item.sourceType === 'sms') typeLabel = "SMS / MELDING";
              if (item.sourceType === 'public_document') typeLabel = "OFFENTLIG DOKUMENT";
              if (item.sourceType === 'measurement') typeLabel = "TEKNISK MÅLING";
+             if (item.sourceType === 'expert_report') typeLabel = "SAKKYNDIG RAPPORT";
+             if (item.sourceType === 'witness_statement') typeLabel = "VITNEFORKLARING";
+             if (item.sourceType === 'email') typeLabel = "E-POST";
+             if (item.sourceType === 'document') typeLabel = "DOKUMENT";
              
              drawLine(`[${typeLabel}] (Se vedlegg)`, 10, mainFont);
              y -= 20;
@@ -429,6 +433,22 @@ export class PdfReportRenderer implements ReportRenderer {
                  else if (item.sourceType === 'measurement') { 
                      typeLabel = "TEKNISK MÅLING"; 
                      desc = "Dette beviset er en teknisk måling. Se vedlagt fil.";
+                 }
+                 else if (item.sourceType === 'expert_report') {
+                     typeLabel = "SAKKYNDIG RAPPORT";
+                     desc = "Dette beviset er en sakkyndig rapport. Se vedlagt dokument.";
+                 }
+                 else if (item.sourceType === 'witness_statement') {
+                     typeLabel = "VITNEFORKLARING";
+                     desc = "Dette beviset er en vitneforklaring. Se vedlagt dokument/lyd/video.";
+                 }
+                 else if (item.sourceType === 'email') {
+                     typeLabel = "E-POST";
+                     desc = "Dette beviset er en e-post. Se vedlagt fil.";
+                 }
+                 else if (item.sourceType === 'document') {
+                     typeLabel = "DOKUMENT";
+                     desc = "Dette beviset er et dokument. Se vedlagt fil.";
                  }
 
                  pPage.drawText(`[${typeLabel}]`, { x: 50, y: pY, size: 18, font: partBold });
