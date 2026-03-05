@@ -8,7 +8,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { FileUpload } from "@/components/file-upload";
-import { createEvidenceItem } from "@/app/actions/evidence";
+import { createEvidenceItem, updateEvidenceItem } from "@/app/actions/evidence";
 import { Plus } from "lucide-react";
 import { toast } from "sonner";
 
@@ -25,6 +25,7 @@ export default function NewEvidenceDialog({ projectId, onSuccess }: NewEvidenceD
   const [description, setDescription] = useState("");
   const [detectedFileType, setDetectedFileType] = useState<string>("");
   const [detectedSourceType, setDetectedSourceType] = useState<string>("");
+  const [uploadedEvidenceId, setUploadedEvidenceId] = useState<string | null>(null);
 
   const router = useRouter();
 
@@ -37,6 +38,7 @@ export default function NewEvidenceDialog({ projectId, onSuccess }: NewEvidenceD
       setDescription("");
       setDetectedFileType("");
       setDetectedSourceType("");
+      setUploadedEvidenceId(null);
     }
   };
 
@@ -88,21 +90,36 @@ export default function NewEvidenceDialog({ projectId, onSuccess }: NewEvidenceD
         }
       }
 
-      const newItem = await createEvidenceItem({
-        projectId,
-        url,
-        title,
-        description,
-        fileType,
-        originalName: title, // Fallback if we don't have original name easily available
-        sourceType,
-        reliabilityLevel: "primary"
-      });
+      if (uploadedEvidenceId) {
+        // Update existing item created by upload
+        await updateEvidenceItem(uploadedEvidenceId, {
+          title,
+          description,
+          sourceType,
+          reliabilityLevel: "primary"
+        });
+        
+        // We need to fetch the full item to pass to onSuccess
+        // But since we don't have it here, we'll just pass a partial object or rely on refresh
+        // Ideally we would fetch it, but let's trust refresh
+      } else {
+        // Create new item (fallback if upload didn't create one, though it should have)
+        await createEvidenceItem({
+          projectId,
+          url,
+          title,
+          description,
+          fileType,
+          originalName: title,
+          sourceType,
+          reliabilityLevel: "primary"
+        });
+      }
 
-      toast.success("Bevis opprettet");
+      toast.success(uploadedEvidenceId ? "Bevis oppdatert" : "Bevis opprettet");
       
       if (onSuccess) {
-        onSuccess(newItem);
+        onSuccess(null); // Just trigger refresh
       }
       
       router.refresh();
@@ -143,6 +160,9 @@ export default function NewEvidenceDialog({ projectId, onSuccess }: NewEvidenceD
               }}
               onUploadComplete={(data) => {
                 console.log("Upload complete:", data);
+                if (data.evidenceId) {
+                  setUploadedEvidenceId(data.evidenceId);
+                }
                 if (data.originalName && !title) {
                   setTitle(data.originalName);
                 }

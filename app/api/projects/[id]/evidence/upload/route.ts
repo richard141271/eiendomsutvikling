@@ -5,7 +5,7 @@ import { NextResponse } from "next/server";
 import { getNextEvidenceNumber } from "@/app/actions/evidence";
 import puppeteer from "puppeteer";
 import exifr from "exifr";
-import { PDFParse } from "pdf-parse";
+import PDFParse from "pdf-parse";
 import * as cheerio from "cheerio";
 import { simpleParser } from "mailparser";
 import crypto from "crypto";
@@ -94,7 +94,7 @@ export async function POST(
     // 2. PDF Metadata
     else if (fileType === 'application/pdf' || file.name.toLowerCase().endsWith('.pdf')) {
       try {
-        const data = await (PDFParse as any)(originalBuffer);
+        const data = await PDFParse(originalBuffer);
         extractedText = data.text;
         
         if (data.info) {

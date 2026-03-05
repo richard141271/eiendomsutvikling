@@ -213,7 +213,7 @@ export function mapLegalDraftToReport(
           kind: "LIST", 
           items: evidenceItems.map(e => {
             const dateStr = e.date ? e.date.toLocaleDateString("no-NO") : "Ingen dato";
-            const missingStr = e.missingLink ? " (⚠️ Mangler link)" : "";
+            const missingStr = e.missingLink ? " (⚠️ Mangler link" + (e.missingLinkNote ? `: ${e.missingLinkNote}` : "") + ")" : "";
             const linkedStr = e.linkedEvidenceNumber ? ` (🔗 Ref: B-${String(e.linkedEvidenceNumber).padStart(3, '0')})` : "";
             return `${e.evidenceCode}: ${e.title} (${dateStr})${missingStr}${linkedStr}`;
           }) 
