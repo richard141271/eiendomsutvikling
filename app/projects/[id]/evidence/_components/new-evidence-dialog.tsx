@@ -42,6 +42,38 @@ export default function NewEvidenceDialog({ projectId, onSuccess }: NewEvidenceD
     }
   };
 
+  const calculateChecksum = async (file: File): Promise<string> => {
+    const buffer = await file.arrayBuffer();
+    const hashBuffer = await crypto.subtle.digest('SHA-256', buffer);
+    const hashArray = Array.from(new Uint8Array(hashBuffer));
+    const hashHex = hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
+    return hashHex;
+  };
+
+  const handleBeforeUpload = async (file: File): Promise<boolean> => {
+    try {
+      const hash = await calculateChecksum(file);
+      const res = await fetch(`/api/projects/${projectId}/evidence/check-duplicate`, {
+        method: 'POST',
+        body: JSON.stringify({ hash }),
+      });
+      
+      if (!res.ok) return true; 
+      
+      const data = await res.json();
+      if (data.exists) {
+        return window.confirm(
+          `Denne filen (${file.name}) ligger allerede i prosjektet.\n\nEr du sikker på at du vil laste den opp på nytt?`
+        );
+      }
+      
+      return true;
+    } catch (error) {
+      console.error("Duplicate check failed:", error);
+      return true; 
+    }
+  };
+
   const handleSave = async () => {
     if (!url) {
       toast.error("Du må laste opp en fil");
@@ -150,6 +182,7 @@ export default function NewEvidenceDialog({ projectId, onSuccess }: NewEvidenceD
             <FileUpload 
               value={url} 
               endpoint={`/api/projects/${projectId}/evidence/upload`}
+              onBeforeUpload={handleBeforeUpload}
               onChange={(newUrl) => {
                 setUrl(newUrl);
                 // Auto-set title if empty and url has a name

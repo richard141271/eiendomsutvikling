@@ -14,15 +14,28 @@ interface FileUploadProps {
   accept?: string;
   endpoint?: string;
   onUploadComplete?: (data: any) => void;
+  onBeforeUpload?: (file: File) => Promise<boolean>;
 }
 
-export function FileUpload({ value, onChange, label = "Fil", onUploadStatusChange, allowMultiple = false, accept, endpoint, onUploadComplete }: FileUploadProps) {
+export function FileUpload({ value, onChange, label = "Fil", onUploadStatusChange, allowMultiple = false, accept, endpoint, onUploadComplete, onBeforeUpload }: FileUploadProps) {
   const [uploading, setUploading] = useState(false);
   const [fileName, setFileName] = useState<string | null>(value ? "Fil lastet opp" : null);
 
   const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = e.target.files ? Array.from(e.target.files) : [];
     if (!files.length) return;
+
+    // Check before upload if provided
+    if (onBeforeUpload) {
+      for (const file of files) {
+        const shouldContinue = await onBeforeUpload(file);
+        if (!shouldContinue) {
+          // Reset input so user can pick again
+          e.target.value = '';
+          return;
+        }
+      }
+    }
 
     setUploading(true);
     if (onUploadStatusChange) onUploadStatusChange(true);
