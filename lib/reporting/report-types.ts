@@ -72,6 +72,7 @@ export interface EvidenceItem {
   attachmentId?: string;
   missingLink?: boolean;
   missingLinkNote?: string;
+  linkedEvidenceNumber?: number;
 }
 
 export interface EconomyLine {

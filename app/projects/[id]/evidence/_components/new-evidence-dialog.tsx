@@ -23,6 +23,8 @@ export default function NewEvidenceDialog({ projectId, onSuccess }: NewEvidenceD
   const [url, setUrl] = useState<string | null>(null);
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
+  const [detectedFileType, setDetectedFileType] = useState<string>("");
+  const [detectedSourceType, setDetectedSourceType] = useState<string>("");
 
   const router = useRouter();
 
@@ -33,6 +35,8 @@ export default function NewEvidenceDialog({ projectId, onSuccess }: NewEvidenceD
       setUrl(null);
       setTitle("");
       setDescription("");
+      setDetectedFileType("");
+      setDetectedSourceType("");
     }
   };
 
@@ -50,32 +54,38 @@ export default function NewEvidenceDialog({ projectId, onSuccess }: NewEvidenceD
     try {
       setLoading(true);
 
-      // Determine file type from extension
-      const ext = url.split('.').pop()?.toLowerCase();
-      let fileType = "application/octet-stream";
-      let sourceType = "document"; // Default source type
-      
-      if (['jpg', 'jpeg', 'png', 'gif', 'webp'].includes(ext || '')) {
-        fileType = "image/jpeg";
-        sourceType = "photo";
-      } else if (['mp4', 'mov', 'avi', 'webm'].includes(ext || '')) {
-        fileType = "video/mp4";
-        sourceType = "video";
-      } else if (ext === 'pdf') {
-        fileType = "application/pdf";
-        sourceType = "document";
-      } else if (['doc', 'docx'].includes(ext || '')) {
-        fileType = "application/vnd.openxmlformats-officedocument.wordprocessingml.document";
-        sourceType = "document";
-      } else if (['xls', 'xlsx'].includes(ext || '')) {
-        fileType = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet";
-        sourceType = "document";
-      } else if (['eml', 'msg'].includes(ext || '')) {
-        fileType = "message/rfc822";
-        sourceType = "email";
-      } else if (['html', 'htm'].includes(ext || '')) {
-        fileType = "text/html";
-        sourceType = "document";
+      // Use detected types or fallback to extension-based detection
+      let fileType = detectedFileType;
+      let sourceType = detectedSourceType;
+
+      if (!fileType) {
+        // Fallback logic
+        const ext = url.split('.').pop()?.toLowerCase();
+        fileType = "application/octet-stream";
+        sourceType = "document"; // Default source type
+        
+        if (['jpg', 'jpeg', 'png', 'gif', 'webp'].includes(ext || '')) {
+          fileType = "image/jpeg";
+          sourceType = "photo";
+        } else if (['mp4', 'mov', 'avi', 'webm'].includes(ext || '')) {
+          fileType = "video/mp4";
+          sourceType = "video";
+        } else if (ext === 'pdf') {
+          fileType = "application/pdf";
+          sourceType = "document";
+        } else if (['doc', 'docx'].includes(ext || '')) {
+          fileType = "application/vnd.openxmlformats-officedocument.wordprocessingml.document";
+          sourceType = "document";
+        } else if (['xls', 'xlsx'].includes(ext || '')) {
+          fileType = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet";
+          sourceType = "document";
+        } else if (['eml', 'msg'].includes(ext || '')) {
+          fileType = "message/rfc822";
+          sourceType = "email";
+        } else if (['html', 'htm'].includes(ext || '')) {
+          fileType = "text/html";
+          sourceType = "document";
+        }
       }
 
       const newItem = await createEvidenceItem({
@@ -122,12 +132,31 @@ export default function NewEvidenceDialog({ projectId, onSuccess }: NewEvidenceD
           <div className="space-y-2">
             <FileUpload 
               value={url} 
+              endpoint={`/api/projects/${projectId}/evidence/upload`}
               onChange={(newUrl) => {
                 setUrl(newUrl);
                 // Auto-set title if empty and url has a name
                 if (!title && newUrl) {
                   const fileName = newUrl.split('/').pop();
                   if (fileName) setTitle(fileName);
+                }
+              }}
+              onUploadComplete={(data) => {
+                console.log("Upload complete:", data);
+                if (data.originalName && !title) {
+                  setTitle(data.originalName);
+                }
+                if (data.fileType) {
+                  setDetectedFileType(data.fileType);
+                  // Map fileType to sourceType
+                  if (data.fileType.startsWith("image/")) setDetectedSourceType("photo");
+                  else if (data.fileType.startsWith("video/")) setDetectedSourceType("video");
+                  else if (data.fileType === "message/rfc822") setDetectedSourceType("email");
+                  else setDetectedSourceType("document");
+                }
+                if (data.metadata?.extractedText && !description) {
+                  // Optional: Pre-fill description with first 200 chars of text?
+                  // Maybe too intrusive. Let's stick to basics.
                 }
               }}
               label="Last opp fil"

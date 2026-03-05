@@ -205,7 +205,7 @@ export default function WitnessList({ project }: WitnessListProps) {
                     </SelectItem>
                   ))}
                   {project.events.length === 0 && (
-                     <div className="p-2 text-sm text-muted-foreground text-center">Ingen hendelser funnet. Bruk "Auto-grupper" i bevisoversikten først.</div>
+                     <div className="p-2 text-sm text-muted-foreground text-center">Ingen hendelser funnet. Bruk &quot;Auto-grupper&quot; i bevisoversikten først.</div>
                   )}
                 </SelectContent>
               </Select>

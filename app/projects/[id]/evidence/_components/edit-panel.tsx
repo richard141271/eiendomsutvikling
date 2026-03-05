@@ -44,12 +44,13 @@ interface EvidenceItem {
 
 interface EditPanelProps {
   item: EvidenceItem | null;
+  availableEvidence: EvidenceItem[];
   isOpen: boolean;
   onClose: () => void;
   onSave: (updatedItem: EvidenceItem) => void;
 }
 
-export function EditPanel({ item, isOpen, onClose, onSave }: EditPanelProps) {
+export function EditPanel({ item, availableEvidence, isOpen, onClose, onSave }: EditPanelProps) {
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
   const [legalDate, setLegalDate] = useState<Date | undefined>(undefined);
@@ -60,6 +61,7 @@ export function EditPanel({ item, isOpen, onClose, onSave }: EditPanelProps) {
   const [reliabilityLevel, setReliabilityLevel] = useState<string>("primary");
   const [missingLink, setMissingLink] = useState(false);
   const [missingLinkNote, setMissingLinkNote] = useState("");
+  const [linkedEvidenceId, setLinkedEvidenceId] = useState<string>("none");
   const [isSaving, setIsSaving] = useState(false);
 
   useEffect(() => {
@@ -72,6 +74,7 @@ export function EditPanel({ item, isOpen, onClose, onSave }: EditPanelProps) {
       setReliabilityLevel(item.reliabilityLevel || "primary");
       setMissingLink(item.missingLink || false);
       setMissingLinkNote(item.missingLinkNote || "");
+      setLinkedEvidenceId(item.linkedEvidenceId || "none");
       
       if (item.legalDate) {
         setLegalDate(item.legalDate);
@@ -106,6 +109,7 @@ export function EditPanel({ item, isOpen, onClose, onSave }: EditPanelProps) {
         reliabilityLevel,
         missingLink,
         missingLinkNote: missingLink ? missingLinkNote : null,
+        linkedEvidenceId: linkedEvidenceId === "none" ? null : linkedEvidenceId,
       });
 
       onSave({
@@ -119,6 +123,7 @@ export function EditPanel({ item, isOpen, onClose, onSave }: EditPanelProps) {
         reliabilityLevel,
         missingLink,
         missingLinkNote: missingLink ? missingLinkNote : null,
+        linkedEvidenceId: linkedEvidenceId === "none" ? null : linkedEvidenceId,
       });
       
       toast.success("Endringer lagret");
@@ -134,6 +139,14 @@ export function EditPanel({ item, isOpen, onClose, onSave }: EditPanelProps) {
   if (!item) return null;
 
   const isImage = item.file.fileType.startsWith("image/");
+
+  const getFileUrl = (path: string) => {
+    if (path.startsWith("http") || path.startsWith("blob:")) return path;
+    const bucket = process.env.NEXT_PUBLIC_SUPABASE_BUCKET || "project-assets";
+    const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+    if (!supabaseUrl) return path; // Fallback
+    return `${supabaseUrl}/storage/v1/object/public/${bucket}/${path}`;
+  };
 
   return (
     <Sheet open={isOpen} onOpenChange={(open) => !open && onClose()}>
@@ -152,7 +165,7 @@ export function EditPanel({ item, isOpen, onClose, onSave }: EditPanelProps) {
                item.file.url || item.file.storagePath ? (
                  <div className="relative w-full h-full">
                    <Image 
-                     src={item.file.url || item.file.storagePath} 
+                     src={getFileUrl(item.file.url || item.file.storagePath)} 
                      alt={item.title}
                      fill
                      className="object-contain"
@@ -231,6 +244,27 @@ export function EditPanel({ item, isOpen, onClose, onSave }: EditPanelProps) {
                   <SelectItem value="primary">Primærbevis</SelectItem>
                   <SelectItem value="secondary">Støttebevis</SelectItem>
                   <SelectItem value="supporting">Kontekst</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div className="grid gap-2">
+              <Label>Refererer til bevis</Label>
+              <Select value={linkedEvidenceId} onValueChange={setLinkedEvidenceId}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Velg bevis" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="none">Ingen kobling</SelectItem>
+                  {availableEvidence
+                    .filter(e => e.id !== item.id) // Don't link to self
+                    .sort((a, b) => a.evidenceNumber - b.evidenceNumber)
+                    .map(e => (
+                      <SelectItem key={e.id} value={e.id}>
+                        #{e.evidenceNumber} {e.title}
+                      </SelectItem>
+                    ))
+                  }
                 </SelectContent>
               </Select>
             </div>

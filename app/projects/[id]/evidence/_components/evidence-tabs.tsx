@@ -24,6 +24,7 @@ interface EvidenceItem {
   reliabilityLevel: string | null;
   missingLink?: boolean;
   missingLinkNote?: string | null;
+  linkedEvidenceId?: string | null;
   file: {
     fileType: string;
     storagePath: string;
@@ -115,12 +116,12 @@ export default function EvidenceTabs({ initialItems, projectId }: EvidenceTabsPr
 
           <TabsContent value="timeline" className="mt-0">
              <div className="bg-slate-50/50 min-h-[500px] rounded-lg p-6 border border-dashed border-slate-200">
-               <TimelineView items={filteredItems} onUpdateItem={handleUpdateItem} />
+               <TimelineView items={filteredItems} allItems={items} onUpdateItem={handleUpdateItem} />
              </div>
           </TabsContent>
 
           <TabsContent value="bank" className="mt-0">
-            <EvidenceBankView items={filteredItems} onUpdateItem={handleUpdateItem} />
+            <EvidenceBankView items={filteredItems} allItems={items} onUpdateItem={handleUpdateItem} />
           </TabsContent>
         </Tabs>
       </div>

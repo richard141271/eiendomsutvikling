@@ -37,10 +37,11 @@ interface EvidenceItem {
 
 interface TimelineViewProps {
   items: EvidenceItem[];
+  allItems: EvidenceItem[];
   onUpdateItem: (item: EvidenceItem) => void;
 }
 
-export default function TimelineView({ items, onUpdateItem }: TimelineViewProps) {
+export default function TimelineView({ items, allItems, onUpdateItem }: TimelineViewProps) {
   const [draggedItemId, setDraggedItemId] = useState<string | null>(null);
   const [selectedItem, setSelectedItem] = useState<EvidenceItem | null>(null);
   const [isUpdating, setIsUpdating] = useState(false);
@@ -92,6 +93,14 @@ export default function TimelineView({ items, onUpdateItem }: TimelineViewProps)
   const handleDragOver = (e: React.DragEvent) => {
     e.preventDefault();
     e.dataTransfer.dropEffect = "move";
+  };
+
+  const getFileUrl = (path: string) => {
+    if (path.startsWith("http") || path.startsWith("blob:")) return path;
+    const bucket = process.env.NEXT_PUBLIC_SUPABASE_BUCKET || "project-assets";
+    const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+    if (!supabaseUrl) return path; // Fallback
+    return `${supabaseUrl}/storage/v1/object/public/${bucket}/${path}`;
   };
 
   const handleDropOnDate = async (e: React.DragEvent, targetDateStr: string) => {
@@ -191,10 +200,10 @@ export default function TimelineView({ items, onUpdateItem }: TimelineViewProps)
                 </div>
 
                 {/* Icon */}
-                <div className="h-10 w-10 bg-slate-50 rounded-md flex items-center justify-center border text-slate-500 shrink-0 overflow-hidden cursor-pointer" onClick={() => window.open(item.file.url || item.file.storagePath, '_blank')}>
+                <div className="h-10 w-10 bg-slate-50 rounded-md flex items-center justify-center border text-slate-500 shrink-0 overflow-hidden cursor-pointer" onClick={() => window.open(getFileUrl(item.file.url || item.file.storagePath), '_blank')}>
                   {item.file.fileType.startsWith("image/") ? (
                     <img 
-                      src={item.file.url || item.file.storagePath} 
+                      src={getFileUrl(item.file.url || item.file.storagePath)} 
                       alt="Bevis" 
                       className="h-full w-full object-cover" 
                     />
@@ -256,6 +265,7 @@ export default function TimelineView({ items, onUpdateItem }: TimelineViewProps)
 
       <EditPanel 
         item={selectedItem}
+        availableEvidence={allItems}
         isOpen={!!selectedItem}
         onClose={() => setSelectedItem(null)}
         onSave={(updated) => {

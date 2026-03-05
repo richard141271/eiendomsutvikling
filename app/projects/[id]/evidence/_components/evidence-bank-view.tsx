@@ -36,10 +36,11 @@ interface EvidenceItem {
 
 interface EvidenceBankViewProps {
   items: EvidenceItem[];
+  allItems: EvidenceItem[];
   onUpdateItem: (item: EvidenceItem) => void;
 }
 
-export default function EvidenceBankView({ items, onUpdateItem }: EvidenceBankViewProps) {
+export default function EvidenceBankView({ items, allItems, onUpdateItem }: EvidenceBankViewProps) {
   const [searchTerm, setSearchTerm] = useState("");
   const [sortField, setSortField] = useState<keyof EvidenceItem | "evidenceNumber">("evidenceNumber");
   const [sortDirection, setSortDirection] = useState<"asc" | "desc">("asc");
@@ -78,9 +79,21 @@ export default function EvidenceBankView({ items, onUpdateItem }: EvidenceBankVi
     return 0;
   });
 
+  const handleUpdateItem = (updatedItem: EvidenceItem) => {
+    onUpdateItem(updatedItem);
+  };
+  
+  const getFileUrl = (path: string) => {
+    if (path.startsWith("http") || path.startsWith("blob:")) return path;
+    const bucket = process.env.NEXT_PUBLIC_SUPABASE_BUCKET || "project-assets";
+    const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+    if (!supabaseUrl) return path; // Fallback
+    return `${supabaseUrl}/storage/v1/object/public/${bucket}/${path}`;
+  };
+
   return (
     <div className="space-y-4">
-      <div className="flex items-center justify-between gap-4">
+      <div className="flex flex-col sm:flex-row gap-4 justify-between items-start sm:items-center">
         <div className="relative flex-1 max-w-sm">
           <Search className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" />
           <Input
@@ -127,15 +140,15 @@ export default function EvidenceBankView({ items, onUpdateItem }: EvidenceBankVi
                 </TableCell>
                 <TableCell>
                   {item.file.fileType.startsWith("image/") ? (
-                    <div className="h-10 w-10 rounded-md overflow-hidden border border-slate-200 bg-slate-50 cursor-pointer" onClick={() => window.open(item.file.url || item.file.storagePath, '_blank')}>
+                    <div className="h-10 w-10 rounded-md overflow-hidden border border-slate-200 bg-slate-50 cursor-pointer" onClick={() => window.open(getFileUrl(item.file.url || item.file.storagePath), '_blank')}>
                       <img 
-                        src={item.file.url || item.file.storagePath} 
+                        src={getFileUrl(item.file.url || item.file.storagePath)} 
                         alt="Bevis" 
                         className="h-full w-full object-cover" 
                       />
                     </div>
                   ) : (
-                    <div className="h-10 w-10 rounded-md flex items-center justify-center border border-slate-200 bg-slate-50 cursor-pointer" onClick={() => window.open(item.file.url || item.file.storagePath, '_blank')}>
+                    <div className="h-10 w-10 rounded-md flex items-center justify-center border border-slate-200 bg-slate-50 cursor-pointer" onClick={() => window.open(getFileUrl(item.file.url || item.file.storagePath), '_blank')}>
                       <FileText className="h-5 w-5 text-slate-400" />
                     </div>
                   )}
@@ -198,6 +211,7 @@ export default function EvidenceBankView({ items, onUpdateItem }: EvidenceBankVi
 
       <EditPanel 
         item={selectedItem}
+        availableEvidence={allItems}
         isOpen={!!selectedItem}
         onClose={() => setSelectedItem(null)}
         onSave={(updated) => {

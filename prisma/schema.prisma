@@ -650,6 +650,9 @@ model ReportEvidenceSnapshot {
   missingLink    Boolean  @default(false)
   missingLinkNote String?
 
+  linkedEvidenceId String?
+  linkedEvidenceNumber Int?
+
   includedAt     DateTime       @default(now())
 }
 

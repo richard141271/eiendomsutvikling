@@ -5,7 +5,7 @@ import { NextResponse } from "next/server";
 import { getNextEvidenceNumber } from "@/app/actions/evidence";
 import puppeteer from "puppeteer";
 import exifr from "exifr";
-import pdf from "pdf-parse";
+import { PDFParse } from "pdf-parse";
 import * as cheerio from "cheerio";
 import { simpleParser } from "mailparser";
 import crypto from "crypto";
@@ -38,6 +38,7 @@ export async function POST(
     // Convert file to Buffer for processing
     const arrayBuffer = await file.arrayBuffer();
     const originalBuffer = Buffer.from(arrayBuffer);
+    let uploadBuffer = originalBuffer;
     
     // Calculate SHA256 Hash
     const hashSum = crypto.createHash('sha256');
@@ -93,22 +94,26 @@ export async function POST(
     // 2. PDF Metadata
     else if (fileType === 'application/pdf' || file.name.toLowerCase().endsWith('.pdf')) {
       try {
-        const data = await pdf(originalBuffer);
+        const parser = new PDFParse({ data: originalBuffer });
+        const data = await parser.getText();
         extractedText = data.text;
         
-        if (data.info) {
-            if (data.info.CreationDate) {
+        const info = await parser.getInfo();
+        if (info && info.info) {
+            if (info.info.CreationDate) {
                 // PDF date format: D:YYYYMMDDHHmmSSOHH'mm'
                 // Simplistic parsing or use a library. pdf-parse might return string.
                 // Try to parse if it's a standard string, otherwise skip complex parsing for now.
                 // Actually pdf-parse info object usually has raw strings.
                 // Let's try to extract basic info.
-                if (data.info.Title) title = data.info.Title;
-                if (data.info.Author) sender = data.info.Author;
-                if (data.info.Subject) subject = data.info.Subject;
+                // No direct title/author on info.info object by default unless we cast or use any
+                const meta = info.info as any;
+                if (meta.Title) title = meta.Title;
+                if (meta.Author) sender = meta.Author;
+                if (meta.Subject) subject = meta.Subject;
             }
         }
-        metadata.pageCount = data.numpages;
+        metadata.pageCount = data.pages ? data.pages.length : 0;
       } catch (e) {
         console.warn("PDF extraction failed:", e);
       }
@@ -223,18 +228,15 @@ export async function POST(
             // Use pdfBuffer for upload
             // We need to re-assign 'buffer' variable if we were using one, but here we use originalBuffer vs pdfBuffer
             // Let's use a 'uploadBuffer' variable
-            var uploadBuffer = pdfBuffer;
+            uploadBuffer = pdfBuffer;
 
         } catch (e) {
             console.error("HTML to PDF conversion failed:", e);
             // Fallback: Use original buffer
-            var uploadBuffer = originalBuffer;
+            uploadBuffer = originalBuffer;
         } finally {
             if (browser) await browser.close();
         }
-    } else {
-        // Default buffer
-        var uploadBuffer = originalBuffer;
     }
 
     // Determine Final Dates

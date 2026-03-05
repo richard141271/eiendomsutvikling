@@ -254,6 +254,10 @@ export class PdfReportRenderer implements ReportRenderer {
           
           if (item.date) drawLine(`Dato: ${item.date.toLocaleDateString("no-NO")}`, 10);
           
+          if (item.linkedEvidenceNumber) {
+             drawLine(`Refererer til: Bevis B-${String(item.linkedEvidenceNumber).padStart(3, '0')}`, 10, mainFont, 50, rgb(0, 0.4, 0.8));
+          }
+
           // Use the calculated partIndex for the text, which should align with our splitting logic
           drawLine(`Se Vedlegg Del ${partIndex}`, 10, mainFont);
 

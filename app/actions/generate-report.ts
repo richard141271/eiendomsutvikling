@@ -47,7 +47,10 @@ export async function generateLegalReportInternal(projectId: string) {
         includeInReport: true,
         deletedAt: null
       },
-      include: { file: true },
+      include: { 
+        file: true,
+        linkedEvidence: true // Include linked evidence to get its number
+      },
       orderBy: { evidenceNumber: 'asc' }
     });
 
@@ -93,6 +96,8 @@ export async function generateLegalReportInternal(projectId: string) {
             fileId: item.fileId, // Snapshot file reference too
             missingLink: item.missingLink,
             missingLinkNote: item.missingLinkNote,
+            linkedEvidenceId: item.linkedEvidenceId,
+            linkedEvidenceNumber: item.linkedEvidence?.evidenceNumber,
             includedAt: new Date()
         }))
     });

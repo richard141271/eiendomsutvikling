@@ -12,9 +12,11 @@ interface FileUploadProps {
   onUploadStatusChange?: (isUploading: boolean) => void;
   allowMultiple?: boolean;
   accept?: string;
+  endpoint?: string;
+  onUploadComplete?: (data: any) => void;
 }
 
-export function FileUpload({ value, onChange, label = "Fil", onUploadStatusChange, allowMultiple = false, accept }: FileUploadProps) {
+export function FileUpload({ value, onChange, label = "Fil", onUploadStatusChange, allowMultiple = false, accept, endpoint, onUploadComplete }: FileUploadProps) {
   const [uploading, setUploading] = useState(false);
   const [fileName, setFileName] = useState<string | null>(value ? "Fil lastet opp" : null);
 
@@ -32,7 +34,7 @@ export function FileUpload({ value, onChange, label = "Fil", onUploadStatusChang
         const formData = new FormData();
         formData.append("file", file);
 
-        const response = await fetch("/api/upload", {
+        const response = await fetch(endpoint || "/api/upload", {
           method: "POST",
           body: formData,
         });
@@ -40,7 +42,12 @@ export function FileUpload({ value, onChange, label = "Fil", onUploadStatusChang
         if (!response.ok) throw new Error("Upload failed");
 
         const data = await response.json();
-        onChange(data.imageUrl); // API returns generic { imageUrl: url }
+        const url = data.imageUrl || data.url;
+        onChange(url);
+        
+        if (onUploadComplete) {
+          onUploadComplete(data);
+        }
       }
     } catch (error) {
       console.error("Upload error:", error);
