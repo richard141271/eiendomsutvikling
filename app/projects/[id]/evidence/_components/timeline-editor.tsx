@@ -4,15 +4,18 @@
 import { useState, useRef, useEffect, useMemo } from "react";
 import { format, isValid, parseISO } from "date-fns";
 import { nb } from "date-fns/locale";
-import { Calendar as CalendarIcon, GripVertical, Save, FileText, Image as ImageIcon, File, Loader2, ArrowUp, ArrowDown, Layers, CalendarDays, CheckSquare, Square, X } from "lucide-react";
+import { Calendar as CalendarIcon, GripVertical, Save, FileText, Image as ImageIcon, File, Loader2, ArrowUp, ArrowDown, Layers, CalendarDays, CheckSquare, Square, X, Wand2, Users } from "lucide-react";
+import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
-import { Calendar } from "@/components/ui/calendar";
+import { DatePicker } from "@/components/ui/date-picker";
 import { cn } from "@/lib/utils";
 import { updateEvidenceItem, updateEvidenceOrder, updateEvidenceItems } from "@/app/actions/evidence";
+import { generateTimelineFromEvidence } from "@/app/actions/timeline-generator";
 import { toast } from "sonner";
+import { useRouter } from "next/navigation";
 
 interface EvidenceItem {
   id: string;
@@ -39,6 +42,7 @@ interface TimelineEditorProps {
 
 export default function TimelineEditor({ project }: TimelineEditorProps) {
   // Initialize state
+  const router = useRouter();
   const [items, setItems] = useState<EvidenceItem[]>(() => 
     project.evidenceItems.map((item: any) => ({
       ...item,
@@ -279,6 +283,26 @@ export default function TimelineEditor({ project }: TimelineEditorProps) {
     }
   };
 
+  const handleAutoGenerate = async () => {
+    if (!confirm("Vil du automatisk gruppere løse bevis i hendelser basert på dato?")) return;
+    setSaving(true);
+    try {
+      // @ts-ignore
+      const result = await generateTimelineFromEvidence(project.id);
+      if (result.success) {
+        toast.success(result.message);
+        router.refresh();
+      } else {
+        toast.error(result.message || "Ingen bevis funnet");
+      }
+    } catch (error) {
+      console.error(error);
+      toast.error("Kunne ikke generere tidslinje");
+    } finally {
+      setSaving(false);
+    }
+  };
+
   const handleTitleChange = (id: string, newTitle: string) => {
     setItems(prev => prev.map(item => item.id === id ? { ...item, title: newTitle } : item));
   };
@@ -328,26 +352,35 @@ export default function TimelineEditor({ project }: TimelineEditorProps) {
           >
             <Layers className="mr-2 h-4 w-4" /> Liste
           </Button>
+
+          <Button 
+            variant="outline" 
+            size="sm"
+            onClick={handleAutoGenerate}
+            disabled={saving}
+          >
+             <Wand2 className="mr-2 h-4 w-4" />
+             Auto-grupper
+          </Button>
+
+          <Link href={`/projects/${project.id}/witnesses`}>
+            <Button variant="outline" size="sm">
+              <Users className="mr-2 h-4 w-4" /> Vitner
+            </Button>
+          </Link>
         </div>
 
         {selectedIds.size > 0 && (
           <div className="flex items-center gap-2 bg-slate-100 px-3 py-1 rounded-md">
             <span className="text-sm font-medium">{selectedIds.size} valgt</span>
             <div className="h-4 w-px bg-slate-300 mx-2" />
-            <Popover>
-              <PopoverTrigger asChild>
-                <Button size="sm" variant="secondary">
-                  <CalendarIcon className="mr-2 h-4 w-4" /> Sett dato
-                </Button>
-              </PopoverTrigger>
-              <PopoverContent className="w-auto p-0">
-                <Calendar
-                  mode="single"
-                  onSelect={(date) => handleBulkDateChange(date)}
-                  initialFocus
-                />
-              </PopoverContent>
-            </Popover>
+            <div className="w-[150px]">
+              <DatePicker
+                date={undefined}
+                setDate={(date) => handleBulkDateChange(date)}
+                placeholder="Sett dato"
+              />
+            </div>
             <Button size="sm" variant="ghost" onClick={() => setSelectedIds(new Set())}>
               <X className="h-4 w-4" />
             </Button>
@@ -397,15 +430,10 @@ export default function TimelineEditor({ project }: TimelineEditorProps) {
                   </span>
                 </div>
                 {group.dateObj && (
-                   <Popover>
-                    <PopoverTrigger asChild>
-                      <Button variant="ghost" size="sm" className="h-6 text-xs">Endre dato for gruppen</Button>
-                    </PopoverTrigger>
-                    <PopoverContent className="w-auto p-0">
-                      <Calendar
-                        mode="single"
-                        selected={group.dateObj}
-                        onSelect={async (d) => {
+                  <div className="w-[150px]">
+                    <DatePicker
+                      date={group.dateObj}
+                      setDate={async (d) => {
                           if (d) {
                              if(!confirm("Endre dato for alle elementer i denne gruppen?")) return;
                              const ids = group.items.map(i => i.id);
@@ -417,11 +445,10 @@ export default function TimelineEditor({ project }: TimelineEditorProps) {
                                toast.success("Gruppe oppdatert");
                              } catch(e) { toast.error("Feil"); }
                           }
-                        }}
-                        initialFocus
-                      />
-                    </PopoverContent>
-                  </Popover>
+                      }}
+                      placeholder="Endre dato"
+                    />
+                  </div>
                 )}
               </div>
               
@@ -510,17 +537,11 @@ export default function TimelineEditor({ project }: TimelineEditorProps) {
                  B-{String(item.evidenceNumber).padStart(3, '0')}
                </div>
                <div className="col-span-2">
-                 <Popover>
-                   <PopoverTrigger asChild>
-                     <Button variant={"outline"} size="sm" className={cn("w-full justify-start text-left font-normal h-8", !item.legalDate && "text-muted-foreground")}>
-                       <CalendarIcon className="mr-2 h-4 w-4" />
-                       {item.legalDate ? format(item.legalDate, "dd.MM.yyyy") : <span>Velg dato</span>}
-                     </Button>
-                   </PopoverTrigger>
-                   <PopoverContent className="w-auto p-0">
-                     <Calendar mode="single" selected={item.legalDate || undefined} onSelect={(date) => handleDateChange(item.id, date)} initialFocus />
-                   </PopoverContent>
-                 </Popover>
+                 <DatePicker
+                    date={item.legalDate || undefined}
+                    setDate={(date) => handleDateChange(item.id, date)}
+                    placeholder="Velg dato"
+                  />
                </div>
                <div className="col-span-1 flex justify-center">
                   {getFileIcon(item.file?.fileType || "")}

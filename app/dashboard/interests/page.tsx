@@ -37,6 +37,8 @@ interface Interest {
   };
 }
 
+import { DatePicker } from "@/components/ui/date-picker";
+
 export default function InterestsPage() {
   const [interests, setInterests] = useState<Interest[]>([]);
   const [loading, setLoading] = useState(true);
@@ -44,7 +46,7 @@ export default function InterestsPage() {
   const [dialogOpen, setDialogOpen] = useState(false);
   const [statusValue, setStatusValue] = useState<Interest["status"] | "">("");
   const [saving, setSaving] = useState(false);
-  const [viewingDate, setViewingDate] = useState("");
+  const [viewingDate, setViewingDate] = useState<Date | undefined>(undefined);
   const [viewingTime, setViewingTime] = useState("");
   const [viewingNotes, setViewingNotes] = useState("");
   const [creatingViewing, setCreatingViewing] = useState(false);
@@ -71,7 +73,7 @@ export default function InterestsPage() {
     setDialogOpen(false);
     setSelectedInterest(null);
     setStatusValue("");
-    setViewingDate("");
+    setViewingDate(undefined);
     setViewingTime("");
     setViewingNotes("");
     setViewingCreated(false);
@@ -120,7 +122,7 @@ export default function InterestsPage() {
       const baseNotes = viewingNotes.trim();
       const autoNote = `Visning for ${selectedInterest.name} (${selectedInterest.email})`;
       const notes = baseNotes ? `${baseNotes} – ${autoNote}` : autoNote;
-      const dateTime = `${viewingDate}T${viewingTime}`;
+      const dateTime = `${format(viewingDate, 'yyyy-MM-dd')}T${viewingTime}`;
 
       const res = await createViewing({
         unitId: selectedInterest.unitId,
@@ -309,11 +311,10 @@ export default function InterestsPage() {
                     <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
                       <div className="space-y-1">
                         <Label htmlFor="viewingDate">Dato</Label>
-                        <Input
-                          id="viewingDate"
-                          type="date"
-                          value={viewingDate}
-                          onChange={(e) => setViewingDate(e.target.value)}
+                        <DatePicker
+                          date={viewingDate}
+                          setDate={setViewingDate}
+                          placeholder="Velg dato"
                         />
                       </div>
                       <div className="space-y-1">

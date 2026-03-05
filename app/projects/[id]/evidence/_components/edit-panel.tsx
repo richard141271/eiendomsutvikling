@@ -9,9 +9,8 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { Checkbox } from "@/components/ui/checkbox";
-import { Calendar } from "@/components/ui/calendar";
-import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
-import { Calendar as CalendarIcon, Clock, Lock, Save, Trash2, FileText, Image as ImageIcon, Copy } from "lucide-react";
+import { DatePicker } from "@/components/ui/date-picker";
+import { Clock, Lock, Save, Trash2, FileText, Image as ImageIcon, Copy } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { updateEvidenceItem } from "@/app/actions/evidence";
 import { toast } from "sonner";
@@ -186,29 +185,11 @@ export function EditPanel({ item, isOpen, onClose, onSave }: EditPanelProps) {
           <div className="grid grid-cols-2 gap-4">
             <div className="grid gap-2">
               <Label>Hendelsesdato</Label>
-              <Popover>
-                <PopoverTrigger asChild>
-                  <Button
-                    variant={"outline"}
-                    className={cn(
-                      "w-full justify-start text-left font-normal",
-                      !legalDate && "text-muted-foreground"
-                    )}
-                  >
-                    <CalendarIcon className="mr-2 h-4 w-4" />
-                    {legalDate ? format(legalDate, "dd.MM.yyyy") : <span>Velg dato</span>}
-                  </Button>
-                </PopoverTrigger>
-                <PopoverContent className="w-auto p-0">
-                  <Calendar
-                    mode="single"
-                    selected={legalDate}
-                    onSelect={setLegalDate}
-                    initialFocus
-                    locale={nb}
-                  />
-                </PopoverContent>
-              </Popover>
+              <DatePicker
+                date={legalDate}
+                setDate={setLegalDate}
+                placeholder="Velg dato"
+              />
             </div>
             
             <div className="grid gap-2">

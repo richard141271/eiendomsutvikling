@@ -398,6 +398,9 @@ model Project {
   // Legal Lock
   legalLockActivated   Boolean   @default(false)
   legalLockActivatedAt DateTime?
+
+  events          Event[]
+  people          Person[]
 }
 
 model ProjectAuditLog {
@@ -455,7 +458,19 @@ model File {
   fileSize        Int?
   originalName    String?
   checksum        String?
+  metadata        Json?    // Stores extracted metadata (e.g. from HTML/Email) and original file references
   uploadedAt      DateTime @default(now())
+
+  // New metadata fields (EvidenceFile structure)
+  createdAtMetadata DateTime?
+  modifiedAtMetadata DateTime?
+  receivedAt      DateTime?
+  sender          String?
+  receiver        String?
+  subject         String?
+  extractedText   String?
+  notes           String?
+  // hash is stored in checksum
 
   evidenceItems   EvidenceItem[]
   
@@ -489,8 +504,53 @@ model EvidenceItem {
   deletedAt       DateTime? // Soft delete to preserve evidence number history
 
   reportSnapshots ReportEvidenceSnapshot[]
+  events          EventEvidence[] // Relation to events
 
   @@unique([projectId, evidenceNumber])
+}
+
+model Event {
+  id          String   @id @default(uuid())
+  projectId   String
+  project     Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  title       String
+  description String?
+  date        DateTime
+  createdAt   DateTime @default(now())
+
+  evidenceItems       EventEvidence[]
+  witnessObservations WitnessObservation[]
+}
+
+model EventEvidence {
+  eventId    String
+  event      Event        @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  evidenceId String
+  evidence   EvidenceItem @relation(fields: [evidenceId], references: [id], onDelete: Cascade)
+
+  @@id([eventId, evidenceId])
+}
+
+model Person {
+  id        String   @id @default(uuid())
+  projectId String
+  project   Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  name      String
+  role      String?  // e.g. "Vitne", "Takstmann"
+  notes     String?
+  
+  witnessObservations WitnessObservation[]
+}
+
+model WitnessObservation {
+  id          String   @id @default(uuid())
+  personId    String
+  person      Person   @relation(fields: [personId], references: [id], onDelete: Cascade)
+  eventId     String
+  event       Event    @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  date        DateTime?
+  observation String
+  createdAt   DateTime @default(now())
 }
 
 model ProjectSequence {

@@ -9,7 +9,7 @@ export async function getNextEvidenceNumber(projectId: string): Promise<number> 
     where: { projectId },
     create: { 
       projectId, 
-      lastEvidenceNumber: 0,
+      lastEvidenceNumber: 1,
       lastReportVersion: 0 
     },
     update: { 

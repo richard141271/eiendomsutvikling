@@ -6,6 +6,8 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { DatePicker } from "@/components/ui/date-picker";
+import { format } from "date-fns";
 
 export default function EditContractPage({ params }: { params: { id: string } }) {
   const router = useRouter();
@@ -15,9 +17,14 @@ export default function EditContractPage({ params }: { params: { id: string } })
   // For MVP, we'll assume the user is updating rent and dates.
   // We'll fetch the current values in useEffect.
   
-  const [formData, setFormData] = useState({
-    startDate: "",
-    endDate: "",
+  const [formData, setFormData] = useState<{
+    startDate: Date | undefined;
+    endDate: Date | undefined;
+    rentAmount: string;
+    depositAmount: string;
+  }>({
+    startDate: undefined,
+    endDate: undefined,
     rentAmount: "",
     depositAmount: ""
   });
@@ -30,8 +37,8 @@ export default function EditContractPage({ params }: { params: { id: string } })
       .then(res => res.json())
       .then(data => {
         setFormData({
-          startDate: data.startDate ? new Date(data.startDate).toISOString().split('T')[0] : "",
-          endDate: data.endDate ? new Date(data.endDate).toISOString().split('T')[0] : "",
+          startDate: data.startDate ? new Date(data.startDate) : undefined,
+          endDate: data.endDate ? new Date(data.endDate) : undefined,
           rentAmount: data.rentAmount || "",
           depositAmount: data.depositAmount || ""
         });
@@ -45,10 +52,16 @@ export default function EditContractPage({ params }: { params: { id: string } })
     setLoading(true);
 
     try {
+      const payload = {
+        ...formData,
+        startDate: formData.startDate ? format(formData.startDate, "yyyy-MM-dd") : null,
+        endDate: formData.endDate ? format(formData.endDate, "yyyy-MM-dd") : null,
+      };
+
       const res = await fetch(`/api/contracts/${params.id}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(formData),
+        body: JSON.stringify(payload),
       });
 
       if (!res.ok) throw new Error("Failed to update");
@@ -75,21 +88,18 @@ export default function EditContractPage({ params }: { params: { id: string } })
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-2">
                 <Label htmlFor="startDate">Startdato</Label>
-                <Input
-                  id="startDate"
-                  type="date"
-                  value={formData.startDate}
-                  onChange={(e) => setFormData({...formData, startDate: e.target.value})}
-                  required
+                <DatePicker
+                  date={formData.startDate}
+                  setDate={(date) => setFormData({...formData, startDate: date})}
+                  placeholder="Velg startdato"
                 />
               </div>
               <div className="space-y-2">
                 <Label htmlFor="endDate">Sluttdato</Label>
-                <Input
-                  id="endDate"
-                  type="date"
-                  value={formData.endDate}
-                  onChange={(e) => setFormData({...formData, endDate: e.target.value})}
+                <DatePicker
+                  date={formData.endDate}
+                  setDate={(date) => setFormData({...formData, endDate: date})}
+                  placeholder="Velg sluttdato"
                 />
               </div>
             </div>

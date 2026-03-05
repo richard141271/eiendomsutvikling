@@ -7,6 +7,8 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/com
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { DatePicker } from "@/components/ui/date-picker";
+import { format } from "date-fns";
 
 export default function InviteTenantPage({ params }: { params: { id: string } }) {
   const router = useRouter();
@@ -20,8 +22,8 @@ export default function InviteTenantPage({ params }: { params: { id: string } })
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [phone, setPhone] = useState("");
-  const [startDate, setStartDate] = useState("");
-  const [endDate, setEndDate] = useState("");
+  const [startDate, setStartDate] = useState<Date | undefined>(undefined);
+  const [endDate, setEndDate] = useState<Date | undefined>(undefined);
   const [rentAmount, setRentAmount] = useState("");
   const [depositAmount, setDepositAmount] = useState("");
 
@@ -86,8 +88,8 @@ export default function InviteTenantPage({ params }: { params: { id: string } })
           name,
           email,
           phone,
-          startDate,
-          endDate,
+          startDate: startDate ? format(startDate, "yyyy-MM-dd") : "",
+          endDate: endDate ? format(endDate, "yyyy-MM-dd") : "",
           rentAmount,
           depositAmount
         }),
@@ -206,21 +208,18 @@ export default function InviteTenantPage({ params }: { params: { id: string } })
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-2">
                   <Label htmlFor="startDate">Startdato</Label>
-                  <Input 
-                    id="startDate" 
-                    type="date" 
-                    value={startDate}
-                    onChange={(e) => setStartDate(e.target.value)}
-                    required
+                  <DatePicker
+                    date={startDate}
+                    setDate={setStartDate}
+                    placeholder="Velg startdato"
                   />
                 </div>
                 <div className="space-y-2">
                   <Label htmlFor="endDate">Sluttdato (valgfritt)</Label>
-                  <Input 
-                    id="endDate" 
-                    type="date" 
-                    value={endDate}
-                    onChange={(e) => setEndDate(e.target.value)}
+                  <DatePicker
+                    date={endDate}
+                    setDate={setEndDate}
+                    placeholder="Velg sluttdato"
                   />
                 </div>
               </div>

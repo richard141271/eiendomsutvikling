@@ -81,7 +81,7 @@ export function FileUpload({ value, onChange, label = "Fil", onUploadStatusChang
             type="file"
             className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
             onChange={handleFileChange}
-            accept={accept}
+            accept={accept || ".jpg,.jpeg,.png,.pdf,.eml,.html,.htm"}
             multiple={allowMultiple}
           />
         </Button>

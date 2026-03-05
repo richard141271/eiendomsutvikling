@@ -9,12 +9,12 @@ import { Textarea } from "@/components/ui/textarea";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { createProject } from "@/app/actions/projects";
-import { Loader2, Gavel, Upload, Calendar, ArrowRight, Check, MoveVertical, FileText, X, AlertCircle } from "lucide-react";
+import { Loader2, Gavel, Upload, Calendar, ArrowRight, Check, MoveVertical, FileText, X, AlertCircle, Folder } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { format } from "date-fns";
 import { nb } from "date-fns/locale";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
-import { Calendar as CalendarComponent } from "@/components/ui/calendar";
+import { DatePicker } from "@/components/ui/date-picker";
 
 // Step 1: Grunnstruktur
 // Step 2: Bevisimport
@@ -211,31 +211,19 @@ export default function LegalProjectWizard() {
               </div>
               <div className="space-y-2">
                 <Label>Startdato for hendelse</Label>
-                <Popover>
-                  <PopoverTrigger asChild>
-                    <Button variant="outline" className={cn("w-full justify-start text-left font-normal", !formData.startDate && "text-muted-foreground")}>
-                      <Calendar className="mr-2 h-4 w-4" />
-                      {formData.startDate ? format(formData.startDate, "PPP", { locale: nb }) : "Velg dato"}
-                    </Button>
-                  </PopoverTrigger>
-                  <PopoverContent className="w-auto p-0">
-                    <CalendarComponent mode="single" selected={formData.startDate} onSelect={d => setFormData({...formData, startDate: d})} initialFocus />
-                  </PopoverContent>
-                </Popover>
+                <DatePicker 
+                  date={formData.startDate} 
+                  setDate={(d) => setFormData({...formData, startDate: d})} 
+                  placeholder="Startdato"
+                />
               </div>
               <div className="space-y-2">
                 <Label>Sluttdato (valgfri)</Label>
-                <Popover>
-                  <PopoverTrigger asChild>
-                    <Button variant="outline" className={cn("w-full justify-start text-left font-normal", !formData.endDate && "text-muted-foreground")}>
-                      <Calendar className="mr-2 h-4 w-4" />
-                      {formData.endDate ? format(formData.endDate, "PPP", { locale: nb }) : "Velg dato"}
-                    </Button>
-                  </PopoverTrigger>
-                  <PopoverContent className="w-auto p-0">
-                    <CalendarComponent mode="single" selected={formData.endDate} onSelect={d => setFormData({...formData, endDate: d})} initialFocus />
-                  </PopoverContent>
-                </Popover>
+                <DatePicker 
+                  date={formData.endDate} 
+                  setDate={(d) => setFormData({...formData, endDate: d})} 
+                  placeholder="Sluttdato"
+                />
               </div>
               <div className="space-y-2 md:col-span-2">
                 <Label htmlFor="category">Hovedkategori</Label>
@@ -280,7 +268,7 @@ export default function LegalProjectWizard() {
           <CardHeader>
             <CardTitle>Import av Bevis</CardTitle>
             <CardDescription>
-              Dra og slipp bilder, PDF-dokumenter eller EML-filer her. De lastes opp direkte til prosjektet.
+              Dra og slipp bilder, PDF, EML eller HTML-filer her. De lastes opp direkte til prosjektet.
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-6">
@@ -288,20 +276,28 @@ export default function LegalProjectWizard() {
               className="border-2 border-dashed border-slate-300 rounded-lg p-12 text-center hover:bg-slate-50 transition-colors cursor-pointer"
               onDragOver={e => e.preventDefault()}
               onDrop={onDrop}
-              onClick={() => document.getElementById('file-upload')?.click()}
             >
               <Upload className="mx-auto h-12 w-12 text-slate-400 mb-4" />
-              <h3 className="text-lg font-medium text-slate-900 mb-1">Slipp filer her</h3>
-              <p className="text-slate-500 mb-4">eller klikk for å velge fra maskinen</p>
+              <h3 className="text-lg font-medium text-slate-900 mb-1">Slipp filer eller mappe her</h3>
+              <p className="text-slate-500 mb-6">Systemet sorterer og daterer automatisk</p>
+              
+              <div className="flex gap-4 justify-center">
+                <Button variant="outline" onClick={() => document.getElementById('file-upload')?.click()}>
+                  <FileText className="mr-2 h-4 w-4" /> Velg filer
+                </Button>
+                <Button variant="outline" onClick={() => document.getElementById('folder-upload')?.click()}>
+                  <Folder className="mr-2 h-4 w-4" /> Velg mappe
+                </Button>
+              </div>
+
               <input 
                 type="file" 
                 id="file-upload" 
                 className="hidden" 
                 multiple 
-                accept=".jpg,.jpeg,.png,.pdf,.eml"
+                accept=".jpg,.jpeg,.png,.pdf,.eml,.html,.htm"
                 onChange={(e) => {
                   if (e.target.files && e.target.files.length > 0) {
-                     // Manually trigger onDrop logic
                      const event = { 
                        preventDefault: () => {}, 
                        dataTransfer: { files: e.target.files } 
@@ -310,7 +306,25 @@ export default function LegalProjectWizard() {
                   }
                 }}
               />
-              <p className="text-xs text-slate-400">Støtter: JPG, PNG, PDF, EML (Maks 50MB)</p>
+              <input 
+                type="file" 
+                id="folder-upload" 
+                className="hidden" 
+                multiple 
+                // @ts-ignore
+                webkitdirectory="" 
+                directory=""
+                onChange={(e) => {
+                  if (e.target.files && e.target.files.length > 0) {
+                     const event = { 
+                       preventDefault: () => {}, 
+                       dataTransfer: { files: e.target.files } 
+                     } as unknown as React.DragEvent;
+                     onDrop(event);
+                  }
+                }}
+              />
+              <p className="text-xs text-slate-400 mt-4">Støtter: JPG, PNG, PDF, EML, HTML (Maks 50MB)</p>
             </div>
 
             {uploads.length > 0 && (

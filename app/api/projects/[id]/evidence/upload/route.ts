@@ -3,7 +3,12 @@ import { createClient } from "@/lib/supabase-server";
 import { prisma } from "@/lib/prisma";
 import { NextResponse } from "next/server";
 import { getNextEvidenceNumber } from "@/app/actions/evidence";
-import { PDFDocument } from "pdf-lib";
+import puppeteer from "puppeteer";
+import exifr from "exifr";
+import pdf from "pdf-parse";
+import * as cheerio from "cheerio";
+import { simpleParser } from "mailparser";
+import crypto from "crypto";
 
 export async function POST(
   request: Request,
@@ -30,123 +35,280 @@ export async function POST(
       return NextResponse.json({ error: "No file uploaded" }, { status: 400 });
     }
 
-    // Convert file to ArrayBuffer for upload and processing
+    // Convert file to Buffer for processing
     const arrayBuffer = await file.arrayBuffer();
-    const buffer = new Uint8Array(arrayBuffer);
-
-    // Parse original date from lastModified timestamp
-    let originalDate = new Date();
-    let title = file.name;
+    const originalBuffer = Buffer.from(arrayBuffer);
     
-    // Special handling for EML files to extract Date and Subject
-    if (file.name.toLowerCase().endsWith('.eml')) {
+    // Calculate SHA256 Hash
+    const hashSum = crypto.createHash('sha256');
+    hashSum.update(originalBuffer);
+    const fileHash = hashSum.digest('hex');
+
+    // Initial metadata
+    let fileType = file.type;
+    let fileSize = file.size;
+    let title = file.name;
+    let originalDate: Date | null = null;
+    let createdAtMetadata: Date | null = null;
+    let modifiedAtMetadata: Date | null = null;
+    let receivedAt: Date | null = null;
+    let sender: string | null = null;
+    let receiver: string | null = null;
+    let subject: string | null = null;
+    let extractedText: string | null = null;
+    let notes: string | null = null;
+    
+    // Metadata JSON to store extra fields
+    let metadata: any = {
+      originalName: file.name,
+      hash: fileHash
+    };
+
+    // --- PIPELINE: METADATA EXTRACTION ---
+
+    // 1. Image Metadata (EXIF)
+    if (fileType.startsWith('image/')) {
       try {
-        // Read first 4KB to find headers
-        const chunk = await file.slice(0, 4096).text();
-        
-        // Extract Date
-        const dateMatch = chunk.match(/^Date:\s*(.+)$/m);
-        if (dateMatch && dateMatch[1]) {
-          const parsedDate = new Date(dateMatch[1]);
-          if (!isNaN(parsedDate.getTime())) {
-            originalDate = parsedDate;
+        const exifData = await exifr.parse(originalBuffer);
+        if (exifData) {
+          if (exifData.DateTimeOriginal) createdAtMetadata = exifData.DateTimeOriginal;
+          else if (exifData.CreateDate) createdAtMetadata = exifData.CreateDate;
+          
+          if (exifData.ModifyDate) modifiedAtMetadata = exifData.ModifyDate;
+          
+          // GPS
+          if (exifData.latitude && exifData.longitude) {
+            metadata.gps = { lat: exifData.latitude, lon: exifData.longitude };
+          }
+          // Camera model
+          if (exifData.Make || exifData.Model) {
+            metadata.camera = `${exifData.Make || ''} ${exifData.Model || ''}`.trim();
           }
         }
-        
-        // Extract Subject
-        const subjectMatch = chunk.match(/^Subject:\s*(.+)$/m);
-        if (subjectMatch && subjectMatch[1]) {
-          title = subjectMatch[1].trim();
-        }
       } catch (e) {
-        console.warn("Failed to parse EML headers:", e);
-      }
-    } else if (file.name.toLowerCase().endsWith('.pdf')) {
-      try {
-        const pdfDoc = await PDFDocument.load(arrayBuffer);
-        const creationDate = pdfDoc.getCreationDate();
-        const modificationDate = pdfDoc.getModificationDate();
-        
-        if (creationDate) {
-          originalDate = creationDate;
-        } else if (modificationDate) {
-          originalDate = modificationDate;
-        }
-      } catch (e) {
-        console.warn("Failed to parse PDF metadata:", e);
-      }
-    } else if (lastModifiedStr) {
-      const ts = parseInt(lastModifiedStr);
-      if (!isNaN(ts)) {
-        originalDate = new Date(ts);
+        console.warn("EXIF extraction failed:", e);
       }
     }
 
-    // 1. Upload to Supabase Storage
-    const fileExt = file.name.split('.').pop()?.toLowerCase() || "";
+    // 2. PDF Metadata
+    else if (fileType === 'application/pdf' || file.name.toLowerCase().endsWith('.pdf')) {
+      try {
+        const data = await pdf(originalBuffer);
+        extractedText = data.text;
+        
+        if (data.info) {
+            if (data.info.CreationDate) {
+                // PDF date format: D:YYYYMMDDHHmmSSOHH'mm'
+                // Simplistic parsing or use a library. pdf-parse might return string.
+                // Try to parse if it's a standard string, otherwise skip complex parsing for now.
+                // Actually pdf-parse info object usually has raw strings.
+                // Let's try to extract basic info.
+                if (data.info.Title) title = data.info.Title;
+                if (data.info.Author) sender = data.info.Author;
+                if (data.info.Subject) subject = data.info.Subject;
+            }
+        }
+        metadata.pageCount = data.numpages;
+      } catch (e) {
+        console.warn("PDF extraction failed:", e);
+      }
+    }
+
+    // 3. EML / Email Parsing
+    else if (file.name.toLowerCase().endsWith('.eml') || fileType === 'message/rfc822') {
+        try {
+            const parsed = await simpleParser(originalBuffer);
+            if (parsed.date) receivedAt = parsed.date;
+            if (parsed.subject) {
+                subject = parsed.subject;
+                title = parsed.subject;
+            }
+            if (parsed.from?.text) sender = parsed.from.text;
+            if (parsed.to) {
+                // to is AddressObject or array
+                const toArray = Array.isArray(parsed.to) ? parsed.to : [parsed.to];
+                receiver = toArray.map(addr => addr.text).join(', ');
+            }
+            if (parsed.text) extractedText = parsed.text;
+            
+            // Prefer email date as original date
+            originalDate = parsed.date || null;
+        } catch (e) {
+            console.warn("EML extraction failed:", e);
+        }
+    }
+
+    // 4. HTML Parsing & Conversion
+    else if (file.name.toLowerCase().endsWith('.html') || file.name.toLowerCase().endsWith('.htm')) {
+        // Parse with Cheerio first
+        try {
+            const htmlString = originalBuffer.toString('utf-8');
+            const $ = cheerio.load(htmlString);
+            extractedText = $('body').text().trim();
+            
+            // Try to find metadata in meta tags or common patterns
+            const titleTag = $('title').text();
+            if (titleTag) title = titleTag;
+
+            // Regex for common email-in-html patterns (Outlook saves etc)
+            const textContent = extractedText;
+            const subjectMatch = textContent.match(/(?:Subject|Emne):\s*(.+)/i);
+            if (subjectMatch) subject = subjectMatch[1].trim();
+            
+            const fromMatch = textContent.match(/(?:From|Fra):\s*(.+)/i);
+            if (fromMatch) sender = fromMatch[1].trim();
+            
+            const toMatch = textContent.match(/(?:To|Til):\s*(.+)/i);
+            if (toMatch) receiver = toMatch[1].trim();
+            
+            const dateMatch = textContent.match(/(?:Date|Dato|Sendt):\s*(.+)/i);
+            if (dateMatch) {
+                const dateStr = dateMatch[1].trim();
+                const parsed = new Date(dateStr);
+                if (!isNaN(parsed.getTime())) receivedAt = parsed;
+            }
+            
+            if (subject) title = subject;
+        } catch (e) {
+            console.warn("HTML Cheerio parsing failed:", e);
+        }
+
+        // Convert to PDF for preview (keep existing logic)
+        let browser = null;
+        try {
+            console.log("Converting HTML to PDF...");
+            // Upload original HTML first
+            const htmlFileName = `${projectId}/${Date.now()}-original-${Math.random().toString(36).substring(2, 9)}.html`;
+            const bucketName = process.env.NEXT_PUBLIC_SUPABASE_STORAGE_BUCKET || "project-assets"; 
+            
+            const { error: htmlUploadError } = await supabase.storage
+                .from(bucketName)
+                .upload(htmlFileName, originalBuffer, {
+                    contentType: "text/html",
+                    upsert: false
+                });
+
+            if (!htmlUploadError) {
+                const { data: { publicUrl: htmlUrl } } = supabase.storage
+                    .from(bucketName)
+                    .getPublicUrl(htmlFileName);
+                metadata.originalUrl = htmlUrl;
+            }
+
+            // Puppeteer Conversion
+            browser = await puppeteer.launch({
+                args: ['--no-sandbox', '--disable-setuid-sandbox'],
+                headless: true
+            });
+            const page = await browser.newPage();
+            const htmlContent = originalBuffer.toString('utf-8');
+            await page.setContent(htmlContent, { waitUntil: 'domcontentloaded', timeout: 30000 });
+            
+            const pdfUint8Array = await page.pdf({ 
+                format: 'A4', 
+                printBackground: true,
+                margin: { top: '1cm', right: '1cm', bottom: '1cm', left: '1cm' }
+            });
+            
+            // Replace buffer with PDF for main file record
+            // We use the PDF as the "File" record's main content for easy viewing
+            // But we keep the original HTML in metadata.originalUrl
+            const pdfBuffer = Buffer.from(pdfUint8Array);
+            
+            // Update variables for the main file record
+            fileType = "application/pdf";
+            fileSize = pdfBuffer.length;
+            metadata.convertedFrom = "html";
+            
+            // Use pdfBuffer for upload
+            // We need to re-assign 'buffer' variable if we were using one, but here we use originalBuffer vs pdfBuffer
+            // Let's use a 'uploadBuffer' variable
+            var uploadBuffer = pdfBuffer;
+
+        } catch (e) {
+            console.error("HTML to PDF conversion failed:", e);
+            // Fallback: Use original buffer
+            var uploadBuffer = originalBuffer;
+        } finally {
+            if (browser) await browser.close();
+        }
+    } else {
+        // Default buffer
+        var uploadBuffer = originalBuffer;
+    }
+
+    // Determine Final Dates
+    // Priority: receivedAt -> createdAtMetadata -> modifiedAtMetadata -> lastModified (upload param) -> now
+    if (!originalDate) {
+        if (receivedAt) originalDate = receivedAt;
+        else if (createdAtMetadata) originalDate = createdAtMetadata;
+        else if (modifiedAtMetadata) originalDate = modifiedAtMetadata;
+        else if (lastModifiedStr) {
+             const ts = parseInt(lastModifiedStr);
+             if (!isNaN(ts)) originalDate = new Date(ts);
+        }
+    }
+    if (!originalDate) originalDate = new Date();
+
+    // --- UPLOAD TO STORAGE ---
+    const fileExt = fileType === "application/pdf" ? "pdf" : (file.name.split('.').pop()?.toLowerCase() || "bin");
     const fileName = `${projectId}/${Date.now()}-${Math.random().toString(36).substring(2, 9)}.${fileExt}`;
-    const bucketName = "project-assets"; 
+    const bucketName = process.env.NEXT_PUBLIC_SUPABASE_STORAGE_BUCKET || "project-assets"; 
 
     const { error: uploadError } = await supabase.storage
       .from(bucketName)
-      .upload(fileName, buffer, {
-        contentType: file.type,
+      .upload(fileName, uploadBuffer, {
+        contentType: fileType,
         upsert: false
       });
 
     if (uploadError) {
-        // Fallback to property-images if project-assets fails (e.g. bucket doesn't exist)
-        console.warn(`Failed to upload to ${bucketName}, trying property-images`, uploadError);
-        const fallbackBucket = process.env.NEXT_PUBLIC_SUPABASE_STORAGE_BUCKET || 'property-images';
-        
-        const { error: fallbackError } = await supabase.storage
-            .from(fallbackBucket)
-            .upload(fileName, buffer, {
-                contentType: file.type,
-                upsert: false
-            });
-
-        if (fallbackError) {
-            console.error("Upload failed to fallback bucket:", fallbackError);
-            return NextResponse.json({ error: `Upload failed: ${fallbackError.message}` }, { status: 500 });
-        }
+        console.error("Upload failed:", uploadError);
+        return NextResponse.json({ error: `Upload failed: ${uploadError.message}` }, { status: 500 });
     }
 
-    // Get public URL (assuming public bucket)
-    // If bucket is private, we need signed URL, but File model stores 'storagePath' usually as URL or path?
-    // Looking at EvidenceItem -> File, usually we store full URL or relative path.
-    // api/upload returns publicUrl.
-    
-    // We'll store the full Public URL if possible, or the path if we use signed urls later.
-    // For now, let's get the public URL.
-    const finalBucket = uploadError ? (process.env.NEXT_PUBLIC_SUPABASE_STORAGE_BUCKET || 'property-images') : bucketName;
     const { data: { publicUrl } } = supabase.storage
-      .from(finalBucket)
+      .from(bucketName)
       .getPublicUrl(fileName);
 
-    // 2. Create File Record
+    // --- DB RECORDS ---
+    
+    // 1. Create File (EvidenceFile)
     const fileRecord = await (prisma as any).file.create({
       data: {
         projectId,
-        storagePath: publicUrl, // Store full URL
-        fileType: file.type,
-        fileSize: file.size,
+        storagePath: publicUrl,
+        fileType: fileType,
+        fileSize: fileSize,
         originalName: file.name,
+        checksum: fileHash, // Using checksum as hash
+        metadata: metadata,
+        
+        // New Fields
+        createdAtMetadata,
+        modifiedAtMetadata,
+        receivedAt,
+        sender,
+        receiver,
+        subject,
+        extractedText: extractedText ? extractedText.substring(0, 100000) : null, // Limit text size if needed
+        notes,
       }
     });
 
-    // 3. Create Evidence Item
+    // 2. Create Evidence Item
     const evidenceNumber = await getNextEvidenceNumber(projectId);
 
     const evidenceItem = await (prisma as any).evidenceItem.create({
       data: {
         projectId,
         evidenceNumber,
-        title: title, // Use extracted title or filename
+        title: title || file.name,
         description: "",
         fileId: fileRecord.id,
         includeInReport: true,
-        originalDate: originalDate, // Store metadata date
+        originalDate: originalDate,
+        legalDate: originalDate, // Auto-set legal date to best guess
       }
     });
 
