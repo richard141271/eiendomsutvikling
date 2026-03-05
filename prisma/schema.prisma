@@ -650,6 +650,9 @@ model ReportEvidenceSnapshot {
   missingLink    Boolean  @default(false)
   missingLinkNote String?
 
+  sourceType       String?
+  reliabilityLevel String?
+
   linkedEvidenceId String?
   linkedEvidenceNumber Int?
 

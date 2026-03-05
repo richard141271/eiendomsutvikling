@@ -7,12 +7,19 @@ import { createClient } from "@/lib/supabase-server";
 
 async function enrichEvidenceWithUrls(evidenceItems: any[]) {
   const supabase = createClient();
+  const bucketName = process.env.NEXT_PUBLIC_SUPABASE_STORAGE_BUCKET || "project-assets";
   
   return await Promise.all(evidenceItems.map(async (item) => {
     if (item.file?.storagePath) {
+      // If storagePath is already a full URL, use it directly
+      if (item.file.storagePath.startsWith("http") || item.file.storagePath.startsWith("blob:")) {
+        item.file.url = item.file.storagePath;
+        return item;
+      }
+
       try {
         const { data } = await supabase.storage
-          .from('evidence')
+          .from(bucketName)
           .createSignedUrl(item.file.storagePath, 3600); // 1 hour expiry
           
         if (data?.signedUrl) {

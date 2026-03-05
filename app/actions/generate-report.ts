@@ -96,6 +96,8 @@ export async function generateLegalReportInternal(projectId: string) {
             fileId: item.fileId, // Snapshot file reference too
             missingLink: item.missingLink,
             missingLinkNote: item.missingLinkNote,
+            sourceType: item.sourceType,
+            reliabilityLevel: item.reliabilityLevel,
             linkedEvidenceId: item.linkedEvidenceId,
             linkedEvidenceNumber: item.linkedEvidence?.evidenceNumber,
             includedAt: new Date()

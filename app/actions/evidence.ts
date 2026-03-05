@@ -341,6 +341,9 @@ export async function createReportSnapshot(projectId: string, reportInstanceId: 
       includeInReport: true,
       deletedAt: null
     },
+    include: {
+      linkedEvidence: true
+    },
     orderBy: { evidenceNumber: 'asc' }
   });
 
@@ -355,6 +358,12 @@ export async function createReportSnapshot(projectId: string, reportInstanceId: 
     title: item.title,
     description: item.description,
     fileId: item.fileId,
+    missingLink: item.missingLink,
+    missingLinkNote: item.missingLinkNote,
+    sourceType: item.sourceType,
+    reliabilityLevel: item.reliabilityLevel,
+    linkedEvidenceId: item.linkedEvidenceId,
+    linkedEvidenceNumber: item.linkedEvidence?.evidenceNumber,
   }));
 
   await (prisma as any).reportEvidenceSnapshot.createMany({

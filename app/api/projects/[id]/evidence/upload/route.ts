@@ -94,26 +94,33 @@ export async function POST(
     // 2. PDF Metadata
     else if (fileType === 'application/pdf' || file.name.toLowerCase().endsWith('.pdf')) {
       try {
-        const parser = new PDFParse({ data: originalBuffer });
-        const data = await parser.getText();
+        const data = await (PDFParse as any)(originalBuffer);
         extractedText = data.text;
         
-        const info = await parser.getInfo();
-        if (info && info.info) {
-            if (info.info.CreationDate) {
-                // PDF date format: D:YYYYMMDDHHmmSSOHH'mm'
-                // Simplistic parsing or use a library. pdf-parse might return string.
-                // Try to parse if it's a standard string, otherwise skip complex parsing for now.
-                // Actually pdf-parse info object usually has raw strings.
-                // Let's try to extract basic info.
-                // No direct title/author on info.info object by default unless we cast or use any
-                const meta = info.info as any;
-                if (meta.Title) title = meta.Title;
-                if (meta.Author) sender = meta.Author;
-                if (meta.Subject) subject = meta.Subject;
+        if (data.info) {
+          const info = data.info as any;
+          if (info.CreationDate) {
+            // PDF dates are often in format D:20230621143000Z
+            const dateStr = info.CreationDate.replace(/^D:/, '').substring(0, 14);
+            if (dateStr.length === 14) {
+              const y = dateStr.substring(0, 4);
+              const m = dateStr.substring(4, 6);
+              const d = dateStr.substring(6, 8);
+              const h = dateStr.substring(8, 10);
+              const min = dateStr.substring(10, 12);
+              const s = dateStr.substring(12, 14);
+              createdAtMetadata = new Date(`${y}-${m}-${d}T${h}:${min}:${s}`);
             }
+          }
+          if (info.Title) title = info.Title;
+          if (info.Author) sender = info.Author;
+          
+          metadata.pdf = {
+            pages: data.numpages,
+            version: data.version,
+            info: info
+          };
         }
-        metadata.pageCount = data.pages ? data.pages.length : 0;
       } catch (e) {
         console.warn("PDF extraction failed:", e);
       }
