@@ -38,13 +38,24 @@ export async function POST(
       },
       select: {
         id: true,
-        originalName: true
+        originalName: true,
+        evidenceItems: {
+          select: {
+            id: true,
+            evidenceNumber: true,
+            title: true,
+            legalDate: true,
+            createdAt: true
+          }
+        }
       }
     });
 
     return NextResponse.json({ 
       exists: !!existingFile,
-      fileName: existingFile?.originalName || null
+      fileName: existingFile?.originalName || null,
+      fileId: existingFile?.id || null,
+      evidenceItems: existingFile?.evidenceItems || []
     });
   } catch (error) {
     console.error("[CHECK_DUPLICATE_ERROR]", error);

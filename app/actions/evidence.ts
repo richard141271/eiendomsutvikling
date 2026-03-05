@@ -261,10 +261,11 @@ export async function createEvidenceItemForEntry(entry: any) {
 
 export async function createEvidenceItem(data: {
   projectId: string;
-  url: string;
+  url?: string;
+  fileId?: string; // New: Option to use existing file
   title: string;
   description?: string;
-  fileType: string;
+  fileType?: string;
   originalName?: string;
   sourceType?: string;
   reliabilityLevel?: string;
@@ -273,38 +274,49 @@ export async function createEvidenceItem(data: {
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) throw new Error("Unauthorized");
 
+  const projectId = data.projectId;
+
   // HEAL: Ensure sequence is in sync
-  await ensureSequenceSynced(data.projectId);
+  await ensureSequenceSynced(projectId);
 
-  // 1. Ensure File exists
-  let file = await (prisma as any).file.findFirst({
-    where: { 
-      projectId: data.projectId, 
-      storagePath: data.url 
-    }
-  });
+  let fileId = data.fileId;
 
-  if (!file) {
-    file = await (prisma as any).file.create({
-      data: {
-        projectId: data.projectId,
-        storagePath: data.url,
-        fileType: data.fileType,
-        originalName: data.originalName || "Uploaded File",
+  // 1. Ensure File exists if not provided directly
+  if (!fileId && data.url) {
+    let file = await (prisma as any).file.findFirst({
+      where: { 
+        projectId: projectId, 
+        storagePath: data.url 
       }
     });
+
+    if (!file) {
+      file = await (prisma as any).file.create({
+        data: {
+          projectId: projectId,
+          storagePath: data.url,
+          fileType: data.fileType || "application/octet-stream",
+          originalName: data.originalName || "Uploaded File",
+        }
+      });
+    }
+    fileId = file.id;
+  }
+
+  if (!fileId) {
+    throw new Error("Missing fileId or url to create evidence item");
   }
 
   // 2. Create EvidenceItem
-  const evidenceNumber = await getNextEvidenceNumber(data.projectId);
+  const evidenceNumber = await getNextEvidenceNumber(projectId);
   
   const item = await (prisma as any).evidenceItem.create({
     data: {
-      projectId: data.projectId,
+      projectId: projectId,
       evidenceNumber,
       title: data.title,
       description: data.description,
-      fileId: file.id,
+      fileId: fileId,
       includeInReport: true, // Default to true
       // No originalEntryId since it's direct upload
       sourceType: data.sourceType,

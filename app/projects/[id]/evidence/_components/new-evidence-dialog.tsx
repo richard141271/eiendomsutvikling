@@ -3,14 +3,16 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { FileUpload } from "@/components/file-upload";
 import { createEvidenceItem, updateEvidenceItem } from "@/app/actions/evidence";
-import { Plus } from "lucide-react";
+import { Plus, FileText } from "lucide-react";
 import { toast } from "sonner";
+import { format } from "date-fns";
 
 interface NewEvidenceDialogProps {
   projectId: string;
@@ -26,6 +28,16 @@ export default function NewEvidenceDialog({ projectId, onSuccess }: NewEvidenceD
   const [detectedFileType, setDetectedFileType] = useState<string>("");
   const [detectedSourceType, setDetectedSourceType] = useState<string>("");
   const [uploadedEvidenceId, setUploadedEvidenceId] = useState<string | null>(null);
+  
+  // Duplicate check state
+  const [duplicateDialogOpen, setDuplicateDialogOpen] = useState(false);
+  const [duplicateData, setDuplicateData] = useState<{
+    exists: boolean;
+    fileName: string;
+    fileId: string;
+    evidenceItems: any[];
+    currentFile: File | null;
+  } | null>(null);
 
   const router = useRouter();
 
@@ -39,6 +51,8 @@ export default function NewEvidenceDialog({ projectId, onSuccess }: NewEvidenceD
       setDetectedFileType("");
       setDetectedSourceType("");
       setUploadedEvidenceId(null);
+      setDuplicateDialogOpen(false);
+      setDuplicateData(null);
     }
   };
 
@@ -62,15 +76,55 @@ export default function NewEvidenceDialog({ projectId, onSuccess }: NewEvidenceD
       
       const data = await res.json();
       if (data.exists) {
-        return window.confirm(
-          `Denne filen (${file.name}) ligger allerede i prosjektet.\n\nEr du sikker på at du vil laste den opp på nytt?`
-        );
+        setDuplicateData({
+          ...data,
+          currentFile: file
+        });
+        setDuplicateDialogOpen(true);
+        return false; // Stop upload
       }
       
       return true;
     } catch (error) {
       console.error("Duplicate check failed:", error);
       return true; 
+    }
+  };
+
+  const handleUseExistingFile = async () => {
+    if (!duplicateData || !duplicateData.fileId) return;
+
+    try {
+      setLoading(true);
+      const file = duplicateData.currentFile;
+      const fileName = file?.name || duplicateData.fileName;
+      
+      // Default title to file name if not set
+      const evidenceTitle = title || fileName;
+      
+      await createEvidenceItem({
+        projectId,
+        fileId: duplicateData.fileId,
+        title: evidenceTitle,
+        description: description,
+        // Detect type from file object if available, or just leave optional
+        fileType: file?.type,
+        originalName: fileName,
+        sourceType: detectedSourceType || "document", // Default
+        reliabilityLevel: "primary"
+      });
+
+      toast.success("Bevis opprettet med eksisterende fil");
+      
+      if (onSuccess) onSuccess(null);
+      router.refresh();
+      handleOpenChange(false);
+    } catch (error) {
+      console.error("Error reusing file:", error);
+      toast.error("Kunne ikke gjenbruke filen");
+    } finally {
+      setLoading(false);
+      setDuplicateDialogOpen(false);
     }
   };
 
@@ -130,12 +184,8 @@ export default function NewEvidenceDialog({ projectId, onSuccess }: NewEvidenceD
           sourceType,
           reliabilityLevel: "primary"
         });
-        
-        // We need to fetch the full item to pass to onSuccess
-        // But since we don't have it here, we'll just pass a partial object or rely on refresh
-        // Ideally we would fetch it, but let's trust refresh
       } else {
-        // Create new item (fallback if upload didn't create one, though it should have)
+        // Create new item
         await createEvidenceItem({
           projectId,
           url,
@@ -165,89 +215,141 @@ export default function NewEvidenceDialog({ projectId, onSuccess }: NewEvidenceD
   };
 
   return (
-    <Dialog open={open} onOpenChange={handleOpenChange}>
-      <DialogTrigger asChild>
-        <Button className="bg-slate-900 text-white hover:bg-slate-800">
-          <Plus className="w-4 h-4 mr-2" />
-          Nytt bevis
-        </Button>
-      </DialogTrigger>
-      <DialogContent className="sm:max-w-[500px]">
-        <DialogHeader>
-          <DialogTitle>Legg til nytt bevis</DialogTitle>
-        </DialogHeader>
-        
-        <div className="space-y-4 py-4">
-          <div className="space-y-2">
-            <FileUpload 
-              value={url} 
-              endpoint={`/api/projects/${projectId}/evidence/upload`}
-              onBeforeUpload={handleBeforeUpload}
-              onChange={(newUrl) => {
-                setUrl(newUrl);
-                // Auto-set title if empty and url has a name
-                if (!title && newUrl) {
-                  const fileName = newUrl.split('/').pop();
-                  if (fileName) setTitle(fileName);
-                }
-              }}
-              onUploadComplete={(data) => {
-                console.log("Upload complete:", data);
-                if (data.evidenceId) {
-                  setUploadedEvidenceId(data.evidenceId);
-                }
-                if (data.originalName && !title) {
-                  setTitle(data.originalName);
-                }
-                if (data.fileType) {
-                  setDetectedFileType(data.fileType);
-                  // Map fileType to sourceType
-                  if (data.fileType.startsWith("image/")) setDetectedSourceType("photo");
-                  else if (data.fileType.startsWith("video/")) setDetectedSourceType("video");
-                  else if (data.fileType === "message/rfc822") setDetectedSourceType("email");
-                  else setDetectedSourceType("document");
-                }
-                if (data.metadata?.extractedText && !description) {
-                  // Optional: Pre-fill description with first 200 chars of text?
-                  // Maybe too intrusive. Let's stick to basics.
-                }
-              }}
-              label="Last opp fil"
-              accept="*"
-            />
-          </div>
-
-          <div className="space-y-2">
-            <Label htmlFor="title">Tittel</Label>
-            <Input 
-              id="title" 
-              value={title} 
-              onChange={(e) => setTitle(e.target.value)} 
-              placeholder="F.eks. Bilde av skade"
-            />
-          </div>
-
-          <div className="space-y-2">
-            <Label htmlFor="description">Beskrivelse (valgfritt)</Label>
-            <Textarea 
-              id="description" 
-              value={description} 
-              onChange={(e) => setDescription(e.target.value)} 
-              placeholder="Nærmere beskrivelse av beviset..."
-              className="min-h-[100px]"
-            />
-          </div>
-        </div>
-
-        <div className="flex justify-end gap-2">
-          <Button variant="outline" onClick={() => handleOpenChange(false)}>
-            Avbryt
+    <>
+      <Dialog open={open} onOpenChange={handleOpenChange}>
+        <DialogTrigger asChild>
+          <Button className="bg-slate-900 text-white hover:bg-slate-800">
+            <Plus className="w-4 h-4 mr-2" />
+            Nytt bevis
           </Button>
-          <Button onClick={handleSave} disabled={loading || !url || !title}>
-            {loading ? "Lagrer..." : "Lagre bevis"}
-          </Button>
-        </div>
-      </DialogContent>
-    </Dialog>
+        </DialogTrigger>
+        <DialogContent className="sm:max-w-[500px]">
+          <DialogHeader>
+            <DialogTitle>Legg til nytt bevis</DialogTitle>
+          </DialogHeader>
+          
+          <div className="space-y-4 py-4">
+            <div className="space-y-2">
+              <FileUpload 
+                value={url} 
+                endpoint={`/api/projects/${projectId}/evidence/upload`}
+                onBeforeUpload={handleBeforeUpload}
+                onChange={(newUrl) => {
+                  setUrl(newUrl);
+                  // Auto-set title if empty and url has a name
+                  if (!title && newUrl) {
+                    const fileName = newUrl.split('/').pop();
+                    if (fileName) setTitle(fileName);
+                  }
+                }}
+                onUploadComplete={(data) => {
+                  console.log("Upload complete:", data);
+                  if (data.evidenceId) {
+                    setUploadedEvidenceId(data.evidenceId);
+                  }
+                  if (data.originalName && !title) {
+                    setTitle(data.originalName);
+                  }
+                  if (data.fileType) {
+                    setDetectedFileType(data.fileType);
+                    // Map fileType to sourceType
+                    if (data.fileType.startsWith("image/")) setDetectedSourceType("photo");
+                    else if (data.fileType.startsWith("video/")) setDetectedSourceType("video");
+                    else if (data.fileType === "message/rfc822") setDetectedSourceType("email");
+                    else setDetectedSourceType("document");
+                  }
+                  if (data.metadata?.extractedText && !description) {
+                    // Optional: Pre-fill description with first 200 chars of text?
+                    // Maybe too intrusive. Let's stick to basics.
+                  }
+                }}
+                label="Last opp fil"
+                accept="*"
+              />
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="title">Tittel</Label>
+              <Input 
+                id="title" 
+                value={title} 
+                onChange={(e) => setTitle(e.target.value)} 
+                placeholder="F.eks. Bilde av skade"
+              />
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="description">Beskrivelse (valgfritt)</Label>
+              <Textarea 
+                id="description" 
+                value={description} 
+                onChange={(e) => setDescription(e.target.value)} 
+                placeholder="Nærmere beskrivelse av beviset..."
+                className="min-h-[100px]"
+              />
+            </div>
+          </div>
+
+          <div className="flex justify-end gap-2">
+            <Button variant="outline" onClick={() => handleOpenChange(false)}>
+              Avbryt
+            </Button>
+            <Button onClick={handleSave} disabled={loading || !url || !title}>
+              {loading ? "Lagrer..." : "Lagre bevis"}
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      <AlertDialog open={duplicateDialogOpen} onOpenChange={setDuplicateDialogOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Filen finnes allerede</AlertDialogTitle>
+            <AlertDialogDescription className="space-y-4">
+              <p>
+                Filen <strong>{duplicateData?.currentFile?.name}</strong> finnes allerede i dette prosjektet.
+              </p>
+              
+              {duplicateData?.evidenceItems && duplicateData.evidenceItems.length > 0 && (
+                <div className="bg-slate-50 p-3 rounded-md border text-sm">
+                  <p className="font-medium mb-2 text-slate-700">Brukes i følgende bevis:</p>
+                  <ul className="space-y-2">
+                    {duplicateData.evidenceItems.map((item: any) => (
+                      <li key={item.id} className="flex items-start gap-2">
+                        <FileText className="w-4 h-4 mt-0.5 text-slate-500" />
+                        <div>
+                          <span className="font-medium text-slate-900">B-{item.evidenceNumber}</span>
+                          <span className="mx-1 text-slate-400">•</span>
+                          <span className="text-slate-700">{item.title}</span>
+                          <div className="text-xs text-slate-500">
+                            {format(new Date(item.createdAt), "d. MMM yyyy")}
+                          </div>
+                        </div>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              )}
+
+              <p>
+                Du kan velge å gjenbruke den eksisterende filen for å spare lagringsplass, 
+                eller avbryte opplastingen.
+              </p>
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel onClick={() => {
+              setDuplicateDialogOpen(false);
+              setDuplicateData(null);
+            }}>
+              Avbryt
+            </AlertDialogCancel>
+            <Button onClick={handleUseExistingFile}>
+              Bruk eksisterende fil
+            </Button>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+    </>
   );
 }
