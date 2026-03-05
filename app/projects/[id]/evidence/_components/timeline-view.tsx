@@ -34,7 +34,7 @@ interface EvidenceItem {
     storagePath: string;
     url?: string;
   };
-  createdAt: Date;
+  createdAt: Date | string;
 }
 
 interface TimelineViewProps {

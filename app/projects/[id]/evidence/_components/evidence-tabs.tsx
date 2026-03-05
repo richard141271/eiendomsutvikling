@@ -15,8 +15,8 @@ interface EvidenceItem {
   title: string;
   description: string | null;
   fileId: string;
-  legalDate: Date | null;
-  originalDate: Date | null;
+  legalDate: Date | string | null;
+  originalDate: Date | string | null;
   includeInReport: boolean;
   legalPriority: number | null;
   category: string | null;
@@ -31,7 +31,7 @@ interface EvidenceItem {
     storagePath: string;
     url?: string;
   };
-  createdAt: Date;
+  createdAt: Date | string;
 }
 
 interface EvidenceTabsProps {
