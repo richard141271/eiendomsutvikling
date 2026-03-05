@@ -91,6 +91,8 @@ export async function generateLegalReportInternal(projectId: string) {
             title: item.title,
             description: item.description,
             fileId: item.fileId, // Snapshot file reference too
+            missingLink: item.missingLink,
+            missingLinkNote: item.missingLinkNote,
             includedAt: new Date()
         }))
     });

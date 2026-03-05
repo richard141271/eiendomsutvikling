@@ -70,6 +70,8 @@ export interface EvidenceItem {
   source?: string;
   imageUrl?: string;
   attachmentId?: string;
+  missingLink?: boolean;
+  missingLinkNote?: string;
 }
 
 export interface EconomyLine {

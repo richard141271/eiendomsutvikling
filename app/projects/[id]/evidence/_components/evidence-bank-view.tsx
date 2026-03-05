@@ -8,7 +8,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Checkbox } from "@/components/ui/checkbox";
-import { FileText, Image as ImageIcon, Search, ArrowUpDown, Filter } from "lucide-react";
+import { FileText, Image as ImageIcon, Search, ArrowUpDown, Filter, AlertTriangle } from "lucide-react";
 import { EditPanel } from "./edit-panel";
 
 interface EvidenceItem {
@@ -22,9 +22,14 @@ interface EvidenceItem {
   includeInReport: boolean;
   legalPriority: number | null;
   category: string | null;
+  sourceType: string | null;
+  reliabilityLevel: string | null;
+  missingLink?: boolean;
+  missingLinkNote?: string | null;
   file: {
     fileType: string;
     storagePath: string;
+    url?: string;
   };
   createdAt: Date;
 }
@@ -65,8 +70,8 @@ export default function EvidenceBankView({ items, onUpdateItem }: EvidenceBankVi
     if (valB instanceof Date) valB = valB.getTime();
 
     // Handle nulls
-    if (valA === null) return 1;
-    if (valB === null) return -1;
+    if (valA === null || valA === undefined) return 1;
+    if (valB === null || valB === undefined) return -1;
 
     if (valA < valB) return sortDirection === "asc" ? -1 : 1;
     if (valA > valB) return sortDirection === "asc" ? 1 : -1;
@@ -122,25 +127,40 @@ export default function EvidenceBankView({ items, onUpdateItem }: EvidenceBankVi
                 </TableCell>
                 <TableCell>
                   {item.file.fileType.startsWith("image/") ? (
-                    <ImageIcon className="h-4 w-4 text-slate-500" />
+                    <div className="h-10 w-10 rounded-md overflow-hidden border border-slate-200 bg-slate-50 cursor-pointer" onClick={() => window.open(item.file.url || item.file.storagePath, '_blank')}>
+                      <img 
+                        src={item.file.url || item.file.storagePath} 
+                        alt="Bevis" 
+                        className="h-full w-full object-cover" 
+                      />
+                    </div>
                   ) : (
-                    <FileText className="h-4 w-4 text-slate-500" />
-                  )}
-                </TableCell>
-                <TableCell>
-                  {item.category && (
-                    <Badge variant="secondary" className="text-[10px] font-normal bg-slate-100 text-slate-600 border-slate-200">
-                      {item.category}
-                    </Badge>
+                    <div className="h-10 w-10 rounded-md flex items-center justify-center border border-slate-200 bg-slate-50 cursor-pointer" onClick={() => window.open(item.file.url || item.file.storagePath, '_blank')}>
+                      <FileText className="h-5 w-5 text-slate-400" />
+                    </div>
                   )}
                 </TableCell>
                 <TableCell className="font-medium">
-                  {item.title}
-                  {item.description && (
-                    <p className="text-xs text-muted-foreground truncate max-w-[200px]">
-                      {item.description}
-                    </p>
-                  )}
+                  <div className="flex flex-col gap-1">
+                    <div className="flex items-center gap-2">
+                      <span>{item.title}</span>
+                      {item.missingLink && (
+                        <div className="text-amber-600" title={item.missingLinkNote || "Mangler bevislink"}>
+                          <AlertTriangle className="h-4 w-4" />
+                        </div>
+                      )}
+                    </div>
+                    {item.category && (
+                      <Badge variant="secondary" className="w-fit text-[10px] font-normal bg-slate-100 text-slate-600 border-slate-200">
+                        {item.category}
+                      </Badge>
+                    )}
+                    {item.description && (
+                      <p className="text-xs text-muted-foreground truncate max-w-[200px]">
+                        {item.description}
+                      </p>
+                    )}
+                  </div>
                 </TableCell>
                 <TableCell>
                   {item.legalDate ? (

@@ -1,11 +1,34 @@
 
 import { prisma } from "@/lib/prisma";
+import { createClient } from "@/lib/supabase-server";
 
 // Safe data fetching functions for Server Components
 // NOT Server Actions (no "use server") - direct DB access
 
+async function enrichEvidenceWithUrls(evidenceItems: any[]) {
+  const supabase = createClient();
+  
+  return await Promise.all(evidenceItems.map(async (item) => {
+    if (item.file?.storagePath) {
+      try {
+        const { data } = await supabase.storage
+          .from('evidence')
+          .createSignedUrl(item.file.storagePath, 3600); // 1 hour expiry
+          
+        if (data?.signedUrl) {
+          // Add url to the file object (runtime addition)
+          item.file.url = data.signedUrl;
+        }
+      } catch (error) {
+        console.error("Error creating signed URL:", error);
+      }
+    }
+    return item;
+  }));
+}
+
 export async function getProject(id: string) {
-  const project = await prisma.project.findUnique({
+  const project = await (prisma as any).project.findUnique({
     where: { id },
     include: {
       property: true,
@@ -13,20 +36,37 @@ export async function getProject(id: string) {
       entries: { orderBy: { createdAt: "desc" } },
       tasks: { orderBy: { createdAt: "asc" } },
       reports: { orderBy: { createdAt: "desc" } },
-      // @ts-ignore
       evidenceItems: {
+        where: { deletedAt: null },
         select: {
            id: true,
            evidenceNumber: true,
            originalEntryId: true,
            title: true,
-           description: true
+           description: true,
+           legalDate: true,
+           originalDate: true,
+           createdAt: true,
+           sourceType: true,
+           reliabilityLevel: true,
+           file: {
+               select: {
+                 storagePath: true,
+                 url: true, // In case we have it in DB later
+                 fileType: true
+               }
+             }
         }
       },
     },
   });
 
   if (!project) return null;
+
+  // Enrich with signed URLs
+  if (project.evidenceItems && project.evidenceItems.length > 0) {
+    project.evidenceItems = await enrichEvidenceWithUrls(project.evidenceItems);
+  }
 
   // Fetch report instances manually to avoid type issues or if they are not included in the main query correctly
   // (Though they are included above as 'reports', sometimes 'reportInstances' is the relation name depending on schema)
@@ -43,12 +83,18 @@ export async function getProject(id: string) {
 }
 
 export async function getProjectWithEvidence(projectId: string) {
-  return await (prisma as any).project.findUnique({
+  const project = await (prisma as any).project.findUnique({
     where: { id: projectId },
     include: {
       evidenceItems: {
         where: { deletedAt: null },
-        orderBy: { evidenceNumber: 'asc' }
+        orderBy: [
+            { legalPriority: 'asc' }, 
+            { evidenceNumber: 'asc' }
+        ],
+        include: {
+            file: true
+        }
       } as any, // Cast to avoid strict type checks on include
       legalReportDraft: true,
       sequence: true,
@@ -58,4 +104,13 @@ export async function getProjectWithEvidence(projectId: string) {
       } as any
     }
   });
+
+  if (!project) return null;
+
+  // Enrich with signed URLs
+  if (project.evidenceItems && project.evidenceItems.length > 0) {
+    project.evidenceItems = await enrichEvidenceWithUrls(project.evidenceItems);
+  }
+
+  return project;
 }

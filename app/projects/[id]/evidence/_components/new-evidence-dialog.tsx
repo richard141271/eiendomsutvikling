@@ -1,0 +1,171 @@
+"use client";
+
+import { useState } from "react";
+import { useRouter } from "next/navigation";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
+import { FileUpload } from "@/components/file-upload";
+import { createEvidenceItem } from "@/app/actions/evidence";
+import { Plus } from "lucide-react";
+import { toast } from "sonner";
+
+interface NewEvidenceDialogProps {
+  projectId: string;
+  onSuccess?: (item: any) => void;
+}
+
+export default function NewEvidenceDialog({ projectId, onSuccess }: NewEvidenceDialogProps) {
+  const [open, setOpen] = useState(false);
+  const [loading, setLoading] = useState(false);
+  const [url, setUrl] = useState<string | null>(null);
+  const [title, setTitle] = useState("");
+  const [description, setDescription] = useState("");
+
+  const router = useRouter();
+
+  const handleOpenChange = (newOpen: boolean) => {
+    setOpen(newOpen);
+    if (!newOpen) {
+      // Reset form on close
+      setUrl(null);
+      setTitle("");
+      setDescription("");
+    }
+  };
+
+  const handleSave = async () => {
+    if (!url) {
+      toast.error("Du må laste opp en fil");
+      return;
+    }
+
+    if (!title) {
+      toast.error("Du må skrive en tittel");
+      return;
+    }
+
+    try {
+      setLoading(true);
+
+      // Determine file type from extension
+      const ext = url.split('.').pop()?.toLowerCase();
+      let fileType = "application/octet-stream";
+      let sourceType = "document"; // Default source type
+      
+      if (['jpg', 'jpeg', 'png', 'gif', 'webp'].includes(ext || '')) {
+        fileType = "image/jpeg";
+        sourceType = "photo";
+      } else if (['mp4', 'mov', 'avi', 'webm'].includes(ext || '')) {
+        fileType = "video/mp4";
+        sourceType = "video";
+      } else if (ext === 'pdf') {
+        fileType = "application/pdf";
+        sourceType = "document";
+      } else if (['doc', 'docx'].includes(ext || '')) {
+        fileType = "application/vnd.openxmlformats-officedocument.wordprocessingml.document";
+        sourceType = "document";
+      } else if (['xls', 'xlsx'].includes(ext || '')) {
+        fileType = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet";
+        sourceType = "document";
+      } else if (['eml', 'msg'].includes(ext || '')) {
+        fileType = "message/rfc822";
+        sourceType = "email";
+      } else if (['html', 'htm'].includes(ext || '')) {
+        fileType = "text/html";
+        sourceType = "document";
+      }
+
+      const newItem = await createEvidenceItem({
+        projectId,
+        url,
+        title,
+        description,
+        fileType,
+        originalName: title, // Fallback if we don't have original name easily available
+        sourceType,
+        reliabilityLevel: "primary"
+      });
+
+      toast.success("Bevis opprettet");
+      
+      if (onSuccess) {
+        onSuccess(newItem);
+      }
+      
+      router.refresh();
+      handleOpenChange(false);
+    } catch (error) {
+      console.error("Error creating evidence:", error);
+      toast.error("Kunne ikke opprette bevis");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  return (
+    <Dialog open={open} onOpenChange={handleOpenChange}>
+      <DialogTrigger asChild>
+        <Button className="bg-slate-900 text-white hover:bg-slate-800">
+          <Plus className="w-4 h-4 mr-2" />
+          Nytt bevis
+        </Button>
+      </DialogTrigger>
+      <DialogContent className="sm:max-w-[500px]">
+        <DialogHeader>
+          <DialogTitle>Legg til nytt bevis</DialogTitle>
+        </DialogHeader>
+        
+        <div className="space-y-4 py-4">
+          <div className="space-y-2">
+            <FileUpload 
+              value={url} 
+              onChange={(newUrl) => {
+                setUrl(newUrl);
+                // Auto-set title if empty and url has a name
+                if (!title && newUrl) {
+                  const fileName = newUrl.split('/').pop();
+                  if (fileName) setTitle(fileName);
+                }
+              }}
+              label="Last opp fil"
+              accept="*"
+            />
+          </div>
+
+          <div className="space-y-2">
+            <Label htmlFor="title">Tittel</Label>
+            <Input 
+              id="title" 
+              value={title} 
+              onChange={(e) => setTitle(e.target.value)} 
+              placeholder="F.eks. Bilde av skade"
+            />
+          </div>
+
+          <div className="space-y-2">
+            <Label htmlFor="description">Beskrivelse (valgfritt)</Label>
+            <Textarea 
+              id="description" 
+              value={description} 
+              onChange={(e) => setDescription(e.target.value)} 
+              placeholder="Nærmere beskrivelse av beviset..."
+              className="min-h-[100px]"
+            />
+          </div>
+        </div>
+
+        <div className="flex justify-end gap-2">
+          <Button variant="outline" onClick={() => handleOpenChange(false)}>
+            Avbryt
+          </Button>
+          <Button onClick={handleSave} disabled={loading || !url || !title}>
+            {loading ? "Lagrer..." : "Lagre bevis"}
+          </Button>
+        </div>
+      </DialogContent>
+    </Dialog>
+  );
+}

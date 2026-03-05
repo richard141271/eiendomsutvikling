@@ -10,7 +10,8 @@ import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { Checkbox } from "@/components/ui/checkbox";
 import { DatePicker } from "@/components/ui/date-picker";
-import { Clock, Lock, Save, Trash2, FileText, Image as ImageIcon, Copy } from "lucide-react";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Clock, Lock, Save, Trash2, FileText, Image as ImageIcon, Copy, AlertTriangle } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { updateEvidenceItem } from "@/app/actions/evidence";
 import { toast } from "sonner";
@@ -27,6 +28,11 @@ interface EvidenceItem {
   includeInReport: boolean;
   legalPriority: number | null;
   category: string | null;
+  sourceType: string | null;
+  reliabilityLevel: string | null;
+  missingLink?: boolean;
+  missingLinkNote?: string | null;
+  linkedEvidenceId?: string | null;
   file: {
     fileType: string;
     storagePath: string;
@@ -50,6 +56,10 @@ export function EditPanel({ item, isOpen, onClose, onSave }: EditPanelProps) {
   const [time, setTime] = useState("12:00");
   const [category, setCategory] = useState("");
   const [includeInReport, setIncludeInReport] = useState(true);
+  const [sourceType, setSourceType] = useState<string>("document");
+  const [reliabilityLevel, setReliabilityLevel] = useState<string>("primary");
+  const [missingLink, setMissingLink] = useState(false);
+  const [missingLinkNote, setMissingLinkNote] = useState("");
   const [isSaving, setIsSaving] = useState(false);
 
   useEffect(() => {
@@ -58,6 +68,10 @@ export function EditPanel({ item, isOpen, onClose, onSave }: EditPanelProps) {
       setDescription(item.description || "");
       setCategory(item.category || "");
       setIncludeInReport(item.includeInReport);
+      setSourceType(item.sourceType || "document");
+      setReliabilityLevel(item.reliabilityLevel || "primary");
+      setMissingLink(item.missingLink || false);
+      setMissingLinkNote(item.missingLinkNote || "");
       
       if (item.legalDate) {
         setLegalDate(item.legalDate);
@@ -87,7 +101,11 @@ export function EditPanel({ item, isOpen, onClose, onSave }: EditPanelProps) {
         description,
         legalDate: newDate,
         includeInReport,
-        category: category || undefined
+        category: category || undefined,
+        sourceType,
+        reliabilityLevel,
+        missingLink,
+        missingLinkNote: missingLink ? missingLinkNote : null,
       });
 
       onSave({
@@ -96,7 +114,11 @@ export function EditPanel({ item, isOpen, onClose, onSave }: EditPanelProps) {
         description,
         legalDate: newDate || null,
         includeInReport,
-        category: category || null
+        category: category || null,
+        sourceType,
+        reliabilityLevel,
+        missingLink,
+        missingLinkNote: missingLink ? missingLinkNote : null,
       });
       
       toast.success("Endringer lagret");
@@ -181,6 +203,39 @@ export function EditPanel({ item, isOpen, onClose, onSave }: EditPanelProps) {
             />
           </div>
 
+          <div className="grid grid-cols-2 gap-4">
+            <div className="grid gap-2">
+              <Label>Kilde type</Label>
+              <Select value={sourceType} onValueChange={setSourceType}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Velg kilde" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="photo">Foto</SelectItem>
+                  <SelectItem value="video">Video</SelectItem>
+                  <SelectItem value="email">E-post</SelectItem>
+                  <SelectItem value="document">Dokument</SelectItem>
+                  <SelectItem value="expert_report">Sakkyndig rapport</SelectItem>
+                  <SelectItem value="witness_statement">Vitneforklaring</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div className="grid gap-2">
+              <Label>Bevisstyrke</Label>
+              <Select value={reliabilityLevel} onValueChange={setReliabilityLevel}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Velg styrke" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="primary">Primærbevis</SelectItem>
+                  <SelectItem value="secondary">Støttebevis</SelectItem>
+                  <SelectItem value="supporting">Kontekst</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+
           {/* Date & Time */}
           <div className="grid grid-cols-2 gap-4">
             <div className="grid gap-2">
@@ -246,6 +301,34 @@ export function EditPanel({ item, isOpen, onClose, onSave }: EditPanelProps) {
               onCheckedChange={(c) => setIncludeInReport(!!c)} 
             />
             <Label htmlFor="include">Inkluder i juridisk rapport</Label>
+          </div>
+
+          {/* Missing Link Section */}
+          <div className="space-y-4 pt-4 border-t">
+            <div className="flex items-center space-x-2">
+              <Checkbox 
+                id="missingLink" 
+                checked={missingLink} 
+                onCheckedChange={(c) => setMissingLink(!!c)} 
+              />
+              <Label htmlFor="missingLink" className="flex items-center text-amber-700 font-medium">
+                <AlertTriangle className="w-4 h-4 mr-2" />
+                Mangler bevislink
+              </Label>
+            </div>
+
+            {missingLink && (
+              <div className="pl-6 space-y-2 animate-in fade-in slide-in-from-top-2">
+                <Label htmlFor="missingLinkNote" className="text-xs font-medium">Beskrivelse av manglende kobling</Label>
+                <Textarea 
+                  id="missingLinkNote" 
+                  value={missingLinkNote} 
+                  onChange={(e) => setMissingLinkNote(e.target.value)}
+                  placeholder="F.eks. E-post fra Torbjørn Larsen vedrørende bekreftelse..."
+                  className="min-h-[80px] text-sm bg-amber-50 border-amber-200 focus-visible:ring-amber-500 placeholder:text-amber-300/70"
+                />
+              </div>
+            )}
           </div>
         </div>
 

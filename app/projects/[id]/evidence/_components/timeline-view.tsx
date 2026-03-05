@@ -3,7 +3,7 @@
 import { useState, useMemo } from "react";
 import { format, isValid, parseISO, isSameDay } from "date-fns";
 import { nb } from "date-fns/locale";
-import { Calendar as CalendarIcon, GripVertical, FileText, Image as ImageIcon, Loader2, Check, AlertCircle, Clock } from "lucide-react";
+import { Calendar as CalendarIcon, GripVertical, FileText, Image as ImageIcon, Loader2, Check, AlertCircle, Clock, AlertTriangle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
@@ -23,9 +23,14 @@ interface EvidenceItem {
   includeInReport: boolean;
   legalPriority: number | null;
   category: string | null;
+  sourceType: string | null;
+  reliabilityLevel: string | null;
+  missingLink?: boolean;
+  missingLinkNote?: string | null;
   file: {
     fileType: string;
     storagePath: string;
+    url?: string;
   };
   createdAt: Date;
 }
@@ -186,9 +191,13 @@ export default function TimelineView({ items, onUpdateItem }: TimelineViewProps)
                 </div>
 
                 {/* Icon */}
-                <div className="h-10 w-10 bg-slate-50 rounded-md flex items-center justify-center border text-slate-500 shrink-0">
+                <div className="h-10 w-10 bg-slate-50 rounded-md flex items-center justify-center border text-slate-500 shrink-0 overflow-hidden cursor-pointer" onClick={() => window.open(item.file.url || item.file.storagePath, '_blank')}>
                   {item.file.fileType.startsWith("image/") ? (
-                    <ImageIcon className="w-5 h-5" />
+                    <img 
+                      src={item.file.url || item.file.storagePath} 
+                      alt="Bevis" 
+                      className="h-full w-full object-cover" 
+                    />
                   ) : (
                     <FileText className="w-5 h-5" />
                   )}
@@ -200,6 +209,11 @@ export default function TimelineView({ items, onUpdateItem }: TimelineViewProps)
                     <span className="font-medium text-slate-900 truncate">
                       {item.title}
                     </span>
+                    {item.missingLink && (
+                      <div className="text-amber-600" title={item.missingLinkNote || "Mangler bevislink"}>
+                        <AlertTriangle className="h-4 w-4" />
+                      </div>
+                    )}
                     {item.category && (
                       <Badge variant="secondary" className="text-[10px] px-1.5 h-5 font-normal bg-slate-100 text-slate-600 border-slate-200">
                         {item.category}

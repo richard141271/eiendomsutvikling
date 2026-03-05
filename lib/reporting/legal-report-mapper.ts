@@ -184,7 +184,25 @@ export function mapLegalDraftToReport(
     });
   }
 
-  // 8. Evidence List (Summary in main report)
+  // 8. Missing Links Section (if any)
+  const missingLinkItems = evidenceItems.filter(e => e.missingLink);
+  if (missingLinkItems.length > 0) {
+    builder.addSection({
+      id: "missing-links",
+      title: "Ufullstendige koblinger",
+      blocks: [
+        { kind: "PARAGRAPH", text: "Følgende bevis refererer til dokumentasjon som foreløpig ikke er koblet i systemet:" },
+        {
+          kind: "LIST",
+          items: missingLinkItems.map(e => 
+            `${e.evidenceCode}: ${e.title} - Manglende referanse: ${e.missingLinkNote || "Ingen beskrivelse"}`
+          )
+        }
+      ]
+    });
+  }
+
+  // 9. Evidence List (Summary in main report)
   if (evidenceItems.length > 0) {
     builder.addSection({
       id: "evidence-list",
@@ -193,7 +211,11 @@ export function mapLegalDraftToReport(
         { kind: "PARAGRAPH", text: `Totalt ${evidenceItems.length} bevis er vedlagt denne rapporten.` },
         { 
           kind: "LIST", 
-          items: evidenceItems.map(e => `${e.evidenceCode}: ${e.title} (${e.date ? e.date.toLocaleDateString("no-NO") : "Ingen dato"})`) 
+          items: evidenceItems.map(e => {
+            const dateStr = e.date ? e.date.toLocaleDateString("no-NO") : "Ingen dato";
+            const missingStr = e.missingLink ? " (⚠️ Mangler link)" : "";
+            return `${e.evidenceCode}: ${e.title} (${dateStr})${missingStr}`;
+          }) 
         }
       ],
     });

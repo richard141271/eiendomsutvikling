@@ -1,11 +1,12 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
-import { Plus, LayoutList, Table as TableIcon } from "lucide-react";
+import { Plus, LayoutList, Table as TableIcon, AlertTriangle } from "lucide-react";
 import TimelineView from "./timeline-view";
 import EvidenceBankView from "./evidence-bank-view";
+import NewEvidenceDialog from "./new-evidence-dialog";
 import { toast } from "sonner";
 
 interface EvidenceItem {
@@ -19,9 +20,14 @@ interface EvidenceItem {
   includeInReport: boolean;
   legalPriority: number | null;
   category: string | null;
+  sourceType: string | null;
+  reliabilityLevel: string | null;
+  missingLink?: boolean;
+  missingLinkNote?: string | null;
   file: {
     fileType: string;
     storagePath: string;
+    url?: string;
   };
   createdAt: Date;
 }
@@ -45,6 +51,18 @@ export default function EvidenceTabs({ initialItems, projectId }: EvidenceTabsPr
     }))
   );
 
+  useEffect(() => {
+    setItems(initialItems.map(item => ({
+      ...item,
+      legalDate: item.legalDate ? new Date(item.legalDate) : null,
+      originalDate: item.originalDate ? new Date(item.originalDate) : null,
+      createdAt: new Date(item.createdAt),
+      legalPriority: item.legalPriority ?? item.evidenceNumber,
+      category: item.category ?? null,
+      includeInReport: item.includeInReport ?? true // Default to true if missing
+    })));
+  }, [initialItems]);
+
   const [filter, setFilter] = useState("all");
 
   const filteredItems = items.filter(item => {
@@ -52,6 +70,7 @@ export default function EvidenceTabs({ initialItems, projectId }: EvidenceTabsPr
     if (filter === "report") return item.includeInReport;
     if (filter === "image") return item.file.fileType.startsWith("image/");
     if (filter === "no-date") return !item.legalDate;
+    if (filter === "missing-link") return item.missingLink;
     if (filter === "no-category") return !item.category;
     return true;
   });
@@ -78,10 +97,7 @@ export default function EvidenceTabs({ initialItems, projectId }: EvidenceTabsPr
               </TabsTrigger>
             </TabsList>
             
-            <Button className="bg-slate-900 text-white hover:bg-slate-800">
-              <Plus className="w-4 h-4 mr-2" />
-              Nytt bevis
-            </Button>
+            <NewEvidenceDialog projectId={projectId} />
           </div>
 
           {/* Filter Bar */}
@@ -90,6 +106,10 @@ export default function EvidenceTabs({ initialItems, projectId }: EvidenceTabsPr
             <Button variant={filter === "report" ? "secondary" : "ghost"} size="sm" onClick={() => setFilter("report")} className="text-xs h-8">Kun rapport</Button>
             <Button variant={filter === "image" ? "secondary" : "ghost"} size="sm" onClick={() => setFilter("image")} className="text-xs h-8">Kun bilder</Button>
             <Button variant={filter === "no-date" ? "secondary" : "ghost"} size="sm" onClick={() => setFilter("no-date")} className="text-xs h-8">Uten dato</Button>
+            <Button variant={filter === "missing-link" ? "secondary" : "ghost"} size="sm" onClick={() => setFilter("missing-link")} className="text-xs h-8 text-amber-700 hover:text-amber-800 hover:bg-amber-50">
+              <AlertTriangle className="w-3 h-3 mr-1" />
+              Mangler link
+            </Button>
             <Button variant={filter === "no-category" ? "secondary" : "ghost"} size="sm" onClick={() => setFilter("no-category")} className="text-xs h-8">Uten kategori</Button>
           </div>
 

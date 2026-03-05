@@ -499,6 +499,19 @@ model EvidenceItem {
   legalPriority   Int?      // For manual ordering
   category        String?   // User defined category (e.g. "Skade", "Utbedring")
   
+  sourceType       String? // photo, video, email, document, expert_report, witness_statement
+  reliabilityLevel String? // primary, secondary, supporting
+  
+  missingLink      Boolean @default(false)
+  missingLinkNote  String?
+  
+  linkedEvidenceId String?
+  linkedEvidence   EvidenceItem? @relation("EvidenceLinks", fields: [linkedEvidenceId], references: [id])
+  linkedToBy       EvidenceItem[] @relation("EvidenceLinks")
+  
+  relatedEventId   String?
+  relatedEvent     Event?  @relation("PrimaryEventEvidence", fields: [relatedEventId], references: [id])
+  
   createdAt       DateTime @default(now())
   updatedAt       DateTime @updatedAt
   deletedAt       DateTime? // Soft delete to preserve evidence number history
@@ -519,6 +532,7 @@ model Event {
   createdAt   DateTime @default(now())
 
   evidenceItems       EventEvidence[]
+  primaryEvidenceItems EvidenceItem[] @relation("PrimaryEventEvidence")
   witnessObservations WitnessObservation[]
 }
 
@@ -633,6 +647,9 @@ model ReportEvidenceSnapshot {
   description    String?
   fileId         String
   
+  missingLink    Boolean  @default(false)
+  missingLinkNote String?
+
   includedAt     DateTime       @default(now())
 }
 

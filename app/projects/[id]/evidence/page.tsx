@@ -1,6 +1,6 @@
 
 import { createClient } from "@/lib/supabase-server";
-import { prisma } from "@/lib/prisma";
+import { getProjectWithEvidence } from "@/lib/data/project";
 import { redirect, notFound } from "next/navigation";
 import Link from "next/link";
 import { ChevronLeft } from "lucide-react";
@@ -11,21 +11,7 @@ export default async function EvidencePage({ params }: { params: { id: string } 
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) redirect("/login");
 
-  const project = await prisma.project.findUnique({
-    where: { id: params.id },
-    include: {
-      evidenceItems: {
-        where: { deletedAt: null },
-        orderBy: [
-            { legalPriority: 'asc' }, // Manual order first
-            { evidenceNumber: 'asc' } // Fallback to creation order
-        ],
-        include: {
-            file: true
-        }
-      }
-    }
-  });
+  const project = await getProjectWithEvidence(params.id);
 
   if (!project) notFound();
 

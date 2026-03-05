@@ -140,7 +140,9 @@ export async function generateLegalReportPdf(reportId: string) {
           description: s.description,
           date: eventDate, // Use the correct event date
           fileId: s.fileId,
-          imageUrl: url
+          imageUrl: url,
+          missingLink: s.missingLink,
+          missingLinkNote: s.missingLinkNote
         };
     }));
     
