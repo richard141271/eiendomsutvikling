@@ -504,6 +504,7 @@ model EvidenceItem {
   
   missingLink      Boolean @default(false)
   missingLinkNote  String?
+  missingLinkResolved Boolean @default(false)
   
   linkedEvidenceId String?
   linkedEvidence   EvidenceItem? @relation("EvidenceLinks", fields: [linkedEvidenceId], references: [id])
@@ -649,6 +650,7 @@ model ReportEvidenceSnapshot {
   
   missingLink    Boolean  @default(false)
   missingLinkNote String?
+  missingLinkResolved Boolean @default(false)
 
   sourceType       String?
   reliabilityLevel String?

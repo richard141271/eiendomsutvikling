@@ -3,11 +3,6 @@ import { createClient } from "@/lib/supabase-server";
 import { prisma } from "@/lib/prisma";
 import { NextResponse } from "next/server";
 import { getNextEvidenceNumber } from "@/app/actions/evidence";
-import puppeteer from "puppeteer";
-import exifr from "exifr";
-import PDFParse from "pdf-parse";
-import * as cheerio from "cheerio";
-import { simpleParser } from "mailparser";
 import crypto from "crypto";
 
 export async function POST(
@@ -70,6 +65,7 @@ export async function POST(
     // 1. Image Metadata (EXIF)
     if (fileType.startsWith('image/')) {
       try {
+        const exifr = require('exifr');
         const exifData = await exifr.parse(originalBuffer);
         if (exifData) {
           if (exifData.DateTimeOriginal) createdAtMetadata = exifData.DateTimeOriginal;
@@ -94,6 +90,7 @@ export async function POST(
     // 2. PDF Metadata
     else if (fileType === 'application/pdf' || file.name.toLowerCase().endsWith('.pdf')) {
       try {
+        const PDFParse = require("pdf-parse");
         const data = await PDFParse(originalBuffer);
         extractedText = data.text;
         
@@ -129,6 +126,7 @@ export async function POST(
     // 3. EML / Email Parsing
     else if (file.name.toLowerCase().endsWith('.eml') || fileType === 'message/rfc822') {
         try {
+            const { simpleParser } = require("mailparser");
             const parsed = await simpleParser(originalBuffer);
             if (parsed.date) receivedAt = parsed.date;
             if (parsed.subject) {
@@ -139,7 +137,7 @@ export async function POST(
             if (parsed.to) {
                 // to is AddressObject or array
                 const toArray = Array.isArray(parsed.to) ? parsed.to : [parsed.to];
-                receiver = toArray.map(addr => addr.text).join(', ');
+                receiver = toArray.map((addr: any) => addr.text).join(', ');
             }
             if (parsed.text) extractedText = parsed.text;
             
@@ -154,6 +152,7 @@ export async function POST(
     else if (file.name.toLowerCase().endsWith('.html') || file.name.toLowerCase().endsWith('.htm')) {
         // Parse with Cheerio first
         try {
+            const cheerio = require("cheerio");
             const htmlString = originalBuffer.toString('utf-8');
             const $ = cheerio.load(htmlString);
             extractedText = $('body').text().trim();
@@ -163,7 +162,7 @@ export async function POST(
             if (titleTag) title = titleTag;
 
             // Regex for common email-in-html patterns (Outlook saves etc)
-            const textContent = extractedText;
+            const textContent = extractedText || "";
             const subjectMatch = textContent.match(/(?:Subject|Emne):\s*(.+)/i);
             if (subjectMatch) subject = subjectMatch[1].trim();
             
@@ -185,7 +184,7 @@ export async function POST(
             console.warn("HTML Cheerio parsing failed:", e);
         }
 
-        // Convert to PDF for preview (keep existing logic)
+        // Convert to PDF for preview
         let browser = null;
         try {
             console.log("Converting HTML to PDF...");
@@ -207,11 +206,17 @@ export async function POST(
                 metadata.originalUrl = htmlUrl;
             }
 
-            // Puppeteer Conversion
+            // Dynamic import for Puppeteer to avoid production crashes
+            const chromium = require('@sparticuz/chromium');
+            const puppeteer = require('puppeteer-core');
+
             browser = await puppeteer.launch({
-                args: ['--no-sandbox', '--disable-setuid-sandbox'],
-                headless: true
+                args: chromium.args,
+                defaultViewport: chromium.defaultViewport,
+                executablePath: await chromium.executablePath(),
+                headless: chromium.headless,
             });
+
             const page = await browser.newPage();
             const htmlContent = originalBuffer.toString('utf-8');
             await page.setContent(htmlContent, { waitUntil: 'domcontentloaded', timeout: 30000 });
@@ -223,8 +228,6 @@ export async function POST(
             });
             
             // Replace buffer with PDF for main file record
-            // We use the PDF as the "File" record's main content for easy viewing
-            // But we keep the original HTML in metadata.originalUrl
             const pdfBuffer = Buffer.from(pdfUint8Array);
             
             // Update variables for the main file record
@@ -232,9 +235,6 @@ export async function POST(
             fileSize = pdfBuffer.length;
             metadata.convertedFrom = "html";
             
-            // Use pdfBuffer for upload
-            // We need to re-assign 'buffer' variable if we were using one, but here we use originalBuffer vs pdfBuffer
-            // Let's use a 'uploadBuffer' variable
             uploadBuffer = pdfBuffer;
 
         } catch (e) {
@@ -282,30 +282,74 @@ export async function POST(
 
     // --- DB RECORDS ---
     
-    // 1. Create File (EvidenceFile)
-    const fileRecord = await (prisma as any).file.create({
-      data: {
-        projectId,
-        storagePath: publicUrl,
-        fileType: fileType,
-        fileSize: fileSize,
-        originalName: file.name,
-        checksum: fileHash, // Using checksum as hash
-        metadata: metadata,
-        
-        // New Fields
-        createdAtMetadata,
-        modifiedAtMetadata,
-        receivedAt,
-        sender,
-        receiver,
-        subject,
-        extractedText: extractedText ? extractedText.substring(0, 100000) : null, // Limit text size if needed
-        notes,
+    // 1. Create or Find File (EvidenceFile)
+    // Check if file already exists (deduplication)
+    let fileRecord = await (prisma as any).file.findUnique({
+      where: {
+        projectId_checksum: {
+          projectId,
+          checksum: fileHash
+        }
       }
     });
 
-    // 2. Create Evidence Item
+    if (!fileRecord) {
+      fileRecord = await (prisma as any).file.create({
+        data: {
+          projectId,
+          storagePath: publicUrl,
+          fileType: fileType,
+          fileSize: fileSize,
+          originalName: file.name,
+          checksum: fileHash, // Using checksum as hash
+          metadata: metadata,
+          
+          // New Fields
+          createdAtMetadata,
+          modifiedAtMetadata,
+          receivedAt,
+          sender,
+          receiver,
+          subject,
+          extractedText: extractedText ? extractedText.substring(0, 100000) : null, // Limit text size if needed
+          notes,
+        }
+      });
+    }
+
+    // 2. Smart Linking Logic
+    let linkedEvidenceId: string | null = null;
+    let missingLink = false;
+    let missingLinkNote: string | null = null;
+
+    const searchStr = `${title} ${subject || ""} ${file.name}`.toLowerCase();
+    const refMatch = searchStr.match(/#(\d+)|bevis\s+(\d+)|evidence\s+(\d+)/i);
+    
+    if (refMatch) {
+      const refNum = parseInt(refMatch[1] || refMatch[2] || refMatch[3]);
+      if (!isNaN(refNum)) {
+        // Try to find the referenced evidence
+        const existingEvidence = await (prisma as any).evidenceItem.findUnique({
+          where: {
+            projectId_evidenceNumber: {
+              projectId,
+              evidenceNumber: refNum
+            }
+          },
+          select: { id: true }
+        });
+
+        if (existingEvidence) {
+          linkedEvidenceId = existingEvidence.id;
+        } else {
+          // Reference found but evidence not found -> Missing Link!
+          missingLink = true;
+          missingLinkNote = `Automatisk oppdaget referanse til #${refNum} i filnavn/innhold, men beviset ble ikke funnet.`;
+        }
+      }
+    }
+
+    // 3. Create Evidence Item
     const evidenceNumber = await getNextEvidenceNumber(projectId);
 
     const evidenceItem = await (prisma as any).evidenceItem.create({
@@ -318,6 +362,11 @@ export async function POST(
         includeInReport: true,
         originalDate: originalDate,
         legalDate: originalDate, // Auto-set legal date to best guess
+        
+        // Smart Linking
+        linkedEvidenceId,
+        missingLink,
+        missingLinkNote,
       }
     });
 

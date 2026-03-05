@@ -32,6 +32,7 @@ interface EvidenceItem {
   reliabilityLevel: string | null;
   missingLink?: boolean;
   missingLinkNote?: string | null;
+  missingLinkResolved?: boolean;
   linkedEvidenceId?: string | null;
   file: {
     fileType: string;
@@ -61,6 +62,7 @@ export function EditPanel({ item, availableEvidence, isOpen, onClose, onSave }: 
   const [reliabilityLevel, setReliabilityLevel] = useState<string>("primary");
   const [missingLink, setMissingLink] = useState(false);
   const [missingLinkNote, setMissingLinkNote] = useState("");
+  const [missingLinkResolved, setMissingLinkResolved] = useState(false);
   const [linkedEvidenceId, setLinkedEvidenceId] = useState<string>("none");
   const [isSaving, setIsSaving] = useState(false);
 
@@ -74,6 +76,7 @@ export function EditPanel({ item, availableEvidence, isOpen, onClose, onSave }: 
       setReliabilityLevel(item.reliabilityLevel || "primary");
       setMissingLink(item.missingLink || false);
       setMissingLinkNote(item.missingLinkNote || "");
+      setMissingLinkResolved(item.missingLinkResolved || false);
       setLinkedEvidenceId(item.linkedEvidenceId || "none");
       
       if (item.legalDate) {
@@ -109,6 +112,7 @@ export function EditPanel({ item, availableEvidence, isOpen, onClose, onSave }: 
         reliabilityLevel,
         missingLink,
         missingLinkNote: missingLink ? missingLinkNote : null,
+        missingLinkResolved: missingLink ? missingLinkResolved : false,
         linkedEvidenceId: linkedEvidenceId === "none" ? null : linkedEvidenceId,
       });
 
@@ -123,6 +127,7 @@ export function EditPanel({ item, availableEvidence, isOpen, onClose, onSave }: 
         reliabilityLevel,
         missingLink,
         missingLinkNote: missingLink ? missingLinkNote : null,
+        missingLinkResolved: missingLink ? missingLinkResolved : false,
         linkedEvidenceId: linkedEvidenceId === "none" ? null : linkedEvidenceId,
       });
       
@@ -353,6 +358,17 @@ export function EditPanel({ item, availableEvidence, isOpen, onClose, onSave }: 
 
             {missingLink && (
               <div className="pl-6 space-y-2 animate-in fade-in slide-in-from-top-2">
+                <div className="flex items-center space-x-2">
+                  <Checkbox 
+                    id="missingLinkResolved" 
+                    checked={missingLinkResolved}
+                    onCheckedChange={(c) => setMissingLinkResolved(!!c)}
+                  />
+                  <Label htmlFor="missingLinkResolved" className="text-sm text-green-700 font-medium">
+                    Markér som avklart / funnet
+                  </Label>
+                </div>
+
                 <Label htmlFor="missingLinkNote" className="text-xs font-medium">Beskrivelse av manglende kobling</Label>
                 <Textarea 
                   id="missingLinkNote" 

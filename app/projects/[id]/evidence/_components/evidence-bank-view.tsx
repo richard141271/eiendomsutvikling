@@ -26,6 +26,8 @@ interface EvidenceItem {
   reliabilityLevel: string | null;
   missingLink?: boolean;
   missingLinkNote?: string | null;
+  missingLinkResolved?: boolean;
+  linkedEvidenceId?: string | null;
   file: {
     fileType: string;
     storagePath: string;

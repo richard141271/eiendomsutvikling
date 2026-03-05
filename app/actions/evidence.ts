@@ -410,6 +410,7 @@ export async function updateEvidenceItem(id: string, data: {
   missingLink?: boolean;
   missingLinkNote?: string | null;
   linkedEvidenceId?: string | null;
+  missingLinkResolved?: boolean;
 }) {
   const supabase = createClient();
   const { data: { user } } = await supabase.auth.getUser();

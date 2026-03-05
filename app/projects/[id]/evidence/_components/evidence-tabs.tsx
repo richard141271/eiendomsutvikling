@@ -24,6 +24,7 @@ interface EvidenceItem {
   reliabilityLevel: string | null;
   missingLink?: boolean;
   missingLinkNote?: string | null;
+  missingLinkResolved?: boolean;
   linkedEvidenceId?: string | null;
   file: {
     fileType: string;
@@ -48,6 +49,7 @@ export default function EvidenceTabs({ initialItems, projectId }: EvidenceTabsPr
       createdAt: new Date(item.createdAt),
       legalPriority: item.legalPriority ?? item.evidenceNumber,
       category: item.category ?? null,
+      missingLinkResolved: item.missingLinkResolved ?? false,
       includeInReport: item.includeInReport ?? true // Default to true if missing
     }))
   );
@@ -60,13 +62,14 @@ export default function EvidenceTabs({ initialItems, projectId }: EvidenceTabsPr
       createdAt: new Date(item.createdAt),
       legalPriority: item.legalPriority ?? item.evidenceNumber,
       category: item.category ?? null,
+      missingLinkResolved: item.missingLinkResolved ?? false,
       includeInReport: item.includeInReport ?? true // Default to true if missing
     })));
   }, [initialItems]);
 
   const [filter, setFilter] = useState("all");
 
-  const missingLinkCount = items.filter(i => i.missingLink).length;
+  const missingLinkCount = items.filter(i => i.missingLink && !i.missingLinkResolved).length;
 
   const filteredItems = items.filter(item => {
     if (filter === "all") return true;

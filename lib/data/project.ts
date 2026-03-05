@@ -62,7 +62,14 @@ export async function getProject(id: string) {
                  url: true, // In case we have it in DB later
                  fileType: true
                }
-             }
+             },
+           missingLink: true,
+           missingLinkNote: true,
+           missingLinkResolved: true,
+           linkedEvidenceId: true,
+           relatedEventId: true,
+           category: true,
+           legalPriority: true
         }
       },
     },
