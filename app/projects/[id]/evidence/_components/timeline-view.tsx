@@ -275,7 +275,7 @@ export default function TimelineView({ items, allItems, claims = [], onUpdateIte
                       </div>
                       <div className="flex items-center gap-3 text-sm text-slate-500">
                         <span className="truncate max-w-[400px] text-slate-600 italic">
-                          "{claim.statement}"
+                          &quot;{claim.statement}&quot;
                         </span>
                       </div>
                     </div>

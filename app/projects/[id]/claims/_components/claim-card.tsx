@@ -127,7 +127,7 @@ export function ClaimCard({ claim, projectId, evidenceItems, onUpdate, onDelete 
               )}
             </div>
             <CardTitle className="text-lg leading-tight font-medium">
-              "{claim.statement}"
+              &quot;{claim.statement}&quot;
             </CardTitle>
             {claim.source && (
               <CardDescription className="flex items-center text-xs">
