@@ -5,6 +5,8 @@ import {
   ReportDocument,
   ContentBlock,
   EvidenceItem,
+  ClaimItem,
+  TableBlock,
 } from "./report-types";
 
 interface LegalReportDraft {
@@ -51,7 +53,8 @@ export function mapLegalDraftToReport(
   project: ProjectForLegalReport,
   draft: LegalReportDraft,
   evidenceItems: EvidenceItem[],
-  reportVersion: number
+  reportVersion: number,
+  claims?: ClaimItem[]
 ): ReportDocument {
   const now = new Date();
 
@@ -173,7 +176,50 @@ export function mapLegalDraftToReport(
     }
   }
 
-  // 7. Conclusion
+  // 7. Claims Analysis (Motparts-påstander)
+  if (claims && claims.length > 0) {
+    const claimRows = claims.map(claim => {
+      const evidenceList = claim.evidence && claim.evidence.length > 0 
+        ? claim.evidence.map(e => `${e.evidenceCode}`).join(", ")
+        : "Ingen dokumentasjon";
+      
+      const statusText = {
+        "UNVERIFIED": "Ikke verifisert",
+        "SUPPORTED": "Støttes av bevis",
+        "CONTRADICTED": "Motbevist",
+        "PARTLY_TRUE": "Delvis sant"
+      }[claim.status] || claim.status;
+
+      const statusStyle = {
+        "UNVERIFIED": { backgroundColor: "#f1f5f9", textColor: "#334155" },
+        "SUPPORTED": { backgroundColor: "#dcfce7", textColor: "#15803d" },
+        "CONTRADICTED": { backgroundColor: "#fee2e2", textColor: "#b91c1c" },
+        "PARTLY_TRUE": { backgroundColor: "#fef9c3", textColor: "#a16207" }
+      }[claim.status] || {};
+
+      return {
+        cells: [
+          claim.statement,
+          evidenceList,
+          { text: statusText, ...statusStyle, fontStyle: "bold" }
+        ]
+      };
+    });
+
+    builder.addSection({
+      id: "claims",
+      title: "Vurdering av motpartens påstander",
+      blocks: [
+        {
+          kind: "TABLE",
+          headers: ["Motpartens påstand", "Dokumentasjon", "Vurdering"],
+          rows: claimRows
+        } as TableBlock
+      ]
+    });
+  }
+
+  // 8. Conclusion
   if (draft.conclusion) {
     builder.addSection({
       id: "conclusion",

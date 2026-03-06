@@ -37,9 +37,15 @@ interface EvidenceItem {
 interface EvidenceTabsProps {
   initialItems: any[]; // Raw from DB
   projectId: string;
+  claims?: { 
+    id: string; 
+    statement: string;
+    sourceDate: Date | string | null;
+    status: "UNVERIFIED" | "SUPPORTED" | "CONTRADICTED" | "PARTLY_TRUE";
+  }[];
 }
 
-export default function EvidenceTabs({ initialItems, projectId }: EvidenceTabsProps) {
+export default function EvidenceTabs({ initialItems, projectId, claims = [] }: EvidenceTabsProps) {
   // Transform initial items to ensure Dates are Dates
   const [items, setItems] = useState<EvidenceItem[]>(() => 
     initialItems.map(item => ({
@@ -107,7 +113,7 @@ export default function EvidenceTabs({ initialItems, projectId }: EvidenceTabsPr
               </TabsTrigger>
             </TabsList>
             
-            <NewEvidenceDialog projectId={projectId} />
+            <NewEvidenceDialog projectId={projectId} claims={claims} />
           </div>
 
           {/* Filter Bar */}
@@ -161,7 +167,12 @@ export default function EvidenceTabs({ initialItems, projectId }: EvidenceTabsPr
 
           <TabsContent value="timeline" className="mt-0">
              <div className="bg-slate-50/50 min-h-[500px] rounded-lg p-6 border border-dashed border-slate-200">
-               <TimelineView items={filteredItems} allItems={items} onUpdateItem={handleUpdateItem} />
+               <TimelineView 
+                 items={filteredItems} 
+                 allItems={items} 
+                 claims={claims}
+                 onUpdateItem={handleUpdateItem} 
+               />
              </div>
           </TabsContent>
 

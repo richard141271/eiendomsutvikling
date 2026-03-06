@@ -401,6 +401,48 @@ model Project {
 
   events          Event[]
   people          Person[]
+  claims          Claim[]
+}
+
+model Claim {
+  id            String   @id @default(cuid())
+  projectId     String
+  statement     String
+  source        String?
+  sourceDate    DateTime?
+  status        ClaimStatus @default(UNVERIFIED)
+
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  evidenceLinks ClaimEvidence[]
+
+  project       Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+}
+
+model ClaimEvidence {
+  id          String   @id @default(cuid())
+  claimId     String
+  evidenceId  String
+  role        EvidenceRole
+
+  claim       Claim        @relation(fields: [claimId], references: [id], onDelete: Cascade)
+  evidence    EvidenceItem @relation(fields: [evidenceId], references: [id], onDelete: Cascade)
+  
+  @@unique([claimId, evidenceId])
+}
+
+enum ClaimStatus {
+  UNVERIFIED
+  SUPPORTED
+  CONTRADICTED
+  PARTLY_TRUE
+}
+
+enum EvidenceRole {
+  SOURCE
+  SUPPORTS
+  CONTRADICTS
 }
 
 model ProjectAuditLog {
@@ -519,6 +561,8 @@ model EvidenceItem {
 
   reportSnapshots ReportEvidenceSnapshot[]
   events          EventEvidence[] // Relation to events
+  claimLinks      ClaimEvidence[]
+
 
   @@unique([projectId, evidenceNumber])
 }

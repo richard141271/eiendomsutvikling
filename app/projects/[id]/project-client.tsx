@@ -3,7 +3,7 @@
 
 import { useState } from "react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { FileText, CheckSquare, Info, MapPin, Gavel } from "lucide-react";
+import { FileText, CheckSquare, Info, MapPin, Gavel, MessageSquare } from "lucide-react";
 import ProjectLog from "../_components/project-log";
 import ProjectTasks from "../_components/project-tasks";
 import ProjectOverview from "../_components/project-overview";
@@ -40,9 +40,11 @@ export default function ProjectClient({ project }: ProjectClientProps) {
     }
   }
 
+  const gridCols = project.reportType === "LEGAL" ? "grid-cols-6" : "grid-cols-4";
+
   return (
     <Tabs defaultValue="log" className="w-full" onValueChange={handleTabChange}>
-      <TabsList className="grid w-full grid-cols-5 h-14 mb-6">
+      <TabsList className={`grid w-full ${gridCols} h-14 mb-6`}>
         <TabsTrigger value="log" className="flex flex-col gap-1 py-2">
           <FileText className="h-4 w-4" />
           <span className="text-xs">Logg</span>
@@ -56,12 +58,20 @@ export default function ProjectClient({ project }: ProjectClientProps) {
           <span className="text-xs">Oversikt</span>
         </TabsTrigger>
         {project.reportType === "LEGAL" && (
-          <Link href={`/projects/${project.id}/evidence`} className="w-full">
-            <div className="inline-flex items-center justify-center whitespace-nowrap rounded-sm px-3 py-1.5 text-sm font-medium ring-offset-background transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 hover:bg-background/50 hover:text-accent-foreground h-full w-full flex-col gap-1">
-              <Gavel className="h-4 w-4" />
-              <span className="text-xs">Bevis</span>
-            </div>
-          </Link>
+          <>
+            <Link href={`/projects/${project.id}/evidence`} className="w-full">
+              <div className="inline-flex items-center justify-center whitespace-nowrap rounded-sm px-3 py-1.5 text-sm font-medium ring-offset-background transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 hover:bg-background/50 hover:text-accent-foreground h-full w-full flex-col gap-1">
+                <Gavel className="h-4 w-4" />
+                <span className="text-xs">Bevis</span>
+              </div>
+            </Link>
+            <Link href={`/projects/${project.id}/claims`} className="w-full">
+              <div className="inline-flex items-center justify-center whitespace-nowrap rounded-sm px-3 py-1.5 text-sm font-medium ring-offset-background transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 hover:bg-background/50 hover:text-accent-foreground h-full w-full flex-col gap-1">
+                <MessageSquare className="h-4 w-4" />
+                <span className="text-xs">Påstander</span>
+              </div>
+            </Link>
+          </>
         )}
         <Link href={`/tasks?projectId=${project.id}`} className="w-full">
           <div className="inline-flex items-center justify-center whitespace-nowrap rounded-sm px-3 py-1.5 text-sm font-medium ring-offset-background transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 hover:bg-background/50 hover:text-accent-foreground h-full w-full flex-col gap-1">

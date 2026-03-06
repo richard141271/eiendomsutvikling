@@ -3,6 +3,7 @@ import { prisma } from "@/lib/prisma";
 import { createAdminClient } from "@/lib/supabase-admin";
 import { mapLegalDraftToReport } from "@/lib/reporting/legal-report-mapper";
 import { PdfReportRenderer } from "@/lib/reporting/pdf-renderer";
+import { ClaimItem, EvidenceItem } from "@/lib/reporting/report-types";
 
 export async function generateLegalReportPdf(reportId: string) {
   console.log(`Starting PDF generation for report ${reportId}`);
@@ -81,7 +82,7 @@ export async function generateLegalReportPdf(reportId: string) {
 
   // Batch processing for signed URLs
   const BATCH_SIZE = 1; // Reduced to 1 for maximum stability
-  const evidenceItems: any[] = [];
+  const evidenceItems: EvidenceItem[] = [];
   
   const adminSupabase = createAdminClient();
   const bucketName = "project-assets";
@@ -151,6 +152,34 @@ export async function generateLegalReportPdf(reportId: string) {
     evidenceItems.push(...batchResults);
   }
 
+  // 2.5 Fetch Claims
+  const claims = await (prisma as any).claim.findMany({
+    where: { projectId: report.project.id },
+    include: {
+      evidenceLinks: {
+        include: {
+          evidence: true
+        }
+      }
+    }
+  });
+
+  const claimItems: ClaimItem[] = claims.map((c: any) => {
+    const relatedEvidence = c.evidenceLinks.map((link: any) => {
+      // Find the corresponding processed evidence item
+      return evidenceItems.find(e => e.id === link.evidenceId);
+    }).filter(Boolean) as EvidenceItem[];
+
+    return {
+      id: c.id,
+      statement: c.statement,
+      status: c.status,
+      source: c.source,
+      sourceDate: c.sourceDate ? new Date(c.sourceDate) : undefined,
+      evidence: relatedEvidence
+    };
+  });
+
   // 3. Map to ReportDocument
   const draftSnapshot = (report.contentSnapshot as any) || {};
   
@@ -158,7 +187,8 @@ export async function generateLegalReportPdf(reportId: string) {
     report.project as any,
     draftSnapshot,
     evidenceItems,
-    report.versionNumber
+    report.versionNumber,
+    claimItems
   );
 
   // 4. Generate PDF Package

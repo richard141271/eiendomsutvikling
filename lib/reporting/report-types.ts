@@ -47,11 +47,29 @@ export interface ListBlock {
   items: string[];
 }
 
+export interface TableCell {
+  text: string;
+  backgroundColor?: string;
+  textColor?: string;
+  fontStyle?: "normal" | "bold";
+}
+
+export interface TableRow {
+  cells: (string | TableCell)[];
+}
+
+export interface TableBlock {
+  kind: "TABLE";
+  headers: string[];
+  rows: TableRow[];
+}
+
 export type ContentBlock =
   | ParagraphBlock
   | HeadingBlock
   | ImageBlock
-  | ListBlock;
+  | ListBlock
+  | TableBlock;
 
 export interface Section {
   id: string;
@@ -102,10 +120,20 @@ export interface Attachment {
   reference?: string;
 }
 
+export interface ClaimItem {
+  id: string;
+  statement: string;
+  status: "UNVERIFIED" | "SUPPORTED" | "CONTRADICTED" | "PARTLY_TRUE";
+  source?: string;
+  sourceDate?: Date;
+  evidence: EvidenceItem[];
+}
+
 export interface ReportDocument {
   metadata: DocumentMetadata;
   sections: Section[];
   evidenceIndex: EvidenceItem[];
+  claims?: ClaimItem[];
   economyLines: EconomyLine[];
   economySummary?: EconomySummary;
   attachments: Attachment[];

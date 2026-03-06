@@ -8,18 +8,20 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { FileUpload } from "@/components/file-upload";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { DropzoneUpload } from "@/components/dropzone-upload";
 import { createEvidenceItem, updateEvidenceItem } from "@/app/actions/evidence";
-import { Plus, FileText } from "lucide-react";
+import { Plus, FileText, Link as LinkIcon } from "lucide-react";
 import { toast } from "sonner";
 import { format } from "date-fns";
 
 interface NewEvidenceDialogProps {
   projectId: string;
+  claims?: { id: string; statement: string }[];
   onSuccess?: (item: any) => void;
 }
 
-export default function NewEvidenceDialog({ projectId, onSuccess }: NewEvidenceDialogProps) {
+export default function NewEvidenceDialog({ projectId, claims = [], onSuccess }: NewEvidenceDialogProps) {
   const [open, setOpen] = useState(false);
   const [loading, setLoading] = useState(false);
   const [url, setUrl] = useState<string | null>(null);
@@ -28,6 +30,10 @@ export default function NewEvidenceDialog({ projectId, onSuccess }: NewEvidenceD
   const [detectedFileType, setDetectedFileType] = useState<string>("");
   const [detectedSourceType, setDetectedSourceType] = useState<string>("");
   const [uploadedEvidenceId, setUploadedEvidenceId] = useState<string | null>(null);
+  
+  // Claim linking state
+  const [selectedClaimId, setSelectedClaimId] = useState<string>("none");
+  const [selectedClaimRole, setSelectedClaimRole] = useState<"SOURCE" | "SUPPORTS" | "CONTRADICTS">("SOURCE");
   
   // Duplicate check state
   const [duplicateDialogOpen, setDuplicateDialogOpen] = useState(false);
@@ -53,6 +59,8 @@ export default function NewEvidenceDialog({ projectId, onSuccess }: NewEvidenceD
       setUploadedEvidenceId(null);
       setDuplicateDialogOpen(false);
       setDuplicateData(null);
+      setSelectedClaimId("none");
+      setSelectedClaimRole("SOURCE");
     }
   };
 
@@ -197,7 +205,9 @@ export default function NewEvidenceDialog({ projectId, onSuccess }: NewEvidenceD
           fileType,
           originalName: title,
           sourceType,
-          reliabilityLevel: "primary"
+          reliabilityLevel: "primary",
+          claimId: selectedClaimId !== "none" ? selectedClaimId : undefined,
+          claimRole: selectedClaimId !== "none" ? selectedClaimRole : undefined
         });
       }
 
@@ -233,43 +243,65 @@ export default function NewEvidenceDialog({ projectId, onSuccess }: NewEvidenceD
           
           <div className="space-y-4 py-4">
             <div className="space-y-2">
-              <FileUpload 
-                value={url} 
-                endpoint={`/api/projects/${projectId}/evidence/upload`}
-                onBeforeUpload={handleBeforeUpload}
-                onChange={(newUrl) => {
-                  setUrl(newUrl);
-                  // Auto-set title if empty and url has a name
-                  if (!title && newUrl) {
-                    const fileName = newUrl.split('/').pop();
-                    if (fileName) setTitle(fileName);
-                  }
-                }}
-                onUploadComplete={(data) => {
-                  console.log("Upload complete:", data);
-                  if (data.evidenceId) {
-                    setUploadedEvidenceId(data.evidenceId);
-                  }
-                  if (data.originalName && !title) {
-                    setTitle(data.originalName);
-                  }
-                  if (data.fileType) {
-                    setDetectedFileType(data.fileType);
-                    // Map fileType to sourceType
-                    if (data.fileType.startsWith("image/")) setDetectedSourceType("photo");
-                    else if (data.fileType.startsWith("video/")) setDetectedSourceType("video");
-                    else if (data.fileType.startsWith("audio/")) setDetectedSourceType("audio");
-                    else if (data.fileType === "message/rfc822") setDetectedSourceType("email");
-                    else setDetectedSourceType("document");
-                  }
-                  if (data.metadata?.extractedText && !description) {
-                    // Optional: Pre-fill description with first 200 chars of text?
-                    // Maybe too intrusive. Let's stick to basics.
-                  }
-                }}
-                label="Last opp fil"
-                accept="*"
-              />
+              {!url ? (
+                <DropzoneUpload 
+                  projectId={projectId}
+                  onBeforeUpload={handleBeforeUpload}
+                  onUploadComplete={(data) => {
+                    // If batch upload, we don't update the form state for individual files
+                    if (data.isBatch) return;
+
+                    console.log("Upload complete:", data);
+                    if (data.url) setUrl(data.url);
+                    
+                    if (data.evidenceId) {
+                      setUploadedEvidenceId(data.evidenceId);
+                    }
+                    if (data.originalName && !title) {
+                      setTitle(data.originalName);
+                    }
+                    // Detect file type and source type
+                    if (data.fileType) {
+                      setDetectedFileType(data.fileType);
+                      // Map fileType to sourceType
+                      let type = "document";
+                      if (data.fileType.startsWith("image/")) type = "photo";
+                      else if (data.fileType.startsWith("video/")) type = "video";
+                      else if (data.fileType.startsWith("audio/")) type = "audio";
+                      else if (data.fileType === "message/rfc822") type = "email";
+                      
+                      setDetectedSourceType(type);
+                    }
+                  }}
+                  onBatchComplete={(count) => {
+                    if (count > 0) {
+                      toast.success(`${count} filer lastet opp til bevisbanken`);
+                      if (onSuccess) onSuccess(null);
+                      router.refresh();
+                      handleOpenChange(false);
+                    }
+                  }}
+                />
+              ) : (
+                <div className="flex items-center justify-between p-4 border rounded-lg bg-slate-50">
+                  <div className="flex items-center gap-3">
+                    <FileText className="w-8 h-8 text-blue-500" />
+                    <div className="overflow-hidden">
+                      <p className="font-medium truncate max-w-[200px]">{title || "Fil lastet opp"}</p>
+                      <p className="text-xs text-muted-foreground">Klar til lagring</p>
+                    </div>
+                  </div>
+                  <Button variant="ghost" size="sm" onClick={() => {
+                    setUrl(null);
+                    setUploadedEvidenceId(null);
+                    setTitle("");
+                    // We don't delete the file from server here, user can do that in list if they want
+                    // Or we could implement delete logic, but let's keep it safe.
+                  }}>
+                    Endre fil
+                  </Button>
+                </div>
+              )}
             </div>
 
             <div className="space-y-2">
@@ -292,6 +324,51 @@ export default function NewEvidenceDialog({ projectId, onSuccess }: NewEvidenceD
                 className="min-h-[100px]"
               />
             </div>
+
+            {claims.length > 0 && (
+              <div className="space-y-2 pt-2 border-t">
+                <Label>Koble til påstand (Valgfritt)</Label>
+                <div className="flex flex-col sm:flex-row gap-2">
+                  <Select value={selectedClaimId} onValueChange={setSelectedClaimId}>
+                    <SelectTrigger className="flex-1">
+                      <SelectValue placeholder="Velg påstand..." />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="none">Ingen kobling</SelectItem>
+                      {claims.map((claim) => (
+                        <SelectItem key={claim.id} value={claim.id}>
+                          <div className="flex items-center gap-2 max-w-[300px]">
+                            <span className="truncate">{claim.statement}</span>
+                          </div>
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  
+                  {selectedClaimId !== "none" && (
+                    <Select value={selectedClaimRole} onValueChange={(v: any) => setSelectedClaimRole(v)}>
+                      <SelectTrigger className="w-full sm:w-[150px]">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="SOURCE">Dokumenterer</SelectItem>
+                        <SelectItem value="SUPPORTS">Støtter</SelectItem>
+                        <SelectItem value="CONTRADICTS">Motbeviser</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  )}
+                </div>
+                {selectedClaimId !== "none" && (
+                  <p className="text-xs text-muted-foreground flex items-center gap-1">
+                    <LinkIcon className="w-3 h-3" />
+                    Dette beviset vil bli koblet til valgt påstand som <strong>
+                      {selectedClaimRole === "SOURCE" ? "dokumentasjon" : 
+                       selectedClaimRole === "SUPPORTS" ? "støttebevis" : "motbevis"}
+                    </strong>.
+                  </p>
+                )}
+              </div>
+            )}
           </div>
 
           <div className="flex justify-end gap-2">

@@ -103,6 +103,101 @@ export class PdfReportRenderer implements ReportRenderer {
       }
     };
 
+    const hexToRgb = (hex: string) => {
+      const result = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(hex);
+      return result ? rgb(
+        parseInt(result[1], 16) / 255,
+        parseInt(result[2], 16) / 255,
+        parseInt(result[3], 16) / 255
+      ) : undefined;
+    };
+
+    const drawTable = (headers: string[], rows: { cells: (string | { text: string; backgroundColor?: string; textColor?: string; fontStyle?: "normal" | "bold" })[] }[]) => {
+      const startX = 50;
+      const tableWidth = width - 100;
+      const colWidths = [tableWidth * 0.4, tableWidth * 0.4, tableWidth * 0.2]; // 40%, 40%, 20%
+      const fontSize = 10;
+      const padding = 5;
+      const lineHeight = fontSize + 4;
+
+      // Draw Headers
+      ensureSpace(lineHeight + 10);
+      let currentX = startX;
+      headers.forEach((header, i) => {
+        page.drawText(header, { x: currentX + padding, y, size: fontSize, font: mainBoldFont });
+        currentX += colWidths[i];
+      });
+      y -= lineHeight + 5;
+      
+      // Draw horizontal line below header
+      page.drawLine({
+        start: { x: startX, y: y + 5 },
+        end: { x: startX + tableWidth, y: y + 5 },
+        thickness: 1,
+        color: rgb(0, 0, 0),
+      });
+
+      // Draw Rows
+      for (const row of rows) {
+        // Normalize cells to objects for easier processing
+        const normalizedCells = row.cells.map(cell => 
+          typeof cell === 'string' ? { text: cell } : cell
+        );
+
+        // Calculate row height based on max lines in any cell
+        const cellLines: string[][] = normalizedCells.map((cell, i) => 
+          wordWrap(cell.text, cell.fontStyle === 'bold' ? mainBoldFont : mainFont, fontSize, colWidths[i] - (padding * 2))
+        );
+        const maxLines = Math.max(...cellLines.map(lines => lines.length));
+        const rowHeight = (maxLines * lineHeight) + (padding * 2);
+
+        ensureSpace(rowHeight);
+
+        // Draw cells
+        currentX = startX;
+        normalizedCells.forEach((cell, i) => {
+          // Draw background if present
+          if (cell.backgroundColor) {
+            const bgRgb = hexToRgb(cell.backgroundColor);
+            if (bgRgb) {
+              page.drawRectangle({
+                x: currentX,
+                y: y - rowHeight,
+                width: colWidths[i],
+                height: rowHeight,
+                color: bgRgb,
+              });
+            }
+          }
+
+          const lines = cellLines[i];
+          const textRgb = cell.textColor ? hexToRgb(cell.textColor) : rgb(0, 0, 0);
+          
+          lines.forEach((line, lineIdx) => {
+            page.drawText(line, {
+              x: currentX + padding,
+              y: y - padding - (lineIdx * lineHeight),
+              size: fontSize,
+              font: cell.fontStyle === 'bold' ? mainBoldFont : mainFont,
+              color: textRgb || rgb(0, 0, 0),
+            });
+          });
+          currentX += colWidths[i];
+        });
+
+        y -= rowHeight;
+        
+        // Draw bottom border for row
+        page.drawLine({
+          start: { x: startX, y: y },
+          end: { x: startX + tableWidth, y: y },
+          thickness: 0.5,
+          color: rgb(0.8, 0.8, 0.8),
+        });
+      }
+      y -= 10; // Extra space after table
+    };
+
     // Metadata & Cover Page
     if (document.metadata.documentType === "LEGAL_CASE") {
       // Legal Report Cover Page
@@ -153,6 +248,7 @@ export class PdfReportRenderer implements ReportRenderer {
         if (block.kind === "PARAGRAPH") drawWrappedText(block.text);
         if (block.kind === "HEADING") drawLine(block.text, 14, mainBoldFont);
         if (block.kind === "LIST") block.items.forEach(i => drawWrappedText("- " + i));
+        if (block.kind === "TABLE") drawTable(block.headers, block.rows);
         // Skip heavy images in main report sections if possible, or keep logic simple
       }
       drawLine("");

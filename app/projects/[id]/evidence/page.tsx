@@ -5,6 +5,7 @@ import { redirect, notFound } from "next/navigation";
 import Link from "next/link";
 import { ChevronLeft } from "lucide-react";
 import EvidenceTabs from "./_components/evidence-tabs";
+import { prisma } from "@/lib/prisma";
 
 export default async function EvidencePage({ params }: { params: { id: string } }) {
   const supabase = createClient();
@@ -15,8 +16,21 @@ export default async function EvidencePage({ params }: { params: { id: string } 
 
   if (!project) notFound();
 
+  // Fetch claims for linking and timeline
+  const claims = await prisma.claim.findMany({
+    where: { projectId: params.id },
+    orderBy: { createdAt: 'desc' },
+    select: { 
+      id: true, 
+      statement: true,
+      sourceDate: true,
+      status: true
+    }
+  });
+
   // Serialize dates to strings to avoid "Date object" warning in Client Components
   const serializedEvidenceItems = JSON.parse(JSON.stringify(project.evidenceItems));
+  const serializedClaims = JSON.parse(JSON.stringify(claims));
 
   return (
     <div className="container max-w-6xl mx-auto p-4 pb-24">
@@ -33,7 +47,11 @@ export default async function EvidencePage({ params }: { params: { id: string } 
         </p>
       </div>
 
-      <EvidenceTabs initialItems={serializedEvidenceItems} projectId={project.id} />
+      <EvidenceTabs 
+        initialItems={serializedEvidenceItems} 
+        projectId={project.id} 
+        claims={serializedClaims}
+      />
     </div>
   );
 }

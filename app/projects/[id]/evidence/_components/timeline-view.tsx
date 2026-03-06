@@ -3,7 +3,7 @@
 import { useState, useMemo } from "react";
 import { format, isValid, parseISO, isSameDay } from "date-fns";
 import { nb } from "date-fns/locale";
-import { Calendar as CalendarIcon, GripVertical, FileText, Image as ImageIcon, Loader2, Check, AlertCircle, Clock, AlertTriangle, Music, Film, Mail, MessageSquare, Landmark, Ruler } from "lucide-react";
+import { Calendar as CalendarIcon, GripVertical, FileText, Image as ImageIcon, Loader2, Check, AlertCircle, Clock, AlertTriangle, Music, Film, Mail, MessageSquare, Landmark, Ruler, Quote } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
@@ -37,36 +37,39 @@ interface EvidenceItem {
   createdAt: Date | string;
 }
 
+interface ClaimItem {
+  id: string;
+  statement: string;
+  sourceDate: Date | string | null;
+  status: "UNVERIFIED" | "SUPPORTED" | "CONTRADICTED" | "PARTLY_TRUE";
+}
+
+type TimelineItem = 
+  | { type: 'evidence', data: EvidenceItem }
+  | { type: 'claim', data: ClaimItem };
+
 interface TimelineViewProps {
   items: EvidenceItem[];
   allItems: EvidenceItem[];
+  claims?: ClaimItem[];
   onUpdateItem: (item: EvidenceItem) => void;
 }
 
-export default function TimelineView({ items, allItems, onUpdateItem }: TimelineViewProps) {
+export default function TimelineView({ items, allItems, claims = [], onUpdateItem }: TimelineViewProps) {
   const [draggedItemId, setDraggedItemId] = useState<string | null>(null);
   const [selectedItem, setSelectedItem] = useState<EvidenceItem | null>(null);
   const [isUpdating, setIsUpdating] = useState(false);
 
   // Group items by date
   const groupedItems = useMemo(() => {
-    const groups: { dateStr: string; dateObj: Date | null; items: EvidenceItem[] }[] = [];
-    const noDateItems: EvidenceItem[] = [];
+    const groups: { dateStr: string; dateObj: Date | null; items: TimelineItem[] }[] = [];
+    const noDateItems: TimelineItem[] = [];
 
-    // Sort items: Legal Date -> Priority -> Evidence Number
-    const sorted = [...items].sort((a, b) => {
-      const dateA = a.legalDate ? new Date(a.legalDate).getTime() : 0;
-      const dateB = b.legalDate ? new Date(b.legalDate).getTime() : 0;
-      if (dateA !== dateB) return dateB - dateA; // Newest first
-      
-      const priA = a.legalPriority ?? a.evidenceNumber;
-      const priB = b.legalPriority ?? b.evidenceNumber;
-      return priA - priB;
-    });
-
-    sorted.forEach(item => {
+    // Process Evidence Items
+    items.forEach(item => {
+      const timelineItem: TimelineItem = { type: 'evidence', data: item };
       if (!item.legalDate) {
-        noDateItems.push(item);
+        noDateItems.push(timelineItem);
       } else {
         const dateObj = new Date(item.legalDate);
         const dateStr = format(dateObj, "yyyy-MM-dd");
@@ -75,8 +78,46 @@ export default function TimelineView({ items, allItems, onUpdateItem }: Timeline
           group = { dateStr, dateObj: dateObj, items: [] };
           groups.push(group);
         }
-        group.items.push(item);
+        group.items.push(timelineItem);
       }
+    });
+
+    // Process Claims
+    claims.forEach(claim => {
+      const timelineItem: TimelineItem = { type: 'claim', data: claim };
+      if (!claim.sourceDate) {
+        noDateItems.push(timelineItem);
+      } else {
+        const dateObj = new Date(claim.sourceDate);
+        const dateStr = format(dateObj, "yyyy-MM-dd");
+        let group = groups.find(g => g.dateStr === dateStr);
+        if (!group) {
+          group = { dateStr, dateObj: dateObj, items: [] };
+          groups.push(group);
+        }
+        group.items.push(timelineItem);
+      }
+    });
+
+    // Sort groups by date (descending)
+    groups.sort((a, b) => (b.dateObj?.getTime() || 0) - (a.dateObj?.getTime() || 0));
+
+    // Sort items within groups
+    groups.forEach(group => {
+      group.items.sort((a, b) => {
+        // Priority: Claims first, then Evidence by priority/number
+        if (a.type !== b.type) {
+          return a.type === 'claim' ? -1 : 1;
+        }
+        
+        if (a.type === 'evidence' && b.type === 'evidence') {
+          const priA = a.data.legalPriority ?? a.data.evidenceNumber;
+          const priB = b.data.legalPriority ?? b.data.evidenceNumber;
+          return priA - priB;
+        }
+        
+        return 0;
+      });
     });
 
     // Add "Udatert" group at the top if exists
@@ -85,7 +126,7 @@ export default function TimelineView({ items, allItems, onUpdateItem }: Timeline
     }
 
     return groups;
-  }, [items]);
+  }, [items, claims]);
 
   const handleDragStart = (e: React.DragEvent, id: string) => {
     e.dataTransfer.setData("text/plain", id);
@@ -192,90 +233,142 @@ export default function TimelineView({ items, allItems, onUpdateItem }: Timeline
           </h3>
 
           <div className="space-y-3">
-            {group.items.map((item) => (
-              <div
-                key={item.id}
-                draggable
-                onDragStart={(e) => handleDragStart(e, item.id)}
-                className="group relative bg-white border rounded-lg p-3 shadow-sm hover:shadow-md transition-all cursor-move flex items-center gap-4"
-              >
-                {/* Drag Handle */}
-                <div className="text-slate-300 group-hover:text-slate-500 cursor-move">
-                  <GripVertical className="w-5 h-5" />
-                </div>
+            {group.items.map((item) => {
+              if (item.type === 'claim') {
+                const claim = item.data;
+                const statusStyles = {
+                  "UNVERIFIED": "bg-slate-100 text-slate-700 border-slate-200",
+                  "SUPPORTED": "bg-emerald-50 text-emerald-700 border-emerald-200",
+                  "CONTRADICTED": "bg-red-50 text-red-700 border-red-200",
+                  "PARTLY_TRUE": "bg-amber-50 text-amber-700 border-amber-200"
+                }[claim.status] || "bg-slate-100 text-slate-700 border-slate-200";
 
-                {/* Icon */}
-                <div className="h-10 w-10 bg-slate-50 rounded-md flex items-center justify-center border text-slate-500 shrink-0 overflow-hidden cursor-pointer" onClick={() => window.open(getFileUrl(item.file.url || item.file.storagePath), '_blank')}>
-                  {item.file.fileType.startsWith("image/") ? (
-                    <img 
-                      src={getFileUrl(item.file.url || item.file.storagePath)} 
-                      alt="Bevis" 
-                      className="h-full w-full object-cover" 
-                    />
-                  ) : (item.sourceType === "audio" || item.file.fileType.startsWith("audio/")) ? (
-                    <Music className="w-5 h-5" />
-                  ) : (item.sourceType === "video" || item.file.fileType.startsWith("video/")) ? (
-                    <Film className="w-5 h-5" />
-                  ) : (item.sourceType === "email" || item.file.fileType === "message/rfc822") ? (
-                    <Mail className="w-5 h-5" />
-                  ) : (item.sourceType === "sms") ? (
-                    <MessageSquare className="w-5 h-5" />
-                  ) : (item.sourceType === "public_document") ? (
-                    <Landmark className="w-5 h-5" />
-                  ) : (item.sourceType === "measurement") ? (
-                    <Ruler className="w-5 h-5" />
-                  ) : (
-                    <FileText className="w-5 h-5" />
-                  )}
-                </div>
+                const statusLabel = {
+                  "UNVERIFIED": "Uverifisert",
+                  "SUPPORTED": "Støttet",
+                  "CONTRADICTED": "Motbevist",
+                  "PARTLY_TRUE": "Delvis sant"
+                }[claim.status] || claim.status;
 
-                {/* Content */}
-                <div className="flex-1 min-w-0" onClick={() => setSelectedItem(item)}>
-                  <div className="flex items-center gap-2 mb-1">
-                    <span className="font-medium text-slate-900 truncate">
-                      {item.title}
-                    </span>
-                    {item.missingLink && (
-                      <div className="text-amber-600" title={item.missingLinkNote || "Mangler bevislink"}>
-                        <AlertTriangle className="h-4 w-4" />
+                return (
+                  <div
+                    key={`claim-${claim.id}`}
+                    className="group relative bg-white border rounded-lg p-3 shadow-sm flex items-center gap-4"
+                  >
+                    {/* Placeholder for alignment with evidence drag handle */}
+                    <div className="w-5" />
+
+                    {/* Icon */}
+                    <div className={cn("h-10 w-10 rounded-md flex items-center justify-center border shrink-0", statusStyles)}>
+                      <Quote className="w-5 h-5" />
+                    </div>
+
+                    {/* Content */}
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2 mb-1">
+                        <span className="font-medium text-slate-900 truncate">
+                          Motpartens påstand
+                        </span>
+                        <Badge variant="outline" className={cn("text-[10px] px-1.5 h-5 font-normal border", statusStyles)}>
+                          {statusLabel}
+                        </Badge>
                       </div>
-                    )}
-                    {item.category && (
-                      <Badge variant="secondary" className="text-[10px] px-1.5 h-5 font-normal bg-slate-100 text-slate-600 border-slate-200">
-                        {item.category}
-                      </Badge>
-                    )}
-                    {!item.includeInReport && (
-                      <Badge variant="outline" className="text-[10px] px-1.5 h-5 font-normal text-slate-400 border-dashed">
-                        Ikke i rapport
-                      </Badge>
-                    )}
+                      <div className="flex items-center gap-3 text-sm text-slate-500">
+                        <span className="truncate max-w-[400px] text-slate-600 italic">
+                          "{claim.statement}"
+                        </span>
+                      </div>
+                    </div>
                   </div>
-                  <div className="flex items-center gap-3 text-sm text-slate-500">
-                    {item.legalDate && (
-                      <span className="flex items-center">
-                        <Clock className="w-3 h-3 mr-1" />
-                        {format(new Date(item.legalDate), "HH:mm")}
-                      </span>
-                    )}
-                    {item.description && (
-                      <span className="truncate max-w-[300px] text-slate-400">
-                        {item.description}
-                      </span>
-                    )}
-                  </div>
-                </div>
+                );
+              }
 
-                <Button 
-                  variant="ghost" 
-                  size="sm" 
-                  onClick={() => setSelectedItem(item)}
-                  className="opacity-0 group-hover:opacity-100 transition-opacity text-slate-400 hover:text-slate-900"
+              const evidence = item.data;
+              return (
+                <div
+                  key={evidence.id}
+                  draggable
+                  onDragStart={(e) => handleDragStart(e, evidence.id)}
+                  className="group relative bg-white border rounded-lg p-3 shadow-sm hover:shadow-md transition-all cursor-move flex items-center gap-4"
                 >
-                  Rediger
-                </Button>
-              </div>
-            ))}
+                  {/* Drag Handle */}
+                  <div className="text-slate-300 group-hover:text-slate-500 cursor-move">
+                    <GripVertical className="w-5 h-5" />
+                  </div>
+
+                  {/* Icon */}
+                  <div className="h-10 w-10 bg-slate-50 rounded-md flex items-center justify-center border text-slate-500 shrink-0 overflow-hidden cursor-pointer" onClick={() => window.open(getFileUrl(evidence.file.url || evidence.file.storagePath), '_blank')}>
+                    {evidence.file.fileType.startsWith("image/") ? (
+                      <img 
+                        src={getFileUrl(evidence.file.url || evidence.file.storagePath)} 
+                        alt="Bevis" 
+                        className="h-full w-full object-cover" 
+                      />
+                    ) : (evidence.sourceType === "audio" || evidence.file.fileType.startsWith("audio/")) ? (
+                      <Music className="w-5 h-5" />
+                    ) : (evidence.sourceType === "video" || evidence.file.fileType.startsWith("video/")) ? (
+                      <Film className="w-5 h-5" />
+                    ) : (evidence.sourceType === "email" || evidence.file.fileType === "message/rfc822") ? (
+                      <Mail className="w-5 h-5" />
+                    ) : (evidence.sourceType === "sms") ? (
+                      <MessageSquare className="w-5 h-5" />
+                    ) : (evidence.sourceType === "public_document") ? (
+                      <Landmark className="w-5 h-5" />
+                    ) : (evidence.sourceType === "measurement") ? (
+                      <Ruler className="w-5 h-5" />
+                    ) : (
+                      <FileText className="w-5 h-5" />
+                    )}
+                  </div>
+
+                  {/* Content */}
+                  <div className="flex-1 min-w-0" onClick={() => setSelectedItem(evidence)}>
+                    <div className="flex items-center gap-2 mb-1">
+                      <span className="font-medium text-slate-900 truncate">
+                        {evidence.title}
+                      </span>
+                      {evidence.missingLink && (
+                        <div className="text-amber-600" title={evidence.missingLinkNote || "Mangler bevislink"}>
+                          <AlertTriangle className="h-4 w-4" />
+                        </div>
+                      )}
+                      {evidence.category && (
+                        <Badge variant="secondary" className="text-[10px] px-1.5 h-5 font-normal bg-slate-100 text-slate-600 border-slate-200">
+                          {evidence.category}
+                        </Badge>
+                      )}
+                      {!evidence.includeInReport && (
+                        <Badge variant="outline" className="text-[10px] px-1.5 h-5 font-normal text-slate-400 border-dashed">
+                          Ikke i rapport
+                        </Badge>
+                      )}
+                    </div>
+                    <div className="flex items-center gap-3 text-sm text-slate-500">
+                      {evidence.legalDate && (
+                        <span className="flex items-center">
+                          <Clock className="w-3 h-3 mr-1" />
+                          {format(new Date(evidence.legalDate), "HH:mm")}
+                        </span>
+                      )}
+                      {evidence.description && (
+                        <span className="truncate max-w-[300px] text-slate-400">
+                          {evidence.description}
+                        </span>
+                      )}
+                    </div>
+                  </div>
+
+                  <Button 
+                    variant="ghost" 
+                    size="sm" 
+                    onClick={() => setSelectedItem(evidence)}
+                    className="opacity-0 group-hover:opacity-100 transition-opacity text-slate-400 hover:text-slate-900"
+                  >
+                    Rediger
+                  </Button>
+                </div>
+              );
+            })}
           </div>
         </div>
       ))}

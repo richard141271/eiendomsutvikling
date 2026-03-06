@@ -269,6 +269,8 @@ export async function createEvidenceItem(data: {
   originalName?: string;
   sourceType?: string;
   reliabilityLevel?: string;
+  claimId?: string;
+  claimRole?: "SOURCE" | "SUPPORTS" | "CONTRADICTS";
 }) {
   const supabase = createClient();
   const { data: { user } } = await supabase.auth.getUser();
@@ -326,6 +328,17 @@ export async function createEvidenceItem(data: {
       file: true
     }
   });
+
+  // 3. Link to Claim if provided
+  if (data.claimId && data.claimRole) {
+    await (prisma as any).claimEvidence.create({
+      data: {
+        claimId: data.claimId,
+        evidenceId: item.id,
+        role: data.claimRole
+      }
+    });
+  }
 
   return item;
 }
