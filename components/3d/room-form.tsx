@@ -21,6 +21,22 @@ export interface RoomData {
   type: string;
   sizeSqm?: number;
   description?: string;
+  wallsPaintType?: string;
+  wallsGloss?: string;
+  wallsColorCode?: string;
+  ceilingPaintType?: string;
+  ceilingGloss?: string;
+  ceilingColorCode?: string;
+  trimPaintType?: string;
+  trimGloss?: string;
+  trimColorCode?: string;
+  doorsPaintType?: string;
+  doorsGloss?: string;
+  doorsColorCode?: string;
+  windowsPaintType?: string;
+  windowsGloss?: string;
+  windowsColorCode?: string;
+  paintNotes?: string;
   file?: File; // 3D model
   images?: File[]; // Standard images
 }
@@ -32,6 +48,22 @@ export interface ExistingRoomData {
   sizeSqm?: number | null;
   description?: string | null;
   scanUrl?: string | null;
+  wallsPaintType?: string | null;
+  wallsGloss?: string | null;
+  wallsColorCode?: string | null;
+  ceilingPaintType?: string | null;
+  ceilingGloss?: string | null;
+  ceilingColorCode?: string | null;
+  trimPaintType?: string | null;
+  trimGloss?: string | null;
+  trimColorCode?: string | null;
+  doorsPaintType?: string | null;
+  doorsGloss?: string | null;
+  doorsColorCode?: string | null;
+  windowsPaintType?: string | null;
+  windowsGloss?: string | null;
+  windowsColorCode?: string | null;
+  paintNotes?: string | null;
   images?: { id: string; url: string }[];
 }
 
@@ -61,6 +93,22 @@ export default function RoomForm({ onSave, onCancel, initialData }: RoomFormProp
   const [type, setType] = useState(initialData?.type || "OTHER");
   const [sizeSqm, setSizeSqm] = useState(initialData?.sizeSqm?.toString() || "");
   const [description, setDescription] = useState(initialData?.description || "");
+  const [wallsPaintType, setWallsPaintType] = useState(initialData?.wallsPaintType || "");
+  const [wallsGloss, setWallsGloss] = useState(initialData?.wallsGloss || "");
+  const [wallsColorCode, setWallsColorCode] = useState(initialData?.wallsColorCode || "");
+  const [ceilingPaintType, setCeilingPaintType] = useState(initialData?.ceilingPaintType || "");
+  const [ceilingGloss, setCeilingGloss] = useState(initialData?.ceilingGloss || "");
+  const [ceilingColorCode, setCeilingColorCode] = useState(initialData?.ceilingColorCode || "");
+  const [trimPaintType, setTrimPaintType] = useState(initialData?.trimPaintType || "");
+  const [trimGloss, setTrimGloss] = useState(initialData?.trimGloss || "");
+  const [trimColorCode, setTrimColorCode] = useState(initialData?.trimColorCode || "");
+  const [doorsPaintType, setDoorsPaintType] = useState(initialData?.doorsPaintType || "");
+  const [doorsGloss, setDoorsGloss] = useState(initialData?.doorsGloss || "");
+  const [doorsColorCode, setDoorsColorCode] = useState(initialData?.doorsColorCode || "");
+  const [windowsPaintType, setWindowsPaintType] = useState(initialData?.windowsPaintType || "");
+  const [windowsGloss, setWindowsGloss] = useState(initialData?.windowsGloss || "");
+  const [windowsColorCode, setWindowsColorCode] = useState(initialData?.windowsColorCode || "");
+  const [paintNotes, setPaintNotes] = useState(initialData?.paintNotes || "");
   
   // 3D Model File
   const [file, setFile] = useState<File | null>(null);
@@ -87,11 +135,31 @@ export default function RoomForm({ onSave, onCancel, initialData }: RoomFormProp
 
   const handleSave = () => {
     if (!name) return alert("Navn er påkrevd");
+    const normalize = (value: string) => {
+      const trimmed = value.trim();
+      return trimmed.length > 0 ? trimmed : undefined;
+    };
     onSave({
       name,
       type,
       sizeSqm: sizeSqm ? parseFloat(sizeSqm) : undefined,
       description,
+      wallsPaintType: normalize(wallsPaintType),
+      wallsGloss: normalize(wallsGloss),
+      wallsColorCode: normalize(wallsColorCode),
+      ceilingPaintType: normalize(ceilingPaintType),
+      ceilingGloss: normalize(ceilingGloss),
+      ceilingColorCode: normalize(ceilingColorCode),
+      trimPaintType: normalize(trimPaintType),
+      trimGloss: normalize(trimGloss),
+      trimColorCode: normalize(trimColorCode),
+      doorsPaintType: normalize(doorsPaintType),
+      doorsGloss: normalize(doorsGloss),
+      doorsColorCode: normalize(doorsColorCode),
+      windowsPaintType: normalize(windowsPaintType),
+      windowsGloss: normalize(windowsGloss),
+      windowsColorCode: normalize(windowsColorCode),
+      paintNotes: normalize(paintNotes),
       file: file || undefined,
       images: images.length > 0 ? images : undefined
     });
@@ -169,6 +237,144 @@ export default function RoomForm({ onSave, onCancel, initialData }: RoomFormProp
                   onChange={(e) => setDescription(e.target.value)}
                   className="bg-slate-800 border-slate-700 min-h-[100px]"
                 />
+              </div>
+
+              <div className="space-y-4 pt-2 border-t border-slate-800">
+                <div className="space-y-1">
+                  <h3 className="text-lg font-medium">Maling (valgfritt)</h3>
+                  <p className="text-sm text-slate-400">Registrer malingstype, glans og fargenummer per overflate.</p>
+                </div>
+
+                <div className="space-y-2">
+                  <Label>Vegger</Label>
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                    <Input
+                      value={wallsPaintType}
+                      onChange={(e) => setWallsPaintType(e.target.value)}
+                      placeholder="Malingstype"
+                      className="bg-slate-800 border-slate-700"
+                    />
+                    <Input
+                      value={wallsGloss}
+                      onChange={(e) => setWallsGloss(e.target.value)}
+                      placeholder="Glans"
+                      className="bg-slate-800 border-slate-700"
+                    />
+                    <Input
+                      value={wallsColorCode}
+                      onChange={(e) => setWallsColorCode(e.target.value)}
+                      placeholder="Fargenr / kode"
+                      className="bg-slate-800 border-slate-700"
+                    />
+                  </div>
+                </div>
+
+                <div className="space-y-2">
+                  <Label>Tak</Label>
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                    <Input
+                      value={ceilingPaintType}
+                      onChange={(e) => setCeilingPaintType(e.target.value)}
+                      placeholder="Malingstype"
+                      className="bg-slate-800 border-slate-700"
+                    />
+                    <Input
+                      value={ceilingGloss}
+                      onChange={(e) => setCeilingGloss(e.target.value)}
+                      placeholder="Glans"
+                      className="bg-slate-800 border-slate-700"
+                    />
+                    <Input
+                      value={ceilingColorCode}
+                      onChange={(e) => setCeilingColorCode(e.target.value)}
+                      placeholder="Fargenr / kode"
+                      className="bg-slate-800 border-slate-700"
+                    />
+                  </div>
+                </div>
+
+                <div className="space-y-2">
+                  <Label>Lister</Label>
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                    <Input
+                      value={trimPaintType}
+                      onChange={(e) => setTrimPaintType(e.target.value)}
+                      placeholder="Malingstype"
+                      className="bg-slate-800 border-slate-700"
+                    />
+                    <Input
+                      value={trimGloss}
+                      onChange={(e) => setTrimGloss(e.target.value)}
+                      placeholder="Glans"
+                      className="bg-slate-800 border-slate-700"
+                    />
+                    <Input
+                      value={trimColorCode}
+                      onChange={(e) => setTrimColorCode(e.target.value)}
+                      placeholder="Fargenr / kode"
+                      className="bg-slate-800 border-slate-700"
+                    />
+                  </div>
+                </div>
+
+                <div className="space-y-2">
+                  <Label>Dører</Label>
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                    <Input
+                      value={doorsPaintType}
+                      onChange={(e) => setDoorsPaintType(e.target.value)}
+                      placeholder="Malingstype"
+                      className="bg-slate-800 border-slate-700"
+                    />
+                    <Input
+                      value={doorsGloss}
+                      onChange={(e) => setDoorsGloss(e.target.value)}
+                      placeholder="Glans"
+                      className="bg-slate-800 border-slate-700"
+                    />
+                    <Input
+                      value={doorsColorCode}
+                      onChange={(e) => setDoorsColorCode(e.target.value)}
+                      placeholder="Fargenr / kode"
+                      className="bg-slate-800 border-slate-700"
+                    />
+                  </div>
+                </div>
+
+                <div className="space-y-2">
+                  <Label>Vinduer</Label>
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                    <Input
+                      value={windowsPaintType}
+                      onChange={(e) => setWindowsPaintType(e.target.value)}
+                      placeholder="Malingstype"
+                      className="bg-slate-800 border-slate-700"
+                    />
+                    <Input
+                      value={windowsGloss}
+                      onChange={(e) => setWindowsGloss(e.target.value)}
+                      placeholder="Glans"
+                      className="bg-slate-800 border-slate-700"
+                    />
+                    <Input
+                      value={windowsColorCode}
+                      onChange={(e) => setWindowsColorCode(e.target.value)}
+                      placeholder="Fargenr / kode"
+                      className="bg-slate-800 border-slate-700"
+                    />
+                  </div>
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="paintNotes">Andre viktige malingsnotater</Label>
+                  <Textarea
+                    id="paintNotes"
+                    value={paintNotes}
+                    onChange={(e) => setPaintNotes(e.target.value)}
+                    placeholder="F.eks. merke, base, batchnr, antall strøk, grunning, dato malt..."
+                    className="bg-slate-800 border-slate-700 min-h-[80px]"
+                  />
+                </div>
               </div>
 
               <div className="flex justify-end gap-3 pt-4">

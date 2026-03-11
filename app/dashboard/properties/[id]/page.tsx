@@ -78,6 +78,9 @@ export default async function PropertyDetailsPage({
               Prospekt
             </Button>
           </Link>
+          <Link href={`/dashboard/properties/${property.id}/log`}>
+            <Button variant="outline">Logg</Button>
+          </Link>
           <Link href={`/dashboard/properties/${property.id}/edit`}>
             <Button variant="outline">Rediger eiendom</Button>
           </Link>
@@ -150,7 +153,18 @@ export default async function PropertyDetailsPage({
                     <TableCell>{unit.sizeSqm}</TableCell>
                     <TableCell>{unit.roomCount}</TableCell>
                     <TableCell>{unit.rentAmount}</TableCell>
-                    <TableCell>{unitStatusMap[unit.status] || unit.status}</TableCell>
+                    <TableCell>
+                      <Badge
+                        variant="secondary"
+                        className={
+                          unit.status === "RENTED"
+                            ? "bg-green-600 text-white hover:bg-green-600"
+                            : undefined
+                        }
+                      >
+                        {unitStatusMap[unit.status] || unit.status}
+                      </Badge>
+                    </TableCell>
                     <TableCell>{tenantName}</TableCell>
                     <TableCell className="text-right">
                        <Link href={`/dashboard/units/${unit.id}`}>
@@ -180,7 +194,14 @@ export default async function PropertyDetailsPage({
                   <CardHeader className="pb-2">
                     <div className="flex justify-between items-start">
                       <CardTitle>{unit.name}</CardTitle>
-                      <Badge variant={unit.status === 'AVAILABLE' ? 'default' : 'secondary'}>
+                      <Badge
+                        variant={unit.status === "AVAILABLE" ? "default" : "secondary"}
+                        className={
+                          unit.status === "RENTED"
+                            ? "bg-green-600 text-white hover:bg-green-600"
+                            : undefined
+                        }
+                      >
                         {unitStatusMap[unit.status] || unit.status}
                       </Badge>
                     </div>

@@ -12,6 +12,22 @@ export async function createRoom(
     type: RoomType;
     sizeSqm?: number;
     description?: string;
+    wallsPaintType?: string;
+    wallsGloss?: string;
+    wallsColorCode?: string;
+    ceilingPaintType?: string;
+    ceilingGloss?: string;
+    ceilingColorCode?: string;
+    trimPaintType?: string;
+    trimGloss?: string;
+    trimColorCode?: string;
+    doorsPaintType?: string;
+    doorsGloss?: string;
+    doorsColorCode?: string;
+    windowsPaintType?: string;
+    windowsGloss?: string;
+    windowsColorCode?: string;
+    paintNotes?: string;
     scanUrl?: string;
     images?: string[];
   }
@@ -21,13 +37,29 @@ export async function createRoom(
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) throw new Error("Unauthorized");
 
-    const room = await prisma.room.create({
+    const room = await (prisma as any).room.create({
       data: {
         unitId,
         name: data.name,
         type: data.type,
         sizeSqm: data.sizeSqm,
         description: data.description,
+        wallsPaintType: data.wallsPaintType,
+        wallsGloss: data.wallsGloss,
+        wallsColorCode: data.wallsColorCode,
+        ceilingPaintType: data.ceilingPaintType,
+        ceilingGloss: data.ceilingGloss,
+        ceilingColorCode: data.ceilingColorCode,
+        trimPaintType: data.trimPaintType,
+        trimGloss: data.trimGloss,
+        trimColorCode: data.trimColorCode,
+        doorsPaintType: data.doorsPaintType,
+        doorsGloss: data.doorsGloss,
+        doorsColorCode: data.doorsColorCode,
+        windowsPaintType: data.windowsPaintType,
+        windowsGloss: data.windowsGloss,
+        windowsColorCode: data.windowsColorCode,
+        paintNotes: data.paintNotes,
         scanUrl: data.scanUrl,
         scanFormat: data.scanUrl ? "GLB" : undefined,
         scanStatus: data.scanUrl ? "COMPLETED" : "PENDING",
@@ -72,6 +104,22 @@ export async function updateRoom(
     type: RoomType;
     sizeSqm?: number;
     description?: string;
+    wallsPaintType?: string;
+    wallsGloss?: string;
+    wallsColorCode?: string;
+    ceilingPaintType?: string;
+    ceilingGloss?: string;
+    ceilingColorCode?: string;
+    trimPaintType?: string;
+    trimGloss?: string;
+    trimColorCode?: string;
+    doorsPaintType?: string;
+    doorsGloss?: string;
+    doorsColorCode?: string;
+    windowsPaintType?: string;
+    windowsGloss?: string;
+    windowsColorCode?: string;
+    paintNotes?: string;
     scanUrl?: string;
     images?: string[];
   }
@@ -81,13 +129,29 @@ export async function updateRoom(
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) throw new Error("Unauthorized");
 
-    const room = await prisma.room.update({
+    const room = await (prisma as any).room.update({
       where: { id: roomId },
       data: {
         name: data.name,
         type: data.type,
         sizeSqm: data.sizeSqm,
         description: data.description,
+        wallsPaintType: data.wallsPaintType,
+        wallsGloss: data.wallsGloss,
+        wallsColorCode: data.wallsColorCode,
+        ceilingPaintType: data.ceilingPaintType,
+        ceilingGloss: data.ceilingGloss,
+        ceilingColorCode: data.ceilingColorCode,
+        trimPaintType: data.trimPaintType,
+        trimGloss: data.trimGloss,
+        trimColorCode: data.trimColorCode,
+        doorsPaintType: data.doorsPaintType,
+        doorsGloss: data.doorsGloss,
+        doorsColorCode: data.doorsColorCode,
+        windowsPaintType: data.windowsPaintType,
+        windowsGloss: data.windowsGloss,
+        windowsColorCode: data.windowsColorCode,
+        paintNotes: data.paintNotes,
         ...(data.scanUrl && {
           scanUrl: data.scanUrl,
           scanFormat: "GLB",

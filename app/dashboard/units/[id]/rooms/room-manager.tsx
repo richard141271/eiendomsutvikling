@@ -30,6 +30,22 @@ interface Room {
   sizeSqm: number | null;
   description: string | null;
   scanUrl: string | null;
+  wallsPaintType?: string | null;
+  wallsGloss?: string | null;
+  wallsColorCode?: string | null;
+  ceilingPaintType?: string | null;
+  ceilingGloss?: string | null;
+  ceilingColorCode?: string | null;
+  trimPaintType?: string | null;
+  trimGloss?: string | null;
+  trimColorCode?: string | null;
+  doorsPaintType?: string | null;
+  doorsGloss?: string | null;
+  doorsColorCode?: string | null;
+  windowsPaintType?: string | null;
+  windowsGloss?: string | null;
+  windowsColorCode?: string | null;
+  paintNotes?: string | null;
   createdAt: Date;
   images: RoomImage[];
 }
@@ -72,6 +88,22 @@ export default function RoomManager({ unitId, initialRooms }: RoomManagerProps) 
             type: roomType,
             sizeSqm: data.sizeSqm,
             description: data.description,
+            wallsPaintType: data.wallsPaintType,
+            wallsGloss: data.wallsGloss,
+            wallsColorCode: data.wallsColorCode,
+            ceilingPaintType: data.ceilingPaintType,
+            ceilingGloss: data.ceilingGloss,
+            ceilingColorCode: data.ceilingColorCode,
+            trimPaintType: data.trimPaintType,
+            trimGloss: data.trimGloss,
+            trimColorCode: data.trimColorCode,
+            doorsPaintType: data.doorsPaintType,
+            doorsGloss: data.doorsGloss,
+            doorsColorCode: data.doorsColorCode,
+            windowsPaintType: data.windowsPaintType,
+            windowsGloss: data.windowsGloss,
+            windowsColorCode: data.windowsColorCode,
+            paintNotes: data.paintNotes,
             scanUrl,
             images: imageUrls
         });
@@ -90,6 +122,22 @@ export default function RoomManager({ unitId, initialRooms }: RoomManagerProps) 
             type: roomType,
             sizeSqm: data.sizeSqm,
             description: data.description,
+            wallsPaintType: data.wallsPaintType,
+            wallsGloss: data.wallsGloss,
+            wallsColorCode: data.wallsColorCode,
+            ceilingPaintType: data.ceilingPaintType,
+            ceilingGloss: data.ceilingGloss,
+            ceilingColorCode: data.ceilingColorCode,
+            trimPaintType: data.trimPaintType,
+            trimGloss: data.trimGloss,
+            trimColorCode: data.trimColorCode,
+            doorsPaintType: data.doorsPaintType,
+            doorsGloss: data.doorsGloss,
+            doorsColorCode: data.doorsColorCode,
+            windowsPaintType: data.windowsPaintType,
+            windowsGloss: data.windowsGloss,
+            windowsColorCode: data.windowsColorCode,
+            paintNotes: data.paintNotes,
             scanUrl: scanUrl,
             images: imageUrls
         });

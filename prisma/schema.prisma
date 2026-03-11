@@ -34,6 +34,8 @@ model User {
   tenantWarnings       TenantWarning[]
   contributions        TenantContribution[]
   projectAuditLogs     ProjectAuditLog[]
+  createdPropertyLogEntries   PropertyLogEntry[] @relation("CreatedBy")
+  performedPropertyLogEntries PropertyLogEntry[] @relation("PerformedBy")
 }
 
 model TenantCertificate {
@@ -73,6 +75,7 @@ model Property {
   other_Property Property[]     @relation("PropertyToProperty")
   units          Unit[]
   projects       Project[]
+  logEntries     PropertyLogEntry[]
 }
 
 model Unit {
@@ -99,6 +102,7 @@ model Unit {
   unitImages         UnitImage[]
   contributions      TenantContribution[]
   projects           Project[]
+  logEntries         PropertyLogEntry[]
 }
 
 model Viewing {
@@ -156,6 +160,22 @@ model Room {
   type         RoomType    @default(OTHER)
   sizeSqm      Float?
   description  String?
+  wallsPaintType     String?
+  wallsGloss         String?
+  wallsColorCode     String?
+  ceilingPaintType   String?
+  ceilingGloss       String?
+  ceilingColorCode   String?
+  trimPaintType      String?
+  trimGloss          String?
+  trimColorCode      String?
+  doorsPaintType     String?
+  doorsGloss         String?
+  doorsColorCode     String?
+  windowsPaintType   String?
+  windowsGloss       String?
+  windowsColorCode   String?
+  paintNotes         String?
   scanUrl      String?
   scanFormat   String?
   scanStatus   String      @default("PENDING")
@@ -164,6 +184,7 @@ model Room {
   updatedAt    DateTime    @updatedAt
   unit         Unit        @relation(fields: [unitId], references: [id], onDelete: Cascade)
   images       RoomImage[]
+  logEntries   PropertyLogEntry[]
 }
 
 model RoomImage {
@@ -172,6 +193,51 @@ model RoomImage {
   url       String
   createdAt DateTime @default(now())
   room      Room     @relation(fields: [roomId], references: [id], onDelete: Cascade)
+}
+
+model PropertyLogEntry {
+  id              String              @id @default(cuid())
+  propertyId      String
+  unitId          String?
+  roomId          String?
+  title           String
+  description     String?
+  category        PropertyLogCategory @default(OTHER)
+  status          PropertyLogStatus   @default(COMPLETED)
+  performedAt     DateTime?
+  costAmount      Float?
+  costCurrency    String              @default("NOK")
+  vendorName      String?
+  vendorOrgNumber String?
+  invoiceNumber   String?
+  performedByName String?
+  performedByCompany String?
+  performedByPhone   String?
+  performedByEmail   String?
+  tags            String[]            @default([])
+  createdByUserId String
+  createdAt       DateTime            @default(now())
+  updatedAt       DateTime            @updatedAt
+
+  property        Property            @relation(fields: [propertyId], references: [id], onDelete: Cascade)
+  unit            Unit?               @relation(fields: [unitId], references: [id], onDelete: SetNull)
+  room            Room?               @relation(fields: [roomId], references: [id], onDelete: SetNull)
+  createdByUser   User                @relation("CreatedBy", fields: [createdByUserId], references: [id])
+  performedByUserId String?
+  performedByUser   User?             @relation("PerformedBy", fields: [performedByUserId], references: [id])
+  attachments     PropertyLogAttachment[]
+}
+
+model PropertyLogAttachment {
+  id        String   @id @default(cuid())
+  entryId   String
+  url       String
+  fileName  String?
+  fileType  String?
+  fileSize  Int?
+  createdAt DateTime @default(now())
+
+  entry     PropertyLogEntry @relation(fields: [entryId], references: [id], onDelete: Cascade)
 }
 
 model LeaseContract {
@@ -349,6 +415,29 @@ enum RoomType {
   BALCONY
   GARAGE
   OTHER
+}
+
+enum PropertyLogCategory {
+  PAINT
+  ELECTRICAL
+  PLUMBING
+  HVAC
+  APPLIANCES
+  CLEANING
+  COMMON_AREA
+  GARDEN
+  FACADE
+  ROOF
+  EXTERIOR
+  RENOVATION
+  OTHER
+}
+
+enum PropertyLogStatus {
+  PLANNED
+  IN_PROGRESS
+  COMPLETED
+  CANCELLED
 }
 
 enum InterestStatus {
