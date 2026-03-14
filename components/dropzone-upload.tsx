@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button";
 import { FileIcon, Loader2, UploadCloud, Folder, Image as ImageIcon } from "lucide-react";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
+import { createClient } from "@/lib/supabase";
 
 interface DropzoneUploadProps {
   projectId: string;
@@ -18,6 +19,7 @@ export function DropzoneUpload({ projectId, onUploadComplete, onBeforeUpload, on
   const [isDragging, setIsDragging] = useState(false);
   const [uploading, setUploading] = useState(false);
   const [progress, setProgress] = useState<{ current: number; total: number; filename: string } | null>(null);
+  const [inlineError, setInlineError] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const folderInputRef = useRef<HTMLInputElement>(null);
   const cameraInputRef = useRef<HTMLInputElement>(null);
@@ -39,6 +41,7 @@ export function DropzoneUpload({ projectId, onUploadComplete, onBeforeUpload, on
     if (files.length === 0) return;
 
     setUploading(true);
+    setInlineError(null);
     let successCount = 0;
     let failCount = 0;
 
@@ -47,6 +50,112 @@ export function DropzoneUpload({ projectId, onUploadComplete, onBeforeUpload, on
       if (!text) return "Ukjent feil";
       if (text.length <= 240) return text;
       return `${text.slice(0, 240)}…`;
+    };
+
+    const uploadViaServer = async (file: File) => {
+      const formData = new FormData();
+      formData.append("file", file);
+      formData.append("lastModified", file.lastModified.toString());
+
+      const response = await fetch(`/api/projects/${projectId}/evidence/upload`, {
+        method: "POST",
+        body: formData,
+      });
+
+      if (!response.ok) {
+        const errorText = await response.text();
+        let message = errorText;
+        try {
+          const parsed = JSON.parse(errorText);
+          if (parsed?.error) message = String(parsed.error);
+        } catch {}
+
+        if (response.status === 401) {
+          throw new Error("Sesjonen din har gått ut. Last siden på nytt og prøv igjen.");
+        }
+        if (response.status === 413 || message.toLowerCase().includes("payload too large")) {
+          const err = new Error("PAYLOAD_TOO_LARGE");
+          (err as any).code = "PAYLOAD_TOO_LARGE";
+          throw err;
+        }
+
+        throw new Error(toShortError(message));
+      }
+
+      return await response.json();
+    };
+
+    const uploadViaSignedUrl = async (file: File) => {
+      const initRes = await fetch(`/api/projects/${projectId}/evidence/upload`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          action: "signed-upload-url",
+          filename: file.name,
+          fileType: file.type,
+          fileSize: file.size,
+        }),
+      });
+
+      if (!initRes.ok) {
+        const errorText = await initRes.text();
+        let message = errorText;
+        try {
+          const parsed = JSON.parse(errorText);
+          if (parsed?.error) message = String(parsed.error);
+        } catch {}
+        if (initRes.status === 401) {
+          throw new Error("Sesjonen din har gått ut. Last siden på nytt og prøv igjen.");
+        }
+        throw new Error(toShortError(message));
+      }
+
+      const initData = await initRes.json();
+      const bucket = String(initData.bucket || "");
+      const path = String(initData.path || "");
+      const token = String(initData.token || "");
+
+      if (!bucket || !path || !token) {
+        throw new Error("Kunne ikke starte opplasting");
+      }
+
+      const supabase = createClient();
+      const bucketStorage: any = supabase.storage.from(bucket);
+      const { error: uploadError } = await bucketStorage.uploadToSignedUrl(path, token, file, {
+        contentType: file.type || "application/octet-stream",
+      });
+
+      if (uploadError) {
+        throw new Error(uploadError.message);
+      }
+
+      const finalizeRes = await fetch(`/api/projects/${projectId}/evidence/upload`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          action: "finalize",
+          storagePath: path,
+          originalName: file.name,
+          fileType: file.type,
+          fileSize: file.size,
+          lastModified: file.lastModified,
+        }),
+      });
+
+      if (!finalizeRes.ok) {
+        const errorText = await finalizeRes.text();
+        let message = errorText;
+        try {
+          const parsed = JSON.parse(errorText);
+          if (parsed?.error) message = String(parsed.error);
+        } catch {}
+        if (finalizeRes.status === 401) {
+          throw new Error("Sesjonen din har gått ut. Last siden på nytt og prøv igjen.");
+        }
+        throw new Error(toShortError(message));
+      }
+
+      return await finalizeRes.json();
     };
 
     for (let i = 0; i < files.length; i++) {
@@ -62,34 +171,30 @@ export function DropzoneUpload({ projectId, onUploadComplete, onBeforeUpload, on
           }
         }
 
-        // 2. Prepare upload
-        const formData = new FormData();
-        formData.append("file", file);
-        formData.append("lastModified", file.lastModified.toString());
+        const shouldPreferSigned = file.size > 3_500_000;
+        let data: any;
 
-        // 3. Upload
-        const response = await fetch(`/api/projects/${projectId}/evidence/upload`, {
-          method: "POST",
-          body: formData,
-        });
-
-        if (!response.ok) {
-          const errorText = await response.text();
-          let message = errorText;
+        if (shouldPreferSigned) {
+          data = await uploadViaSignedUrl(file);
+        } else {
           try {
-            const parsed = JSON.parse(errorText);
-            if (parsed?.error) message = String(parsed.error);
-          } catch {}
-          console.error(`Upload failed for ${file.name}:`, message);
-          throw new Error(toShortError(message));
+            data = await uploadViaServer(file);
+          } catch (e) {
+            const msg = e instanceof Error ? e.message : "";
+            if (msg === "PAYLOAD_TOO_LARGE" || (e as any)?.code === "PAYLOAD_TOO_LARGE") {
+              data = await uploadViaSignedUrl(file);
+            } else {
+              throw e;
+            }
+          }
         }
 
-        const data = await response.json();
         onUploadComplete({ ...data, isBatch: files.length > 1 });
         successCount++;
       } catch (error) {
         console.error("Upload error:", error);
         const msg = error instanceof Error ? error.message : "Ukjent feil";
+        setInlineError(`${file.name}: ${msg}`);
         toast.error(`${file.name}: ${msg}`);
         failCount++;
       }
@@ -300,6 +405,11 @@ export function DropzoneUpload({ projectId, onUploadComplete, onBeforeUpload, on
                 Velg mappe
               </Button>
             </div>
+            {inlineError && (
+              <div className="mt-4 w-full rounded-md border border-red-200 bg-red-50 px-3 py-2 text-left text-sm text-red-800">
+                {inlineError}
+              </div>
+            )}
           </>
         )}
       </div>

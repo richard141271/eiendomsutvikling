@@ -6,6 +6,9 @@ import { getNextEvidenceNumber } from "@/app/actions/evidence";
 import crypto from "crypto";
 import { createAdminClient } from "@/lib/supabase-admin";
 
+export const runtime = "nodejs";
+export const maxDuration = 300;
+
 export async function POST(
   request: Request,
   { params }: { params: { id: string } }
@@ -41,6 +44,193 @@ export async function POST(
     const isOwner = project.property?.ownerId ? project.property.ownerId === dbUser.id : false;
     if (!isPrivileged && !isOwner) {
       return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+    }
+
+    const contentType = request.headers.get("content-type") || "";
+    if (contentType.includes("application/json")) {
+      const body = await request.json();
+      const action = body?.action;
+      const bucketName = process.env.NEXT_PUBLIC_SUPABASE_STORAGE_BUCKET || "project-assets";
+
+      if (action === "signed-upload-url") {
+        const originalName = String(body?.filename || body?.originalName || "upload.bin");
+        const providedType = typeof body?.fileType === "string" ? body.fileType : "";
+
+        const safeName = originalName
+          .split("/")
+          .pop()
+          ?.replace(/[^\w.\-() ]/g, "_")
+          ?.replace(/\s+/g, " ")
+          ?.trim()
+          .slice(-120) || "upload.bin";
+
+        const extFromName = safeName.includes(".") ? safeName.split(".").pop()?.toLowerCase() : undefined;
+        const extFromType = (() => {
+          if (providedType === "application/pdf") return "pdf";
+          if (providedType === "image/jpeg") return "jpg";
+          if (providedType === "image/png") return "png";
+          if (providedType === "image/webp") return "webp";
+          if (providedType === "image/gif") return "gif";
+          if (providedType === "video/mp4") return "mp4";
+          if (providedType === "audio/mpeg") return "mp3";
+          return undefined;
+        })();
+
+        const fileExt = extFromName || extFromType || "bin";
+        const baseName = safeName.includes(".") ? safeName.slice(0, -(fileExt.length + 1)) : safeName;
+        const finalName = `${baseName || "upload"}.${fileExt}`;
+
+        const storagePath = `${projectId}/${Date.now()}-${Math.random().toString(36).slice(2, 9)}-${finalName}`;
+
+        const admin = createAdminClient();
+        const { data, error } = await admin.storage.from(bucketName).createSignedUploadUrl(storagePath);
+
+        if (error || !data?.token || !data?.signedUrl) {
+          return NextResponse.json(
+            { error: error?.message || "Kunne ikke lage signert opplastingslenke" },
+            { status: 500 }
+          );
+        }
+
+        return NextResponse.json({
+          success: true,
+          action: "signed-upload-url",
+          bucket: bucketName,
+          path: storagePath,
+          token: data.token,
+          signedUrl: data.signedUrl,
+        });
+      }
+
+      if (action === "finalize") {
+        const storagePath = typeof body?.storagePath === "string" ? body.storagePath : "";
+        const originalName = typeof body?.originalName === "string" ? body.originalName : "Uploaded File";
+        const fileType = typeof body?.fileType === "string" && body.fileType ? body.fileType : "application/octet-stream";
+        const fileSize = typeof body?.fileSize === "number" ? body.fileSize : null;
+        const checksum = typeof body?.checksum === "string" ? body.checksum : null;
+        const title = typeof body?.title === "string" && body.title ? body.title : originalName;
+        const lastModifiedMs = typeof body?.lastModified === "number" ? body.lastModified : null;
+
+        if (!storagePath) {
+          return NextResponse.json({ error: "Missing storagePath" }, { status: 400 });
+        }
+
+        const originalDate = lastModifiedMs ? new Date(lastModifiedMs) : new Date();
+
+        let fileRecord = checksum
+          ? await (prisma as any).file.findUnique({
+              where: {
+                projectId_checksum: {
+                  projectId,
+                  checksum,
+                },
+              },
+            })
+          : await (prisma as any).file.findFirst({
+              where: {
+                projectId,
+                storagePath,
+              },
+            });
+
+        if (!fileRecord) {
+          fileRecord = await (prisma as any).file.create({
+            data: {
+              projectId,
+              storagePath,
+              fileType,
+              fileSize: fileSize ?? undefined,
+              originalName,
+              checksum: checksum ?? undefined,
+              metadata: {
+                originalName,
+                hash: checksum ?? undefined,
+              },
+              receivedAt: null,
+              sender: null,
+              receiver: null,
+              subject: null,
+              extractedText: null,
+              notes: null,
+              createdAtMetadata: null,
+              modifiedAtMetadata: null,
+            },
+          });
+        }
+
+        let urlForClient: string | undefined;
+        try {
+          const admin = createAdminClient();
+          const { data } = await admin.storage.from(bucketName).createSignedUrl(storagePath, 3600);
+          urlForClient = data?.signedUrl;
+        } catch {
+          const { data } = await supabase.storage.from(bucketName).createSignedUrl(storagePath, 3600);
+          urlForClient = data?.signedUrl;
+        }
+
+        if (!urlForClient) {
+          const { data: publicData } = supabase.storage.from(bucketName).getPublicUrl(storagePath);
+          urlForClient = publicData.publicUrl;
+        }
+
+        let linkedEvidenceId: string | null = null;
+        let missingLink = false;
+        let missingLinkNote: string | null = null;
+
+        const searchStr = `${title} ${originalName}`.toLowerCase();
+        const refMatch = searchStr.match(/#(\d+)|bevis\s+(\d+)|evidence\s+(\d+)/i);
+
+        if (refMatch) {
+          const refNum = parseInt(refMatch[1] || refMatch[2] || refMatch[3]);
+          if (!isNaN(refNum)) {
+            const existingEvidence = await (prisma as any).evidenceItem.findUnique({
+              where: {
+                projectId_evidenceNumber: {
+                  projectId,
+                  evidenceNumber: refNum,
+                },
+              },
+              select: { id: true },
+            });
+
+            if (existingEvidence) {
+              linkedEvidenceId = existingEvidence.id;
+            } else {
+              missingLink = true;
+              missingLinkNote = `Automatisk oppdaget referanse til #${refNum} i filnavn/innhold, men beviset ble ikke funnet.`;
+            }
+          }
+        }
+
+        const evidenceNumber = await getNextEvidenceNumber(projectId);
+        const evidenceItem = await (prisma as any).evidenceItem.create({
+          data: {
+            projectId,
+            evidenceNumber,
+            title,
+            description: "",
+            fileId: fileRecord.id,
+            includeInReport: true,
+            originalDate,
+            legalDate: originalDate,
+            linkedEvidenceId,
+            missingLink,
+            missingLinkNote,
+          },
+        });
+
+        return NextResponse.json({
+          success: true,
+          evidenceId: evidenceItem.id,
+          evidenceNumber: evidenceItem.evidenceNumber,
+          url: urlForClient,
+          originalName,
+          fileType,
+          title,
+        });
+      }
+
+      return NextResponse.json({ error: "Invalid action" }, { status: 400 });
     }
 
     const formData = await request.formData();
