@@ -180,7 +180,7 @@ export function ReportHistoryTable({ reports, projectId }: ReportHistoryTablePro
                             </AlertDialogTrigger>
                             <AlertDialogContent>
                               <AlertDialogHeader>
-                                <AlertDialogTitle>Arkiver juridisk rapport v{report.versionNumber}</AlertDialogTitle>
+                                <AlertDialogTitle>Arkiver rapport v{report.versionNumber}</AlertDialogTitle>
                                 <AlertDialogDescription>
                                   Denne rapporten vil flyttes til arkivet. Den kan ikke redigeres etter arkivering.
                                   <br/><br/>

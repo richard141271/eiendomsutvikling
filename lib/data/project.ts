@@ -110,7 +110,27 @@ export async function getProjectWithEvidence(projectId: string) {
         }
       } as any, // Cast to avoid strict type checks on include
       legalReportDraft: true,
+      damageReportDraft: true,
       sequence: true,
+      events: {
+        orderBy: { date: "asc" },
+        include: {
+          evidenceItems: {
+            include: {
+              evidence: {
+                include: {
+                  file: true
+                }
+              }
+            }
+          },
+          witnessObservations: {
+            include: {
+              person: true
+            }
+          }
+        }
+      } as any,
       reportInstances: {
         orderBy: { versionNumber: 'desc' },
         include: { snapshots: true }

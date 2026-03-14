@@ -2,7 +2,7 @@
 import { prisma } from "@/lib/prisma";
 import { createClient } from "@/lib/supabase-server";
 import { NextResponse } from "next/server";
-import { generateLegalReportPdf } from "@/lib/reporting/report-generator";
+import { generateReportPdf } from "@/lib/reporting/report-generator";
 
 export const maxDuration = 300; // 5 minutes timeout for generation fallback
 
@@ -40,7 +40,7 @@ export async function GET(
     if (!report.pdfUrl) {
       console.log(`PDF missing for report ${reportId}, generating fallback...`);
       try {
-        const result = await generateLegalReportPdf(reportId);
+        const result = await generateReportPdf(reportId);
         if (result.success && result.url) {
            // Refresh report data
            report = await (prisma as any).reportInstance.findUnique({

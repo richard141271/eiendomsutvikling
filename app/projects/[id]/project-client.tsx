@@ -3,7 +3,7 @@
 
 import { useState } from "react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { FileText, CheckSquare, Info, MapPin, Gavel, MessageSquare } from "lucide-react";
+import { AlertTriangle, FileText, CheckSquare, Info, MapPin, Gavel, MessageSquare } from "lucide-react";
 import ProjectLog from "../_components/project-log";
 import ProjectTasks from "../_components/project-tasks";
 import ProjectOverview from "../_components/project-overview";
@@ -40,7 +40,8 @@ export default function ProjectClient({ project }: ProjectClientProps) {
     }
   }
 
-  const gridCols = project.reportType === "LEGAL" ? "grid-cols-6" : "grid-cols-4";
+  const gridCols =
+    project.reportType === "LEGAL" || project.reportType === "DAMAGE" ? "grid-cols-6" : "grid-cols-4";
 
   return (
     <Tabs defaultValue="log" className="w-full" onValueChange={handleTabChange}>
@@ -69,6 +70,22 @@ export default function ProjectClient({ project }: ProjectClientProps) {
               <div className="inline-flex items-center justify-center whitespace-nowrap rounded-sm px-3 py-1.5 text-sm font-medium ring-offset-background transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 hover:bg-background/50 hover:text-accent-foreground h-full w-full flex-col gap-1">
                 <MessageSquare className="h-4 w-4" />
                 <span className="text-xs">Påstander</span>
+              </div>
+            </Link>
+          </>
+        )}
+        {project.reportType === "DAMAGE" && (
+          <>
+            <Link href={`/projects/${project.id}/skaderapport`} className="w-full">
+              <div className="inline-flex items-center justify-center whitespace-nowrap rounded-sm px-3 py-1.5 text-sm font-medium ring-offset-background transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 hover:bg-background/50 hover:text-accent-foreground h-full w-full flex-col gap-1">
+                <AlertTriangle className="h-4 w-4" />
+                <span className="text-xs">Skaderapport</span>
+              </div>
+            </Link>
+            <Link href={`/projects/${project.id}/evidence`} className="w-full">
+              <div className="inline-flex items-center justify-center whitespace-nowrap rounded-sm px-3 py-1.5 text-sm font-medium ring-offset-background transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 hover:bg-background/50 hover:text-accent-foreground h-full w-full flex-col gap-1">
+                <FileText className="h-4 w-4" />
+                <span className="text-xs">Dokumentasjon</span>
               </div>
             </Link>
           </>

@@ -147,9 +147,16 @@ export default function ProjectOverview({ project }: ProjectOverviewProps) {
           </Link> 
           */}
 
-          <Link href={`/projects/${project.id}/juridisk-rapport`} className="block w-full text-center text-sm text-slate-500 hover:text-slate-900 hover:underline">
-             Rediger rapportinnhold
-          </Link>
+          {project.reportType === "LEGAL" && (
+            <Link href={`/projects/${project.id}/juridisk-rapport`} className="block w-full text-center text-sm text-slate-500 hover:text-slate-900 hover:underline">
+              Rediger rapportinnhold
+            </Link>
+          )}
+          {project.reportType === "DAMAGE" && (
+            <Link href={`/projects/${project.id}/skaderapport`} className="block w-full text-center text-sm text-slate-500 hover:text-slate-900 hover:underline">
+              Rediger skaderapport
+            </Link>
+          )}
 
           <Link href={`/projects/${project.id}/evidence`} className="block w-full">
             <Button className="w-full bg-white hover:bg-slate-50 text-slate-800 border border-slate-200">
@@ -160,13 +167,17 @@ export default function ProjectOverview({ project }: ProjectOverviewProps) {
 
           {project.reportInstances && project.reportInstances.length > 0 && (
             <div className="space-y-4 mt-6">
-              <h4 className="text-sm font-medium text-slate-500 border-b pb-2">Juridiske Rapporter</h4>
+              <h4 className="text-sm font-medium text-slate-500 border-b pb-2">Rapporter</h4>
               {project.reportInstances.map((report: any) => (
                 <div key={report.id} className="border rounded-lg p-3 text-sm hover:bg-slate-50 transition-colors flex items-center justify-between">
                   <div className="flex items-center text-slate-700 font-medium">
-                    <Gavel className="w-4 h-4 mr-2 text-slate-400" />
+                    {report.reportType === "LEGAL" ? (
+                      <Gavel className="w-4 h-4 mr-2 text-slate-400" />
+                    ) : (
+                      <FileText className="w-4 h-4 mr-2 text-slate-400" />
+                    )}
                     <span className="flex-1">
-                      {report.reportType === "LEGAL" ? "Juridisk Rapport" : "Rapport"} v{report.versionNumber} 
+                      {report.reportType === "LEGAL" ? "Juridisk Rapport" : report.reportType === "DAMAGE" ? "Skaderapport" : "Rapport"} v{report.versionNumber} 
                       <span className="text-slate-400 font-normal ml-2">
                         {new Date(report.createdAt).toLocaleString("no-NO")}
                       </span>

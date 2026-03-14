@@ -6,8 +6,9 @@ import ProjectForm from "./project-form";
 import LegalProjectWizard from "./_components/legal-project-wizard";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import Link from "next/link";
-import { ChevronLeft, FileText, Home, ArrowRight, Gavel } from "lucide-react";
+import { ChevronLeft, FileText, Home, ArrowRight, Gavel, AlertTriangle } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import DamageReportWizard from "./_components/damage-report-wizard";
 
 export default async function NewProjectPage({
   searchParams
@@ -26,6 +27,9 @@ export default async function NewProjectPage({
     select: {
       id: true,
       name: true,
+      address: true,
+      gnr: true,
+      bnr: true,
       units: {
         select: { id: true, name: true, unitNumber: true }
       }
@@ -67,7 +71,22 @@ export default async function NewProjectPage({
     );
   }
 
-  // 3. Selection Screen (Default)
+  // 3. Damage Report Wizard
+  if (type === "damage") {
+    return (
+      <div className="container max-w-5xl mx-auto p-4">
+        <div className="mb-6">
+          <Link href="/projects/new" className="text-slate-500 hover:text-slate-900 flex items-center mb-4">
+            <ChevronLeft className="h-4 w-4 mr-1" /> Tilbake til valg
+          </Link>
+          <h1 className="text-2xl font-bold">Ny Skaderapport</h1>
+        </div>
+        <DamageReportWizard properties={properties} />
+      </div>
+    );
+  }
+
+  // 4. Selection Screen (Default)
   return (
     <div className="container max-w-4xl mx-auto p-4 py-12">
       <div className="mb-8 text-center">
@@ -130,6 +149,32 @@ export default async function NewProjectPage({
               </ul>
               <Button className="w-full bg-emerald-600 hover:bg-emerald-700 text-white shadow-sm">
                 Velg Dokumentasjonsrapport
+              </Button>
+            </CardContent>
+          </Card>
+        </Link>
+
+        {/* Skaderapport */}
+        <Link href="/projects/new?type=damage" className="group">
+          <Card className="h-full hover:border-amber-400 transition-colors cursor-pointer relative overflow-hidden ring-1 ring-amber-100">
+            <div className="absolute top-0 left-0 w-1 h-full bg-amber-500" />
+            <CardHeader>
+              <div className="w-12 h-12 bg-amber-100 rounded-lg flex items-center justify-center mb-4 group-hover:bg-amber-200 transition-colors">
+                <AlertTriangle className="h-6 w-6 text-amber-600" />
+              </div>
+              <CardTitle className="text-xl">Skaderapport</CardTitle>
+              <CardDescription>
+                Profesjonell rapport for teknisk vurdering og dokumentasjon.
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <ul className="space-y-2 text-sm text-slate-600 mb-6">
+                <li className="flex items-center"><ArrowRight className="h-3 w-3 mr-2 text-amber-500" /> Hendelsesforløp</li>
+                <li className="flex items-center"><ArrowRight className="h-3 w-3 mr-2 text-amber-500" /> Dokumentasjon med figurer</li>
+                <li className="flex items-center"><ArrowRight className="h-3 w-3 mr-2 text-amber-500" /> PDF med vedleggsoversikt</li>
+              </ul>
+              <Button className="w-full bg-amber-600 hover:bg-amber-700 text-white shadow-sm">
+                Velg Skaderapport
               </Button>
             </CardContent>
           </Card>

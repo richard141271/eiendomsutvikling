@@ -374,7 +374,10 @@ export async function POST(
       success: true, 
       evidenceId: evidenceItem.id,
       evidenceNumber: evidenceItem.evidenceNumber,
-      url: publicUrl 
+      url: publicUrl,
+      originalName: file.name,
+      fileType: fileType,
+      title: title || file.name
     });
 
   } catch (error: any) {

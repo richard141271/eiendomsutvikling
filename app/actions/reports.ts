@@ -5,7 +5,7 @@ import { mapLegalDraftToReport } from "@/lib/reporting/legal-report-mapper";
 import { PdfReportRenderer } from "@/lib/reporting/pdf-renderer";
 import { createClient } from "@/lib/supabase-server";
 import { revalidatePath } from "next/cache";
-import { generateLegalReportPdf } from "@/lib/reporting/report-generator";
+import { generateLegalReportPdf, generateReportPdf } from "@/lib/reporting/report-generator";
 
 export async function generateLegalPdfFromSnapshot(reportId: string): Promise<{ success: boolean; pdfUrl: string; isNew: boolean }> {
   // 1. Fetch Report with Snapshots
@@ -86,7 +86,7 @@ export async function regenerateReport(reportId: string) {
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) throw new Error("Unauthorized");
 
-  const result = await generateLegalPdfFromSnapshot(reportId);
+  const result = await generateReportPdf(reportId);
   
   revalidatePath("/projects");
   // We can't revalidate specific project path easily without projectId, 

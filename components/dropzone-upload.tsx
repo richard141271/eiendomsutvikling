@@ -34,24 +34,7 @@ export function DropzoneUpload({ projectId, onUploadComplete, onBeforeUpload, on
     setIsDragging(false);
   }, []);
 
-  const handleDrop = useCallback(async (e: React.DragEvent) => {
-    e.preventDefault();
-    e.stopPropagation();
-    setIsDragging(false);
-
-    const files = Array.from(e.dataTransfer.files);
-    await processFiles(files);
-  }, []);
-
-  const handleFileInputChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const files = e.target.files ? Array.from(e.target.files) : [];
-    await processFiles(files);
-    // Reset input
-    if (fileInputRef.current) fileInputRef.current.value = "";
-    if (folderInputRef.current) folderInputRef.current.value = "";
-  };
-
-  const processFiles = async (files: File[]) => {
+  const processFiles = useCallback(async (files: File[]) => {
     if (files.length === 0) return;
 
     setUploading(true);
@@ -111,7 +94,66 @@ export function DropzoneUpload({ projectId, onUploadComplete, onBeforeUpload, on
     if (onBatchComplete) {
       onBatchComplete(successCount);
     }
-  };
+  }, [projectId, onBeforeUpload, onUploadComplete, onBatchComplete]);
+
+  const handleFileInputChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
+    if (e.target.files && e.target.files.length > 0) {
+      const files = Array.from(e.target.files);
+      processFiles(files);
+    }
+    // Reset input value so same file can be selected again if needed
+    e.target.value = "";
+  }, [processFiles]);
+
+  const handleDrop = useCallback(async (e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setIsDragging(false);
+
+    const items = Array.from(e.dataTransfer.items);
+    const files: File[] = [];
+    
+    // Helper to read entries recursively
+    const readEntry = async (entry: any): Promise<File[]> => {
+      if (entry.isFile) {
+        return new Promise((resolve) => {
+          entry.file((f: File) => resolve([f]), () => resolve([]));
+        });
+      } else if (entry.isDirectory) {
+        const dirReader = entry.createReader();
+        const entries = await new Promise<any[]>((resolve) => {
+          dirReader.readEntries((results: any[]) => resolve(results), () => resolve([]));
+        });
+        
+        const nestedFiles: File[] = [];
+        for (const nestedEntry of entries) {
+          const f = await readEntry(nestedEntry);
+          nestedFiles.push(...f);
+        }
+        return nestedFiles;
+      }
+      return [];
+    };
+
+    if (items && items.length > 0) {
+      // Check if webkitGetAsEntry exists (it's non-standard but common in browsers)
+      const firstItem = items[0] as any;
+      if (typeof firstItem.webkitGetAsEntry === 'function') {
+        const queue = items.map(item => (item as any).webkitGetAsEntry()).filter(entry => entry !== null);
+        for (const entry of queue) {
+          const entryFiles = await readEntry(entry);
+          files.push(...entryFiles);
+        }
+      } else {
+        files.push(...Array.from(e.dataTransfer.files));
+      }
+    } else {
+      // Fallback
+      files.push(...Array.from(e.dataTransfer.files));
+    }
+
+    await processFiles(files);
+  }, [processFiles]);
 
   return (
     <div className={cn("w-full", className)}>

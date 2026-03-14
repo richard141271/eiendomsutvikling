@@ -452,7 +452,7 @@ model Project {
   title       String
   description String?  
   status      String   @default("ACTIVE") // ACTIVE, ARCHIVED
-  reportType  String   @default("STANDARD") // STANDARD, DOCUMENTATION, LEGAL
+  reportType  String   @default("STANDARD") // STANDARD, DOCUMENTATION, LEGAL, DAMAGE
   
   // Legal Project Fields
   counterparty   String?
@@ -483,6 +483,7 @@ model Project {
   reportInstances ReportInstance[]
   sequence        ProjectSequence?
   legalReportDraft LegalReportDraft?
+  damageReportDraft DamageReportDraft?
 
   // Legal Lock
   legalLockActivated   Boolean   @default(false)
@@ -740,6 +741,43 @@ model LegalReportDraft {
   conclusion         String?  // Final claim/responsibility
   
   updatedAt          DateTime @updatedAt
+}
+
+model DamageReportDraft {
+  id              String   @id @default(uuid())
+  projectId       String   @unique
+  project         Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  projectName     String?
+  address         String?
+  gnrBnr          String?
+  client          String?
+  author          String?
+  company         String?
+  reportDate      DateTime?
+  caseNumber      String?
+  shortDescription String?
+
+  observations    String?
+  technicalAssessment String?
+  measurements    Json?
+  diagrams        String?
+  drawings        String?
+  calculations    String?
+
+  causeOptions    String?
+  probableCause   String?
+  alternativeExplanations String?
+  technicalJustification  String?
+
+  scope           String?
+  risk            String?
+  secondaryDamage String?
+  futureIssues    String?
+
+  conclusion      String?
+
+  updatedAt       DateTime @updatedAt
 }
 
 model ReportInstance {

@@ -10,7 +10,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { Plus, Folder, FolderArchive, Calendar, ChevronLeft, ChevronDown, Gavel, FileText, Home } from "lucide-react";
+import { Plus, Folder, FolderArchive, Calendar, ChevronLeft, ChevronDown, Gavel, FileText, Home, AlertTriangle } from "lucide-react";
 import Link from "next/link";
 
 export default async function ProjectsPage() {
@@ -43,6 +43,11 @@ export default async function ProjectsPage() {
               <Link href="/projects/new?type=legal">
                 <DropdownMenuItem>
                   <Gavel className="mr-2 h-4 w-4" /> Dokumentasjonsrapport
+                </DropdownMenuItem>
+              </Link>
+              <Link href="/projects/new?type=damage">
+                <DropdownMenuItem>
+                  <AlertTriangle className="mr-2 h-4 w-4" /> Skaderapport
                 </DropdownMenuItem>
               </Link>
               <Link href="/projects/new?type=brag">

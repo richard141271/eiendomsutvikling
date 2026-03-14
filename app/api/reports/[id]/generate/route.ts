@@ -1,7 +1,7 @@
 
 import { createClient } from "@/lib/supabase-server";
 import { NextResponse } from "next/server";
-import { generateLegalReportPdf } from "@/lib/reporting/report-generator";
+import { generateReportPdf } from "@/lib/reporting/report-generator";
 
 export const runtime = "nodejs";
 export const maxDuration = 300; // 5 minutes
@@ -21,7 +21,7 @@ export async function POST(
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    const result = await generateLegalReportPdf(reportId);
+    const result = await generateReportPdf(reportId);
 
     return NextResponse.json(result);
 

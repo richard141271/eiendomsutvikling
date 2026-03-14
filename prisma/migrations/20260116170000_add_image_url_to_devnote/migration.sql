@@ -1,3 +1,2 @@
 -- AlterTable
-ALTER TABLE "DevNote" ADD COLUMN     "imageUrl" TEXT;
-
+ALTER TABLE IF EXISTS "DevNote" ADD COLUMN IF NOT EXISTS "imageUrl" TEXT;

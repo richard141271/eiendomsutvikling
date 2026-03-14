@@ -1,4 +1,4 @@
-export type DocumentType = "PROJECT" | "LEGAL_CASE" | "SHOWCASE" | "RENTAL" | "PROSJEKTRAPPORT";
+export type DocumentType = "PROJECT" | "LEGAL_CASE" | "DAMAGE_REPORT" | "SHOWCASE" | "RENTAL" | "PROSJEKTRAPPORT";
 
 export interface Party {
   role: "OWNER" | "TENANT" | "CONTRACTOR" | "OTHER";
@@ -80,6 +80,7 @@ export interface Section {
 
 export interface EvidenceItem {
   id: string;
+  evidenceNumber?: number;
   evidenceCode: string;
   title: string;
   description?: string;
@@ -138,4 +139,3 @@ export interface ReportDocument {
   economySummary?: EconomySummary;
   attachments: Attachment[];
 }
-

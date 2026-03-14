@@ -2,6 +2,7 @@
 import { prisma } from "@/lib/prisma";
 import { createAdminClient } from "@/lib/supabase-admin";
 import { mapLegalDraftToReport } from "@/lib/reporting/legal-report-mapper";
+import { mapDamageDraftToReport } from "@/lib/reporting/damage-report-mapper";
 import { PdfReportRenderer } from "@/lib/reporting/pdf-renderer";
 import { ClaimItem, EvidenceItem } from "@/lib/reporting/report-types";
 
@@ -269,4 +270,221 @@ export async function generateLegalReportPdf(reportId: string) {
     url: signedMain?.signedUrl || mainUrl,
     attachments: signedAttachments
   };
+}
+
+export async function generateDamageReportPdf(reportId: string) {
+  const report = await (prisma as any).reportInstance.findUnique({
+    where: { id: reportId },
+    include: {
+      project: {
+        include: {
+          property: true,
+          unit: true,
+          participants: {
+            include: {
+              user: true
+            }
+          }
+        }
+      },
+      snapshots: {
+        include: {
+          evidenceItem: true
+        }
+      }
+    }
+  });
+
+  if (!report) {
+    throw new Error("Rapport ikke funnet");
+  }
+
+  if (report.reportType !== "DAMAGE") {
+    throw new Error("Ugyldig rapporttype for skaderapport");
+  }
+
+  let snapshots = report.snapshots;
+  snapshots.sort((a: any, b: any) => {
+    const getTime = (item: any) => {
+      if (item.evidenceItem?.legalDate) return new Date(item.evidenceItem.legalDate).getTime();
+      if (item.evidenceItem?.originalDate) return new Date(item.evidenceItem.originalDate).getTime();
+      if (item.evidenceItem?.createdAt) return new Date(item.evidenceItem.createdAt).getTime();
+      return 0;
+    };
+
+    const timeA = getTime(a);
+    const timeB = getTime(b);
+
+    if (timeA !== timeB) {
+      return timeA - timeB;
+    }
+
+    const createdA = new Date(a.evidenceItem?.createdAt || 0).getTime();
+    const createdB = new Date(b.evidenceItem?.createdAt || 0).getTime();
+    return createdA - createdB;
+  });
+
+  const fileIds = snapshots.map((s: any) => s.fileId).filter(Boolean);
+  const files = await (prisma as any).file.findMany({
+    where: { id: { in: fileIds } }
+  });
+  const fileMap = new Map(files.map((f: any) => [f.id, f]));
+
+  const BATCH_SIZE = 1;
+  const evidenceItems: EvidenceItem[] = [];
+
+  const adminSupabase = createAdminClient();
+  const bucketName = "project-assets";
+
+  for (let i = 0; i < snapshots.length; i += BATCH_SIZE) {
+    const batch = snapshots.slice(i, i + BATCH_SIZE);
+
+    const batchResults = await Promise.all(
+      batch.map(async (s: any) => {
+        const file = s.fileId ? fileMap.get(s.fileId) : null;
+        let url = (file as any)?.storagePath;
+        const fileType = (file as any)?.fileType || "";
+
+        const isImage =
+          fileType.startsWith("image/") ||
+          (typeof url === "string" &&
+            (url.toLowerCase().endsWith(".jpg") ||
+              url.toLowerCase().endsWith(".jpeg") ||
+              url.toLowerCase().endsWith(".png") ||
+              url.toLowerCase().endsWith(".webp")));
+
+        if (!isImage) {
+          url = undefined;
+        } else if (url && typeof url === "string" && !url.startsWith("http")) {
+          try {
+            const { data, error } = await adminSupabase.storage.from(bucketName).createSignedUrl(url, 3600);
+
+            if (data?.signedUrl) {
+              url = data.signedUrl;
+            } else {
+              console.error(`Failed to sign URL for file ${s.fileId}:`, error);
+              const { data: publicData } = adminSupabase.storage.from(bucketName).getPublicUrl(url);
+              url = publicData.publicUrl;
+            }
+          } catch (e) {
+            console.error("Error signing URL:", e);
+          }
+        }
+
+        const eventDate = s.evidenceItem?.legalDate
+          ? new Date(s.evidenceItem.legalDate)
+          : s.evidenceItem?.originalDate
+            ? new Date(s.evidenceItem.originalDate)
+            : new Date(s.includedAt);
+
+        return {
+          id: s.evidenceItemId,
+          evidenceNumber: s.evidenceNumber,
+          evidenceCode: `B-${String(s.evidenceNumber).padStart(3, "0")}`,
+          title: s.title,
+          description: s.description,
+          date: eventDate,
+          fileId: s.fileId,
+          imageUrl: url,
+          sourceType: s.sourceType,
+          missingLink: s.missingLink,
+          missingLinkNote: s.missingLinkNote,
+          missingLinkResolved: s.missingLinkResolved
+        };
+      })
+    );
+
+    evidenceItems.push(...batchResults);
+  }
+
+  const snapshot = (report.contentSnapshot as any) || {};
+
+  const reportDoc = mapDamageDraftToReport(report.project as any, snapshot, evidenceItems, report.versionNumber);
+
+  const renderer = new PdfReportRenderer();
+  const pkg = await renderer.renderPackage(reportDoc);
+
+  const timestamp = Date.now();
+  const mainFileName = `reports/damage/${report.project.id}/${report.versionNumber}-${timestamp}-main.pdf`;
+  const mainBuffer = Buffer.from(pkg.main);
+
+  const { error: uploadError } = await adminSupabase.storage.from(bucketName).upload(mainFileName, mainBuffer, {
+    contentType: "application/pdf",
+    upsert: true,
+  });
+
+  if (uploadError) {
+    throw new Error(`Upload failed: ${uploadError.message}`);
+  }
+
+  const {
+    data: { publicUrl: mainUrl },
+  } = adminSupabase.storage.from(bucketName).getPublicUrl(mainFileName);
+
+  const attachments: { title: string; url: string }[] = [];
+
+  for (let i = 0; i < pkg.parts.length; i++) {
+    const part = pkg.parts[i];
+    const partFileName = `reports/damage/${report.project.id}/${report.versionNumber}-${timestamp}-part${i + 1}.pdf`;
+
+    await adminSupabase.storage.from(bucketName).upload(partFileName, Buffer.from(part.data), {
+      contentType: "application/pdf",
+      upsert: true,
+    });
+
+    const {
+      data: { publicUrl: partUrl },
+    } = adminSupabase.storage.from(bucketName).getPublicUrl(partFileName);
+
+    attachments.push({ title: part.name, url: partUrl });
+  }
+
+  await (prisma as any).reportInstance.update({
+    where: { id: reportId },
+    data: {
+      pdfUrl: mainUrl,
+      pdfGeneratedAt: new Date(),
+      pdfSize: mainBuffer.length,
+    }
+  });
+
+  const { data: signedMain } = await adminSupabase.storage.from(bucketName).createSignedUrl(mainFileName, 3600);
+
+  const signedAttachments = await Promise.all(
+    attachments.map(async (att, idx) => {
+      const partFileName = `reports/damage/${report.project.id}/${report.versionNumber}-${timestamp}-part${idx + 1}.pdf`;
+      const { data } = await adminSupabase.storage.from(bucketName).createSignedUrl(partFileName, 3600);
+      return {
+        title: att.title,
+        url: data?.signedUrl || att.url
+      };
+    })
+  );
+
+  return {
+    success: true,
+    url: signedMain?.signedUrl || mainUrl,
+    attachments: signedAttachments
+  };
+}
+
+export async function generateReportPdf(reportId: string) {
+  const report = await (prisma as any).reportInstance.findUnique({
+    where: { id: reportId },
+    select: { reportType: true }
+  });
+
+  if (!report) {
+    throw new Error("Rapport ikke funnet");
+  }
+
+  if (report.reportType === "LEGAL") {
+    return generateLegalReportPdf(reportId);
+  }
+
+  if (report.reportType === "DAMAGE") {
+    return generateDamageReportPdf(reportId);
+  }
+
+  throw new Error("Rapporttype støttes ikke");
 }
