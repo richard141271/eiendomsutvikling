@@ -12,10 +12,11 @@ import { Textarea } from "@/components/ui/textarea";
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
 import { Separator } from "@/components/ui/separator";
 import { DatePicker } from "@/components/ui/date-picker";
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Loader2 } from "lucide-react";
 import { updateEvidenceInclusion } from "@/app/actions/reports";
 import { upsertDamageReportDraft } from "@/app/actions/report-draft";
-import { createEvent, linkEvidenceToEvent } from "@/app/actions/events";
+import { createEvent, linkEvidenceToEvent, setEventEvidence, updateEvent } from "@/app/actions/events";
 import { generateDamageReport } from "@/app/actions/generate-report";
 import { useRouter } from "next/navigation";
 
@@ -106,6 +107,16 @@ const normalizeDraft = (data: any) => {
   return { ...data, measurements: { items } };
 };
 
+const parseMeasurementText = (text: string) => {
+  const raw = (text || "").trim();
+  if (!raw) return { value: "", unit: "" };
+  const match = raw.match(/^(-?\d+(?:[.,]\d+)?)\s*([^\d\s]+)?$/);
+  if (!match) return { value: raw, unit: "" };
+  const value = match[1] || "";
+  const unit = (match[2] || "").trim();
+  return { value, unit };
+};
+
 export function DamageReportDraftForm({ projectId, initialData, evidenceItems, initialEvents, onGenerateReport }: DamageReportDraftFormProps) {
   const router = useRouter();
   const [formData, setFormData] = useState(() => normalizeDraft(initialData || {}));
@@ -114,6 +125,14 @@ export function DamageReportDraftForm({ projectId, initialData, evidenceItems, i
   const [debouncedFormData] = useDebounce(formData, 1000);
 
   const [events, setEvents] = useState<TimelineEvent[]>(initialEvents || []);
+  const [editingEvent, setEditingEvent] = useState<{
+    id: string;
+    title: string;
+    description: string;
+    date: Date | undefined;
+    selectedEvidence: Set<string>;
+  } | null>(null);
+  const [savingEventEdit, setSavingEventEdit] = useState(false);
   const [newEvent, setNewEvent] = useState({
     title: "",
     description: "",
@@ -176,6 +195,12 @@ export function DamageReportDraftForm({ projectId, initialData, evidenceItems, i
 
   const measurementItems = useMemo(() => toMeasurementItems(formData.measurements), [formData.measurements]);
   const [newMeasurement, setNewMeasurement] = useState<MeasurementItem>({ label: "", value: "", unit: "", method: "", comment: "" });
+  const [importMeasurementOpen, setImportMeasurementOpen] = useState(false);
+  const [importFigureId, setImportFigureId] = useState("");
+  const [importMeasurementLabel, setImportMeasurementLabel] = useState("");
+  const [importFigureText, setImportFigureText] = useState("");
+  const [importFigurePos, setImportFigurePos] = useState<{ x: number; y: number } | null>(null);
+  const selectedImportFigure = useMemo(() => evidenceItems.find((e) => e.id === importFigureId) || null, [evidenceItems, importFigureId]);
 
   const setMeasurements = (items: MeasurementItem[]) => {
     handleChange("measurements", { items });
@@ -192,6 +217,29 @@ export function DamageReportDraftForm({ projectId, initialData, evidenceItems, i
     if (!trimmed.label && !trimmed.value && !trimmed.unit && !trimmed.method && !trimmed.comment) return;
     setMeasurements([...measurementItems, trimmed]);
     setNewMeasurement({ label: "", value: "", unit: "", method: "", comment: "" });
+  };
+
+  const addMeasurementFromFigure = () => {
+    if (!selectedImportFigure) return;
+    const label = importMeasurementLabel.trim();
+    const figureText = importFigureText.trim();
+    if (!label || !figureText) return;
+    const { value, unit } = parseMeasurementText(figureText);
+    const code = evidenceCodes.get(selectedImportFigure.id) || `Bevis ${selectedImportFigure.evidenceNumber}`;
+    const item: MeasurementItem = {
+      label,
+      value,
+      unit,
+      method: "Figur",
+      comment: `${code}: ${figureText}`,
+    };
+    setMeasurements([...measurementItems, item]);
+    setImportMeasurementOpen(false);
+    setImportFigureId("");
+    setImportMeasurementLabel("");
+    setImportFigureText("");
+    setImportFigurePos(null);
+    toast.success("Måling lagt til");
   };
 
   const FigureRefPicker = ({ field }: { field: string }) => {
@@ -258,6 +306,56 @@ export function DamageReportDraftForm({ projectId, initialData, evidenceItems, i
       toast.error("Kunne ikke opprette hendelse");
     } finally {
       setCreatingEvent(false);
+    }
+  };
+
+  const openEditEvent = (e: TimelineEvent) => {
+    setEditingEvent({
+      id: e.id,
+      title: e.title,
+      description: e.description || "",
+      date: e.date ? new Date(e.date) : new Date(),
+      selectedEvidence: new Set((e.evidenceItems || []).map((x) => x.id).filter(Boolean)),
+    });
+  };
+
+  const handleSaveEventEdit = async () => {
+    if (!editingEvent) return;
+    if (!editingEvent.title || !editingEvent.date) return;
+    if (savingEventEdit) return;
+    setSavingEventEdit(true);
+    try {
+      const updated = await updateEvent(editingEvent.id, {
+        title: editingEvent.title,
+        date: editingEvent.date,
+        description: editingEvent.description || undefined,
+      });
+
+      const evidenceIds = Array.from(editingEvent.selectedEvidence);
+      await setEventEvidence(editingEvent.id, evidenceIds);
+
+      setEvents((prev) =>
+        prev.map((ev) =>
+          ev.id !== editingEvent.id
+            ? ev
+            : {
+                ...ev,
+                title: updated.title,
+                description: updated.description,
+                date: updated.date as any,
+                evidenceItems: evidenceItems
+                  .filter((x) => evidenceIds.includes(x.id))
+                  .map((x) => ({ id: x.id, evidenceNumber: x.evidenceNumber, title: x.title })),
+              }
+        )
+      );
+
+      toast.success("Hendelse oppdatert");
+      setEditingEvent(null);
+    } catch (error) {
+      toast.error("Kunne ikke oppdatere hendelse");
+    } finally {
+      setSavingEventEdit(false);
     }
   };
 
@@ -382,7 +480,12 @@ export function DamageReportDraftForm({ projectId, initialData, evidenceItems, i
                   <div key={e.id} className="border rounded-md p-4">
                     <div className="flex items-center justify-between gap-3">
                       <div className="font-semibold">{e.title}</div>
-                      <div className="text-xs text-muted-foreground">{new Date(e.date).toLocaleDateString("nb-NO")}</div>
+                      <div className="flex items-center gap-3">
+                        <div className="text-xs text-muted-foreground">{new Date(e.date).toLocaleDateString("nb-NO")}</div>
+                        <Button variant="outline" size="sm" onClick={() => openEditEvent(e)}>
+                          Rediger
+                        </Button>
+                      </div>
                     </div>
                     {e.description ? <div className="text-sm text-slate-700 mt-2 whitespace-pre-wrap">{e.description}</div> : null}
                     {e.evidenceItems && e.evidenceItems.length > 0 ? (
@@ -465,6 +568,198 @@ export function DamageReportDraftForm({ projectId, initialData, evidenceItems, i
         </CardContent>
       </Card>
 
+      <Dialog open={Boolean(editingEvent)} onOpenChange={(open) => (open ? null : setEditingEvent(null))}>
+        <DialogContent className="sm:max-w-[700px]">
+          <DialogHeader>
+            <DialogTitle>Rediger hendelse</DialogTitle>
+            <DialogDescription>Oppdater tittel, dato, beskrivelse og koblet dokumentasjon.</DialogDescription>
+          </DialogHeader>
+
+          {editingEvent ? (
+            <div className="space-y-4">
+              <div className="space-y-2">
+                <Label>Hendelse</Label>
+                <Input value={editingEvent.title} onChange={(e) => setEditingEvent((prev) => (prev ? { ...prev, title: e.target.value } : prev))} />
+              </div>
+              <div className="space-y-2">
+                <Label>Dato</Label>
+                <DatePicker date={editingEvent.date} setDate={(d) => setEditingEvent((prev) => (prev ? { ...prev, date: d } : prev))} />
+              </div>
+              <div className="space-y-2">
+                <Label>Beskrivelse</Label>
+                <Textarea
+                  value={editingEvent.description}
+                  onChange={(e) => setEditingEvent((prev) => (prev ? { ...prev, description: e.target.value } : prev))}
+                  className="min-h-[120px]"
+                />
+              </div>
+
+              <Accordion type="single" collapsible>
+                <AccordionItem value="attach-edit">
+                  <AccordionTrigger>Koble dokumentasjon</AccordionTrigger>
+                  <AccordionContent>
+                    <div className="space-y-3">
+                      {evidenceItems.length === 0 ? (
+                        <div className="text-sm text-muted-foreground">Ingen dokumentasjon lastet opp ennå.</div>
+                      ) : (
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
+                          {evidenceItems
+                            .slice()
+                            .sort((a, b) => a.evidenceNumber - b.evidenceNumber)
+                            .map((item) => {
+                              const checked = editingEvent.selectedEvidence.has(item.id);
+                              return (
+                                <label key={item.id} className="flex items-center gap-2 border rounded-md px-3 py-2 cursor-pointer">
+                                  <Checkbox
+                                    checked={checked}
+                                    onCheckedChange={(v) => {
+                                      setEditingEvent((prev) => {
+                                        if (!prev) return prev;
+                                        const next = new Set(prev.selectedEvidence);
+                                        if (v) next.add(item.id);
+                                        else next.delete(item.id);
+                                        return { ...prev, selectedEvidence: next };
+                                      });
+                                    }}
+                                  />
+                                  <span className="text-sm">
+                                    {evidenceCodes.get(item.id)} – {item.title}
+                                  </span>
+                                </label>
+                              );
+                            })}
+                        </div>
+                      )}
+                    </div>
+                  </AccordionContent>
+                </AccordionItem>
+              </Accordion>
+            </div>
+          ) : null}
+
+          <DialogFooter className="gap-2 sm:gap-0">
+            <Button variant="outline" onClick={() => setEditingEvent(null)} disabled={savingEventEdit}>
+              Avbryt
+            </Button>
+            <Button onClick={handleSaveEventEdit} disabled={savingEventEdit || !editingEvent?.title || !editingEvent?.date}>
+              {savingEventEdit ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
+              Lagre endringer
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog
+        open={importMeasurementOpen}
+        onOpenChange={(open) => {
+          setImportMeasurementOpen(open);
+          if (!open) {
+            setImportFigureId("");
+            setImportMeasurementLabel("");
+            setImportFigureText("");
+            setImportFigurePos(null);
+          }
+        }}
+      >
+        <DialogContent className="sm:max-w-[900px]">
+          <DialogHeader>
+            <DialogTitle>Importer måling fra figur</DialogTitle>
+            <DialogDescription>Velg et bilde, klikk i figuren for plassering, og skriv inn målingen.</DialogDescription>
+          </DialogHeader>
+
+          {imageEvidenceOptions.length === 0 ? (
+            <div className="flex items-center justify-between gap-3">
+              <div className="text-sm text-muted-foreground">Ingen figurer funnet. Last opp et bilde i bevisbanken først.</div>
+              <Button variant="outline" size="sm" onClick={() => router.push(`/projects/${projectId}/evidence`)}>
+                Åpne bevisbank
+              </Button>
+            </div>
+          ) : (
+            <div className="space-y-4">
+              <div className="space-y-2">
+                <Label>Figur</Label>
+                <select
+                  className="h-9 w-full rounded-md border border-input bg-background px-3 text-sm"
+                  value={importFigureId}
+                  onChange={(e) => {
+                    setImportFigureId(e.currentTarget.value);
+                    setImportFigurePos(null);
+                  }}
+                >
+                  <option value="">Velg figur…</option>
+                  {imageEvidenceOptions.map((img) => (
+                    <option key={img.id} value={img.id}>
+                      {`${evidenceCodes.get(img.id)} – ${img.title}`}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 items-start">
+                <div className="space-y-2">
+                  <Label>Plassering</Label>
+                  {selectedImportFigure?.fileUrl ? (
+                    <div
+                      className="relative border rounded-md overflow-hidden bg-slate-50 cursor-crosshair"
+                      onClick={(e) => {
+                        const rect = e.currentTarget.getBoundingClientRect();
+                        const x = ((e.clientX - rect.left) / rect.width) * 100;
+                        const y = ((e.clientY - rect.top) / rect.height) * 100;
+                        setImportFigurePos({ x, y });
+                      }}
+                    >
+                      <img src={selectedImportFigure.fileUrl} alt={selectedImportFigure.title} className="w-full max-h-[420px] object-contain select-none" />
+                      {importFigurePos && importFigureText ? (
+                        <div
+                          className="absolute text-xs font-semibold bg-white/85 px-1.5 py-0.5 rounded border"
+                          style={{
+                            left: `${importFigurePos.x}%`,
+                            top: `${importFigurePos.y}%`,
+                            transform: "translate(-50%, -50%)",
+                          }}
+                        >
+                          {importFigureText}
+                        </div>
+                      ) : null}
+                    </div>
+                  ) : (
+                    <div className="text-sm text-muted-foreground">Velg en figur for forhåndsvisning.</div>
+                  )}
+                  <div className="text-xs text-muted-foreground">Klikk i figuren for å plassere teksten.</div>
+                </div>
+
+                <div className="space-y-4">
+                  <div className="space-y-2">
+                    <Label>Målingstype</Label>
+                    <Input
+                      value={importMeasurementLabel}
+                      onChange={(e) => setImportMeasurementLabel(e.target.value)}
+                      placeholder="F.eks. Avstand til stopp i rør / Rørdiameter / Høydeforskjell gulv – septik"
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label>Tekst på figur</Label>
+                    <Input value={importFigureText} onChange={(e) => setImportFigureText(e.target.value)} placeholder="F.eks. 1,7 m" />
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
+
+          <DialogFooter className="gap-2 sm:gap-0">
+            <Button variant="outline" onClick={() => setImportMeasurementOpen(false)}>
+              Avbryt
+            </Button>
+            <Button
+              onClick={addMeasurementFromFigure}
+              disabled={!selectedImportFigure || !importMeasurementLabel.trim() || !importFigureText.trim()}
+            >
+              Legg til måling
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
       <Card>
         <CardHeader>
           <CardTitle>3. Dokumentasjon</CardTitle>
@@ -472,7 +767,12 @@ export function DamageReportDraftForm({ projectId, initialData, evidenceItems, i
         </CardHeader>
         <CardContent className="space-y-4">
           {evidenceItems.length === 0 ? (
-            <div className="text-sm text-muted-foreground">Ingen dokumentasjon funnet. Last opp filer via Skaderapport eller Bevisbank.</div>
+            <div className="flex items-center justify-between gap-3">
+              <div className="text-sm text-muted-foreground">Ingen dokumentasjon funnet. Last opp i bevisbanken og kom tilbake hit for å koble til hendelser.</div>
+              <Button variant="outline" size="sm" onClick={() => router.push(`/projects/${projectId}/evidence`)}>
+                Åpne bevisbank
+              </Button>
+            </div>
           ) : (
             <div className="space-y-2">
               {evidenceItems
@@ -513,7 +813,23 @@ export function DamageReportDraftForm({ projectId, initialData, evidenceItems, i
             <Textarea value={formData.technicalAssessment || ""} onChange={(e) => handleChange("technicalAssessment", e.target.value)} className="min-h-[140px]" />
           </div>
           <div className="space-y-2">
-            <Label>Målinger</Label>
+            <div className="flex items-center justify-between gap-3">
+              <Label>Målinger</Label>
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={() => {
+                  setImportFigureId("");
+                  setImportMeasurementLabel("");
+                  setImportFigureText("");
+                  setImportFigurePos(null);
+                  setImportMeasurementOpen(true);
+                }}
+              >
+                Importer måling fra figur
+              </Button>
+            </div>
             {measurementItems.length === 0 ? <div className="text-sm text-muted-foreground">Ingen målinger registrert.</div> : null}
             {measurementItems.length > 0 ? (
               <div className="space-y-3">
@@ -588,7 +904,12 @@ export function DamageReportDraftForm({ projectId, initialData, evidenceItems, i
               <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                 <div className="space-y-1">
                   <Label>Måling</Label>
-                  <Input value={newMeasurement.label} onChange={(e) => setNewMeasurement((p) => ({ ...p, label: e.target.value }))} />
+                  <Input
+                    value={newMeasurement.label}
+                    onChange={(e) => setNewMeasurement((p) => ({ ...p, label: e.target.value }))}
+                    placeholder="F.eks. Avstand til stopp i rør"
+                  />
+                  <div className="text-xs text-muted-foreground">Eksempler: Rørdiameter, Høydeforskjell gulv – septik.</div>
                 </div>
                 <div className="space-y-1">
                   <Label>Verdi</Label>

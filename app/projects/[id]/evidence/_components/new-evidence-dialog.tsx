@@ -272,6 +272,9 @@ export default function NewEvidenceDialog({ projectId, claims = [], onSuccess }:
                       
                       setDetectedSourceType(type);
                     }
+
+                    if (onSuccess) onSuccess(null);
+                    router.refresh();
                   }}
                   onBatchComplete={(count) => {
                     if (count > 0) {

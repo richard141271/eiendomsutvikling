@@ -42,6 +42,13 @@ export function DropzoneUpload({ projectId, onUploadComplete, onBeforeUpload, on
     let successCount = 0;
     let failCount = 0;
 
+    const toShortError = (raw: string) => {
+      const text = (raw || "").trim();
+      if (!text) return "Ukjent feil";
+      if (text.length <= 240) return text;
+      return `${text.slice(0, 240)}…`;
+    };
+
     for (let i = 0; i < files.length; i++) {
       const file = files[i];
       setProgress({ current: i + 1, total: files.length, filename: file.name });
@@ -68,8 +75,13 @@ export function DropzoneUpload({ projectId, onUploadComplete, onBeforeUpload, on
 
         if (!response.ok) {
           const errorText = await response.text();
-          console.error(`Upload failed for ${file.name}:`, errorText);
-          throw new Error(`Feil ved opplasting: ${errorText}`);
+          let message = errorText;
+          try {
+            const parsed = JSON.parse(errorText);
+            if (parsed?.error) message = String(parsed.error);
+          } catch {}
+          console.error(`Upload failed for ${file.name}:`, message);
+          throw new Error(toShortError(message));
         }
 
         const data = await response.json();
@@ -77,7 +89,8 @@ export function DropzoneUpload({ projectId, onUploadComplete, onBeforeUpload, on
         successCount++;
       } catch (error) {
         console.error("Upload error:", error);
-        toast.error(`Kunne ikke laste opp ${file.name}`);
+        const msg = error instanceof Error ? error.message : "Ukjent feil";
+        toast.error(`${file.name}: ${msg}`);
         failCount++;
       }
     }
