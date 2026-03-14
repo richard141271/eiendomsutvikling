@@ -2,8 +2,7 @@
 
 import { useState, useRef, useCallback } from "react";
 import { Button } from "@/components/ui/button";
-import { Label } from "@/components/ui/label";
-import { FileIcon, Loader2, CheckCircle2, UploadCloud, X, Folder, Image as ImageIcon } from "lucide-react";
+import { FileIcon, Loader2, UploadCloud, Folder, Image as ImageIcon } from "lucide-react";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 
@@ -124,7 +123,13 @@ export function DropzoneUpload({ projectId, onUploadComplete, onBeforeUpload, on
     e.stopPropagation();
     setIsDragging(false);
 
-    const items = Array.from(e.dataTransfer.items);
+    const directFiles = Array.from(e.dataTransfer.files || []);
+    if (directFiles.length > 0) {
+      await processFiles(directFiles);
+      return;
+    }
+
+    const items = Array.from(e.dataTransfer.items || []);
     const files: File[] = [];
     
     // Helper to read entries recursively
@@ -164,6 +169,11 @@ export function DropzoneUpload({ projectId, onUploadComplete, onBeforeUpload, on
     } else {
       // Fallback
       files.push(...Array.from(e.dataTransfer.files));
+    }
+
+    if (files.length === 0) {
+      toast.error("Fant ingen filer å laste opp");
+      return;
     }
 
     await processFiles(files);
