@@ -676,6 +676,11 @@ export function DamageReportDraftForm({ projectId, initialData, evidenceItems, i
             <Textarea value={formData.secondaryDamage || ""} onChange={(e) => handleChange("secondaryDamage", e.target.value)} className="min-h-[120px]" />
           </div>
           <div className="space-y-2">
+            <Label>Saneringsbehov</Label>
+            <FigureRefPicker field="sanitationNeed" />
+            <Textarea value={formData.sanitationNeed || ""} onChange={(e) => handleChange("sanitationNeed", e.target.value)} className="min-h-[120px]" />
+          </div>
+          <div className="space-y-2">
             <Label>Mulige fremtidige problemer</Label>
             <FigureRefPicker field="futureIssues" />
             <Textarea value={formData.futureIssues || ""} onChange={(e) => handleChange("futureIssues", e.target.value)} className="min-h-[120px]" />

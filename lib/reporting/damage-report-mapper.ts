@@ -24,6 +24,7 @@ interface DamageReportDraft {
   scope?: string;
   risk?: string;
   secondaryDamage?: string;
+  sanitationNeed?: string;
   futureIssues?: string;
   conclusion?: string;
 }
@@ -302,6 +303,10 @@ export function mapDamageDraftToReport(
   if (draft.secondaryDamage) {
     consequenceBlocks.push({ kind: "HEADING", text: "Følgeskader", level: 3 });
     consequenceBlocks.push({ kind: "PARAGRAPH", text: resolveEvidenceRefs(draft.secondaryDamage, evidenceCodeMap) });
+  }
+  if (draft.sanitationNeed) {
+    consequenceBlocks.push({ kind: "HEADING", text: "Saneringsbehov", level: 3 });
+    consequenceBlocks.push({ kind: "PARAGRAPH", text: resolveEvidenceRefs(draft.sanitationNeed, evidenceCodeMap) });
   }
   if (draft.futureIssues) {
     consequenceBlocks.push({ kind: "HEADING", text: "Mulige fremtidige problemer", level: 3 });

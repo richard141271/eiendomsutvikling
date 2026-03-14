@@ -42,6 +42,7 @@ export type DamageReportDraftData = {
   scope?: string;
   risk?: string;
   secondaryDamage?: string;
+  sanitationNeed?: string;
   futureIssues?: string;
   conclusion?: string;
 };

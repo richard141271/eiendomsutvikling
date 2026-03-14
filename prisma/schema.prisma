@@ -773,6 +773,7 @@ model DamageReportDraft {
   scope           String?
   risk            String?
   secondaryDamage String?
+  sanitationNeed  String?
   futureIssues    String?
 
   conclusion      String?
