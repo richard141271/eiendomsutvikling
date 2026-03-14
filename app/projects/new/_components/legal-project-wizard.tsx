@@ -121,11 +121,56 @@ export default function LegalProjectWizard() {
   );
 
   const onDrop = useCallback(
-    (e: React.DragEvent) => {
+    async (e: React.DragEvent) => {
       e.preventDefault();
+      e.stopPropagation();
       if (step !== 2 || !projectId) return;
 
-      const files = Array.from(e.dataTransfer.files);
+      const directFiles = Array.from(e.dataTransfer.files || []);
+      let files = directFiles;
+
+      if (files.length === 0) {
+        const items = Array.from(e.dataTransfer.items || []);
+        const itemFiles = items
+          .filter((i) => i.kind === "file")
+          .map((i) => i.getAsFile())
+          .filter(Boolean) as File[];
+        files = itemFiles;
+
+        if (files.length === 0) {
+          const uriItem = items.find((i) => i.kind === "string" && (i.type === "text/uri-list" || i.type === "text/plain"));
+          if (uriItem) {
+            const uriText = await new Promise<string>((resolve) => uriItem.getAsString((s) => resolve(s)));
+            const url = (uriText || "")
+              .split("\n")
+              .map((x) => x.trim())
+              .find((x) => x && !x.startsWith("#"));
+
+            if (url && (url.startsWith("http://") || url.startsWith("https://") || url.startsWith("data:"))) {
+              try {
+                const resp = await fetch(url);
+                if (!resp.ok) return;
+                const blob = await resp.blob();
+                const nameFromUrl = (() => {
+                  try {
+                    const u = new URL(url);
+                    const last = u.pathname.split("/").filter(Boolean).pop();
+                    return last || "dropped-file";
+                  } catch {
+                    return "dropped-file";
+                  }
+                })();
+                const extFromType = blob.type ? `.${blob.type.split("/")[1] || "bin"}` : "";
+                const filename = nameFromUrl.includes(".") ? nameFromUrl : `${nameFromUrl}${extFromType}`;
+                files = [new File([blob], filename, { type: blob.type || "application/octet-stream" })];
+              } catch {
+                return;
+              }
+            }
+          }
+        }
+      }
+
       if (files.length === 0) return;
 
       const newUploads = files.map((file) => ({

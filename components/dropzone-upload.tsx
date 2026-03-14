@@ -25,6 +25,7 @@ export function DropzoneUpload({ projectId, onUploadComplete, onBeforeUpload, on
   const handleDragOver = useCallback((e: React.DragEvent) => {
     e.preventDefault();
     e.stopPropagation();
+    if (e.dataTransfer) e.dataTransfer.dropEffect = "copy";
     setIsDragging(true);
   }, []);
 
@@ -131,6 +132,17 @@ export function DropzoneUpload({ projectId, onUploadComplete, onBeforeUpload, on
 
     const items = Array.from(e.dataTransfer.items || []);
     const files: File[] = [];
+
+    for (const item of items) {
+      if (item.kind === "file") {
+        const f = item.getAsFile();
+        if (f) files.push(f);
+      }
+    }
+    if (files.length > 0) {
+      await processFiles(files);
+      return;
+    }
     
     // Helper to read entries recursively
     const readEntry = async (entry: any): Promise<File[]> => {
@@ -172,7 +184,42 @@ export function DropzoneUpload({ projectId, onUploadComplete, onBeforeUpload, on
     }
 
     if (files.length === 0) {
-      toast.error("Fant ingen filer å laste opp");
+      const uriItem = items.find((i) => i.kind === "string" && (i.type === "text/uri-list" || i.type === "text/plain"));
+      if (uriItem) {
+        const uriText = await new Promise<string>((resolve) => uriItem.getAsString((s) => resolve(s)));
+        const url = (uriText || "")
+          .split("\n")
+          .map((x) => x.trim())
+          .find((x) => x && !x.startsWith("#"));
+
+        if (url && (url.startsWith("http://") || url.startsWith("https://") || url.startsWith("data:"))) {
+          try {
+            const resp = await fetch(url);
+            if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
+            const blob = await resp.blob();
+            const nameFromUrl = (() => {
+              try {
+                const u = new URL(url);
+                const last = u.pathname.split("/").filter(Boolean).pop();
+                return last || "dropped-file";
+              } catch {
+                return "dropped-file";
+              }
+            })();
+            const extFromType = blob.type ? `.${blob.type.split("/")[1] || "bin"}` : "";
+            const filename = nameFromUrl.includes(".") ? nameFromUrl : `${nameFromUrl}${extFromType}`;
+            const file = new File([blob], filename, { type: blob.type || "application/octet-stream" });
+            await processFiles([file]);
+            return;
+          } catch (err) {
+            const msg = err instanceof Error ? err.message : "Ukjent feil";
+            toast.error(`Kunne ikke hente fil fra lenke: ${msg}`);
+            return;
+          }
+        }
+      }
+
+      toast.error("Fant ingen filer å laste opp. Prøv å dra fra Finder eller bruk «Velg filer».")
       return;
     }
 

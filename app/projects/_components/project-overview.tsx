@@ -3,10 +3,10 @@
 
 import { archiveProject } from "@/app/actions/projects";
 import { regenerateReport } from "@/app/actions/reports";
-import { generateLegalReport } from "@/app/actions/generate-report";
+import { generateDamageReport, generateLegalReport } from "@/app/actions/generate-report";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Archive, FileText, Download, Loader2, MapPin, Paperclip, Gavel, RefreshCw } from "lucide-react";
+import { Archive, FileText, Download, Loader2, Paperclip, Gavel, RefreshCw } from "lucide-react";
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
@@ -31,17 +31,38 @@ export default function ProjectOverview({ project }: ProjectOverviewProps) {
   async function handleGenerateReport() {
     setGenerating(true);
     try {
-      // Use the robust V2 report motor (Project Report) that handles 700+ images via batching
-      const res = await fetch(`/api/projects/${project.id}/report-v2`, {
-        method: "POST",
-      });
-      
-      if (!res.ok) {
-        const errorText = await res.text();
-        throw new Error(errorText || "Generering feilet");
+      let data: any = null;
+
+      if (project.reportType === "DAMAGE") {
+        const result: any = await generateDamageReport(project.id);
+        const response = await fetch(`/api/reports/${result.reportId}/generate`, { method: "POST" });
+        if (!response.ok) {
+          const errorText = await response.text();
+          throw new Error(errorText || response.statusText);
+        }
+        data = await response.json();
+        if (!data.success) throw new Error(data.error || "Ukjent feil ved generering");
+      } else if (project.reportType === "LEGAL") {
+        const result: any = await generateLegalReport(project.id);
+        const response = await fetch(`/api/reports/${result.reportId}/generate`, { method: "POST" });
+        if (!response.ok) {
+          const errorText = await response.text();
+          throw new Error(errorText || response.statusText);
+        }
+        data = await response.json();
+        if (!data.success) throw new Error(data.error || "Ukjent feil ved generering");
+      } else {
+        const res = await fetch(`/api/projects/${project.id}/report-v2`, {
+          method: "POST",
+        });
+
+        if (!res.ok) {
+          const errorText = await res.text();
+          throw new Error(errorText || "Generering feilet");
+        }
+
+        data = await res.json();
       }
-      
-      const data = await res.json();
       
       // Open main report
       if (data.url) {
@@ -130,7 +151,11 @@ export default function ProjectOverview({ project }: ProjectOverviewProps) {
         <CardContent className="space-y-4">
           <Button onClick={handleGenerateReport} disabled={generating} className="w-full bg-slate-900 text-white hover:bg-slate-800">
             {generating ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : <FileText className="w-4 h-4 mr-2" />}
-            Generer Rapport (Ny Motor)
+            {project.reportType === "DAMAGE"
+              ? "Generer skaderapport (PDF)"
+              : project.reportType === "LEGAL"
+              ? "Generer juridisk rapport (PDF)"
+              : "Generer prosjektrapport (PDF)"}
           </Button>
 
           {/* 
