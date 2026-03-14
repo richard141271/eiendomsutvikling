@@ -112,10 +112,14 @@ export class PdfReportRenderer implements ReportRenderer {
       ) : undefined;
     };
 
-    const drawTable = (headers: string[], rows: { cells: (string | { text: string; backgroundColor?: string; textColor?: string; fontStyle?: "normal" | "bold" })[] }[]) => {
+    const drawTable = (
+      headers: string[],
+      rows: { cells: (string | { text: string; backgroundColor?: string; textColor?: string; fontStyle?: "normal" | "bold" })[] }[]
+    ) => {
       const startX = 50;
       const tableWidth = width - 100;
-      const colWidths = [tableWidth * 0.4, tableWidth * 0.4, tableWidth * 0.2]; // 40%, 40%, 20%
+      const colCount = Math.max(headers.length, 1);
+      const colWidths = colCount === 3 ? [tableWidth * 0.4, tableWidth * 0.4, tableWidth * 0.2] : Array.from({ length: colCount }, () => tableWidth / colCount);
       const fontSize = 10;
       const padding = 5;
       const lineHeight = fontSize + 4;
@@ -125,7 +129,7 @@ export class PdfReportRenderer implements ReportRenderer {
       let currentX = startX;
       headers.forEach((header, i) => {
         page.drawText(header, { x: currentX + padding, y, size: fontSize, font: mainBoldFont });
-        currentX += colWidths[i];
+        currentX += colWidths[i] || 0;
       });
       y -= lineHeight + 5;
       
@@ -145,8 +149,13 @@ export class PdfReportRenderer implements ReportRenderer {
         );
 
         // Calculate row height based on max lines in any cell
-        const cellLines: string[][] = normalizedCells.map((cell, i) => 
-          wordWrap(cell.text, cell.fontStyle === 'bold' ? mainBoldFont : mainFont, fontSize, colWidths[i] - (padding * 2))
+        const cellLines: string[][] = normalizedCells.map((cell, i) =>
+          wordWrap(
+            cell.text,
+            cell.fontStyle === "bold" ? mainBoldFont : mainFont,
+            fontSize,
+            (colWidths[i] || tableWidth / colCount) - padding * 2
+          )
         );
         const maxLines = Math.max(...cellLines.map(lines => lines.length));
         const rowHeight = (maxLines * lineHeight) + (padding * 2);
@@ -163,7 +172,7 @@ export class PdfReportRenderer implements ReportRenderer {
               page.drawRectangle({
                 x: currentX,
                 y: y - rowHeight,
-                width: colWidths[i],
+                width: colWidths[i] || tableWidth / colCount,
                 height: rowHeight,
                 color: bgRgb,
               });
@@ -182,7 +191,7 @@ export class PdfReportRenderer implements ReportRenderer {
               color: textRgb || rgb(0, 0, 0),
             });
           });
-          currentX += colWidths[i];
+          currentX += colWidths[i] || tableWidth / colCount;
         });
 
         y -= rowHeight;

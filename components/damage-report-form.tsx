@@ -39,6 +39,14 @@ interface TimelineEvent {
   evidenceItems: { id: string; evidenceNumber: number; title: string }[];
 }
 
+interface MeasurementItem {
+  label: string;
+  value: string;
+  unit: string;
+  method: string;
+  comment?: string;
+}
+
 interface DamageReportDraftFormProps {
   projectId: string;
   initialData: any;
@@ -62,9 +70,45 @@ const toVedleggCode = (index: number) => {
   return code;
 };
 
+const toMeasurementItems = (measurements: any): MeasurementItem[] => {
+  if (!measurements) return [];
+  if (Array.isArray(measurements)) {
+    return measurements
+      .filter(Boolean)
+      .map((m: any) => ({
+        label: typeof m?.label === "string" ? m.label : "",
+        value: typeof m?.value === "number" ? String(m.value) : typeof m?.value === "string" ? m.value : "",
+        unit: typeof m?.unit === "string" ? m.unit : "",
+        method: typeof m?.method === "string" ? m.method : "",
+        comment: typeof m?.comment === "string" ? m.comment : typeof m?.optionalComment === "string" ? m.optionalComment : undefined,
+      }))
+      .filter((m: MeasurementItem) => Boolean(m.label || m.value || m.unit || m.method || m.comment));
+  }
+
+  if (typeof measurements === "object" && Array.isArray((measurements as any).items)) {
+    return toMeasurementItems((measurements as any).items);
+  }
+
+  const legacyText =
+    typeof measurements === "string"
+      ? measurements
+      : typeof (measurements as any)?.text === "string"
+        ? (measurements as any).text
+        : "";
+  if (!legacyText) return [];
+  return [{ label: "Måling", value: "", unit: "", method: "", comment: legacyText }];
+};
+
+const normalizeDraft = (data: any) => {
+  if (!data) return {};
+  const items = toMeasurementItems(data.measurements);
+  if (items.length === 0) return data;
+  return { ...data, measurements: { items } };
+};
+
 export function DamageReportDraftForm({ projectId, initialData, evidenceItems, initialEvents, onGenerateReport }: DamageReportDraftFormProps) {
   const router = useRouter();
-  const [formData, setFormData] = useState(initialData || {});
+  const [formData, setFormData] = useState(() => normalizeDraft(initialData || {}));
   const [isSaving, setIsSaving] = useState(false);
   const [isGenerating, setIsGenerating] = useState(false);
   const [debouncedFormData] = useDebounce(formData, 1000);
@@ -91,6 +135,8 @@ export function DamageReportDraftForm({ projectId, initialData, evidenceItems, i
     attachments.forEach((e, idx) => map.set(e.id, `Vedlegg ${toVedleggCode(idx)}`));
     return map;
   }, [evidenceItems]);
+
+  const imageEvidenceOptions = useMemo(() => evidenceItems.filter(isImage).sort((a, b) => a.evidenceNumber - b.evidenceNumber), [evidenceItems]);
 
   const totalEvidence = evidenceItems.length;
   const includedEvidence = Object.values(evidenceSelection).filter(Boolean).length;
@@ -119,12 +165,59 @@ export function DamageReportDraftForm({ projectId, initialData, evidenceItems, i
     setFormData((prev: any) => ({ ...prev, [field]: value }));
   };
 
-  const getMeasurementsText = () => {
-    const m = formData.measurements;
-    if (!m) return "";
-    if (typeof m === "string") return m;
-    if (typeof m === "object" && typeof (m as any).text === "string") return (m as any).text;
-    return "";
+  const appendFigureRef = (field: string, evidenceId: string) => {
+    const token = `(se [[REF:${evidenceId}]])`;
+    setFormData((prev: any) => {
+      const current = typeof prev[field] === "string" ? prev[field] : "";
+      const next = current ? `${current.trimEnd()} ${token}` : token;
+      return { ...prev, [field]: next };
+    });
+  };
+
+  const measurementItems = useMemo(() => toMeasurementItems(formData.measurements), [formData.measurements]);
+  const [newMeasurement, setNewMeasurement] = useState<MeasurementItem>({ label: "", value: "", unit: "", method: "", comment: "" });
+
+  const setMeasurements = (items: MeasurementItem[]) => {
+    handleChange("measurements", { items });
+  };
+
+  const addMeasurement = () => {
+    const trimmed: MeasurementItem = {
+      label: newMeasurement.label.trim(),
+      value: newMeasurement.value.trim(),
+      unit: newMeasurement.unit.trim(),
+      method: newMeasurement.method.trim(),
+      comment: (newMeasurement.comment || "").trim() || undefined,
+    };
+    if (!trimmed.label && !trimmed.value && !trimmed.unit && !trimmed.method && !trimmed.comment) return;
+    setMeasurements([...measurementItems, trimmed]);
+    setNewMeasurement({ label: "", value: "", unit: "", method: "", comment: "" });
+  };
+
+  const FigureRefPicker = ({ field }: { field: string }) => {
+    if (imageEvidenceOptions.length === 0) return null;
+    return (
+      <div className="flex items-center justify-between gap-3">
+        <div className="text-xs text-muted-foreground">Sett inn figurreferanse</div>
+        <select
+          className="h-9 rounded-md border border-input bg-background px-3 text-sm"
+          defaultValue=""
+          onChange={(e) => {
+            const id = e.currentTarget.value;
+            if (!id) return;
+            appendFigureRef(field, id);
+            e.currentTarget.value = "";
+          }}
+        >
+          <option value="">Velg figur…</option>
+          {imageEvidenceOptions.map((img) => (
+            <option key={img.id} value={img.id}>
+              {`${evidenceCodes.get(img.id)} – ${img.title}`}
+            </option>
+          ))}
+        </select>
+      </div>
+    );
   };
 
   const toggleEvidence = async (evidenceId: string, checked: boolean) => {
@@ -266,6 +359,7 @@ export function DamageReportDraftForm({ projectId, initialData, evidenceItems, i
           </div>
           <div className="space-y-2 md:col-span-2">
             <Label>Kort beskrivelse av saken</Label>
+            <FigureRefPicker field="shortDescription" />
             <Textarea value={formData.shortDescription || ""} onChange={(e) => handleChange("shortDescription", e.target.value)} className="min-h-[120px]" />
           </div>
         </CardContent>
@@ -410,27 +504,124 @@ export function DamageReportDraftForm({ projectId, initialData, evidenceItems, i
         <CardContent className="space-y-4">
           <div className="space-y-2">
             <Label>Observasjoner</Label>
+            <FigureRefPicker field="observations" />
             <Textarea value={formData.observations || ""} onChange={(e) => handleChange("observations", e.target.value)} className="min-h-[140px]" />
           </div>
           <div className="space-y-2">
             <Label>Tekniske vurderinger</Label>
+            <FigureRefPicker field="technicalAssessment" />
             <Textarea value={formData.technicalAssessment || ""} onChange={(e) => handleChange("technicalAssessment", e.target.value)} className="min-h-[140px]" />
           </div>
           <div className="space-y-2">
             <Label>Målinger</Label>
-            <Textarea
-              value={getMeasurementsText()}
-              onChange={(e) => handleChange("measurements", { text: e.target.value })}
-              placeholder="F.eks. Høydeforskjell gulv – septiktank: 266 mm"
-              className="min-h-[120px]"
-            />
+            {measurementItems.length === 0 ? <div className="text-sm text-muted-foreground">Ingen målinger registrert.</div> : null}
+            {measurementItems.length > 0 ? (
+              <div className="space-y-3">
+                <div className="grid grid-cols-1 md:grid-cols-5 gap-2 text-xs text-muted-foreground">
+                  <div>Måling</div>
+                  <div>Verdi</div>
+                  <div>Enhet</div>
+                  <div>Metode</div>
+                  <div>Kommentar</div>
+                </div>
+                {measurementItems.map((m, idx) => (
+                  <div key={idx} className="grid grid-cols-1 md:grid-cols-5 gap-2 items-start">
+                    <Input
+                      value={m.label}
+                      onChange={(e) => {
+                        const next = measurementItems.slice();
+                        next[idx] = { ...next[idx], label: e.target.value };
+                        setMeasurements(next);
+                      }}
+                    />
+                    <Input
+                      value={m.value}
+                      onChange={(e) => {
+                        const next = measurementItems.slice();
+                        next[idx] = { ...next[idx], value: e.target.value };
+                        setMeasurements(next);
+                      }}
+                    />
+                    <Input
+                      value={m.unit}
+                      onChange={(e) => {
+                        const next = measurementItems.slice();
+                        next[idx] = { ...next[idx], unit: e.target.value };
+                        setMeasurements(next);
+                      }}
+                    />
+                    <Input
+                      value={m.method}
+                      onChange={(e) => {
+                        const next = measurementItems.slice();
+                        next[idx] = { ...next[idx], method: e.target.value };
+                        setMeasurements(next);
+                      }}
+                    />
+                    <div className="flex gap-2">
+                      <Input
+                        value={m.comment || ""}
+                        onChange={(e) => {
+                          const next = measurementItems.slice();
+                          next[idx] = { ...next[idx], comment: e.target.value };
+                          setMeasurements(next);
+                        }}
+                      />
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        onClick={() => {
+                          const next = measurementItems.filter((_, i) => i !== idx);
+                          setMeasurements(next);
+                        }}
+                      >
+                        Fjern
+                      </Button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            ) : null}
+            <div className="mt-4 border rounded-md p-3 space-y-3">
+              <div className="text-sm font-medium">Legg til måling</div>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                <div className="space-y-1">
+                  <Label>Måling</Label>
+                  <Input value={newMeasurement.label} onChange={(e) => setNewMeasurement((p) => ({ ...p, label: e.target.value }))} />
+                </div>
+                <div className="space-y-1">
+                  <Label>Verdi</Label>
+                  <Input value={newMeasurement.value} onChange={(e) => setNewMeasurement((p) => ({ ...p, value: e.target.value }))} placeholder="F.eks. 1,7" />
+                </div>
+                <div className="space-y-1">
+                  <Label>Enhet</Label>
+                  <Input value={newMeasurement.unit} onChange={(e) => setNewMeasurement((p) => ({ ...p, unit: e.target.value }))} placeholder="F.eks. m / mm" />
+                </div>
+                <div className="space-y-1">
+                  <Label>Metode</Label>
+                  <Input value={newMeasurement.method} onChange={(e) => setNewMeasurement((p) => ({ ...p, method: e.target.value }))} placeholder="F.eks. Kamerainspeksjon" />
+                </div>
+                <div className="space-y-1 md:col-span-2">
+                  <Label>Kommentar (valgfri)</Label>
+                  <Input value={newMeasurement.comment || ""} onChange={(e) => setNewMeasurement((p) => ({ ...p, comment: e.target.value }))} />
+                </div>
+              </div>
+              <div className="flex justify-end">
+                <Button type="button" onClick={addMeasurement}>
+                  Legg til måling
+                </Button>
+              </div>
+            </div>
           </div>
           <div className="space-y-2">
             <Label>Tegninger</Label>
+            <FigureRefPicker field="drawings" />
             <Textarea value={formData.drawings || ""} onChange={(e) => handleChange("drawings", e.target.value)} className="min-h-[100px]" />
           </div>
           <div className="space-y-2">
             <Label>Beregninger</Label>
+            <FigureRefPicker field="calculations" />
             <Textarea value={formData.calculations || ""} onChange={(e) => handleChange("calculations", e.target.value)} className="min-h-[100px]" />
           </div>
         </CardContent>
@@ -443,18 +634,22 @@ export function DamageReportDraftForm({ projectId, initialData, evidenceItems, i
         <CardContent className="space-y-4">
           <div className="space-y-2">
             <Label>Mulige årsaker</Label>
+            <FigureRefPicker field="causeOptions" />
             <Textarea value={formData.causeOptions || ""} onChange={(e) => handleChange("causeOptions", e.target.value)} className="min-h-[120px]" />
           </div>
           <div className="space-y-2">
             <Label>Sannsynlig årsak</Label>
+            <FigureRefPicker field="probableCause" />
             <Textarea value={formData.probableCause || ""} onChange={(e) => handleChange("probableCause", e.target.value)} className="min-h-[120px]" />
           </div>
           <div className="space-y-2">
             <Label>Alternative forklaringer</Label>
+            <FigureRefPicker field="alternativeExplanations" />
             <Textarea value={formData.alternativeExplanations || ""} onChange={(e) => handleChange("alternativeExplanations", e.target.value)} className="min-h-[120px]" />
           </div>
           <div className="space-y-2">
             <Label>Teknisk begrunnelse</Label>
+            <FigureRefPicker field="technicalJustification" />
             <Textarea value={formData.technicalJustification || ""} onChange={(e) => handleChange("technicalJustification", e.target.value)} className="min-h-[140px]" />
           </div>
         </CardContent>
@@ -467,18 +662,22 @@ export function DamageReportDraftForm({ projectId, initialData, evidenceItems, i
         <CardContent className="space-y-4">
           <div className="space-y-2">
             <Label>Skadeomfang</Label>
+            <FigureRefPicker field="scope" />
             <Textarea value={formData.scope || ""} onChange={(e) => handleChange("scope", e.target.value)} className="min-h-[120px]" />
           </div>
           <div className="space-y-2">
             <Label>Risiko</Label>
+            <FigureRefPicker field="risk" />
             <Textarea value={formData.risk || ""} onChange={(e) => handleChange("risk", e.target.value)} className="min-h-[120px]" />
           </div>
           <div className="space-y-2">
             <Label>Følgeskader</Label>
+            <FigureRefPicker field="secondaryDamage" />
             <Textarea value={formData.secondaryDamage || ""} onChange={(e) => handleChange("secondaryDamage", e.target.value)} className="min-h-[120px]" />
           </div>
           <div className="space-y-2">
             <Label>Mulige fremtidige problemer</Label>
+            <FigureRefPicker field="futureIssues" />
             <Textarea value={formData.futureIssues || ""} onChange={(e) => handleChange("futureIssues", e.target.value)} className="min-h-[120px]" />
           </div>
         </CardContent>
@@ -490,6 +689,7 @@ export function DamageReportDraftForm({ projectId, initialData, evidenceItems, i
           <CardDescription>Dette er en faglig konklusjon, ikke en juridisk.</CardDescription>
         </CardHeader>
         <CardContent>
+          <FigureRefPicker field="conclusion" />
           <Textarea value={formData.conclusion || ""} onChange={(e) => handleChange("conclusion", e.target.value)} className="min-h-[160px]" />
         </CardContent>
       </Card>
