@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
-import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
+import { AlertDialog, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -137,7 +137,7 @@ export default function NewEvidenceDialog({ projectId, claims = [], onSuccess }:
   };
 
   const handleSave = async () => {
-    if (!url) {
+    if (!uploadedEvidenceId && !url) {
       toast.error("Du må laste opp en fil");
       return;
     }
@@ -156,7 +156,7 @@ export default function NewEvidenceDialog({ projectId, claims = [], onSuccess }:
 
       if (!fileType) {
         // Fallback logic
-        const ext = url.split('.').pop()?.toLowerCase();
+        const ext = typeof url === "string" ? url.split("?")[0].split(".").pop()?.toLowerCase() : undefined;
         fileType = "application/octet-stream";
         sourceType = "document"; // Default source type
         
@@ -199,7 +199,7 @@ export default function NewEvidenceDialog({ projectId, claims = [], onSuccess }:
         // Create new item
         await createEvidenceItem({
           projectId,
-          url,
+          url: url ?? undefined,
           title,
           description,
           fileType,
@@ -243,7 +243,7 @@ export default function NewEvidenceDialog({ projectId, claims = [], onSuccess }:
           
           <div className="space-y-4 py-4">
             <div className="space-y-2">
-              {!url ? (
+              {!uploadedEvidenceId && !url ? (
                 <DropzoneUpload 
                   projectId={projectId}
                   onBeforeUpload={handleBeforeUpload}
@@ -252,10 +252,13 @@ export default function NewEvidenceDialog({ projectId, claims = [], onSuccess }:
                     if (data.isBatch) return;
 
                     console.log("Upload complete:", data);
-                    if (data.url) setUrl(data.url);
+                    if (typeof data.url === "string" && data.url) setUrl(data.url);
                     
-                    if (data.evidenceId) {
+                    if (typeof data.evidenceId === "string" && data.evidenceId) {
                       setUploadedEvidenceId(data.evidenceId);
+                    }
+                    if (typeof data.title === "string" && data.title && !title) {
+                      setTitle(data.title);
                     }
                     if (data.originalName && !title) {
                       setTitle(data.originalName);
@@ -272,9 +275,6 @@ export default function NewEvidenceDialog({ projectId, claims = [], onSuccess }:
                       
                       setDetectedSourceType(type);
                     }
-
-                    if (onSuccess) onSuccess(null);
-                    router.refresh();
                   }}
                   onBatchComplete={(count) => {
                     if (count > 0) {
@@ -297,6 +297,8 @@ export default function NewEvidenceDialog({ projectId, claims = [], onSuccess }:
                   <Button variant="ghost" size="sm" onClick={() => {
                     setUrl(null);
                     setUploadedEvidenceId(null);
+                    setDetectedFileType("");
+                    setDetectedSourceType("");
                     setTitle("");
                     // We don't delete the file from server here, user can do that in list if they want
                     // Or we could implement delete logic, but let's keep it safe.
@@ -378,7 +380,7 @@ export default function NewEvidenceDialog({ projectId, claims = [], onSuccess }:
             <Button variant="outline" onClick={() => handleOpenChange(false)}>
               Avbryt
             </Button>
-            <Button onClick={handleSave} disabled={loading || !url || !title}>
+            <Button onClick={handleSave} disabled={loading || (!uploadedEvidenceId && !url) || !title}>
               {loading ? "Lagrer..." : "Lagre bevis"}
             </Button>
           </div>
