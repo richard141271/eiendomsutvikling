@@ -18,7 +18,7 @@ import { format } from "date-fns";
 interface NewEvidenceDialogProps {
   projectId: string;
   claims?: { id: string; statement: string }[];
-  onSuccess?: (item: any) => void;
+  onSuccess?: (item: any) => void | Promise<void>;
 }
 
 export default function NewEvidenceDialog({ projectId, claims = [], onSuccess }: NewEvidenceDialogProps) {
@@ -124,8 +124,11 @@ export default function NewEvidenceDialog({ projectId, claims = [], onSuccess }:
 
       toast.success("Bevis opprettet med eksisterende fil");
       
-      if (onSuccess) onSuccess(null);
-      router.refresh();
+      if (onSuccess) {
+        await Promise.resolve(onSuccess(null));
+      } else {
+        router.refresh();
+      }
       handleOpenChange(false);
     } catch (error) {
       console.error("Error reusing file:", error);
@@ -214,10 +217,10 @@ export default function NewEvidenceDialog({ projectId, claims = [], onSuccess }:
       toast.success(uploadedEvidenceId ? "Bevis oppdatert" : "Bevis opprettet");
       
       if (onSuccess) {
-        onSuccess(null); // Just trigger refresh
+        await Promise.resolve(onSuccess(null));
+      } else {
+        router.refresh();
       }
-      
-      router.refresh();
       handleOpenChange(false);
     } catch (error) {
       console.error("Error creating evidence:", error);
@@ -275,13 +278,19 @@ export default function NewEvidenceDialog({ projectId, claims = [], onSuccess }:
                       
                       setDetectedSourceType(type);
                     }
+
+                    if (onSuccess) {
+                      Promise.resolve(onSuccess(null));
+                    }
                   }}
                   onBatchComplete={(count) => {
                     if (count > 0) {
                       toast.success(`${count} filer lastet opp til bevisbanken`);
-                      if (onSuccess) onSuccess(null);
-                      router.refresh();
-                      handleOpenChange(false);
+                      if (onSuccess) {
+                        Promise.resolve(onSuccess(null));
+                      } else {
+                        router.refresh();
+                      }
                     }
                   }}
                 />

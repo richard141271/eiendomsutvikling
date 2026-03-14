@@ -3,11 +3,12 @@
 import { useState, useEffect } from "react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
-import { Plus, LayoutList, Table as TableIcon, AlertTriangle, Music, MessageSquare, Landmark, Ruler } from "lucide-react";
+import { LayoutList, Table as TableIcon, AlertTriangle, Music, MessageSquare, Landmark, Ruler } from "lucide-react";
 import TimelineView from "./timeline-view";
 import EvidenceBankView from "./evidence-bank-view";
 import NewEvidenceDialog from "./new-evidence-dialog";
 import { toast } from "sonner";
+import { getEvidenceItems } from "@/app/actions/evidence";
 
 interface EvidenceItem {
   id: string;
@@ -46,9 +47,8 @@ interface EvidenceTabsProps {
 }
 
 export default function EvidenceTabs({ initialItems, projectId, claims = [] }: EvidenceTabsProps) {
-  // Transform initial items to ensure Dates are Dates
-  const [items, setItems] = useState<EvidenceItem[]>(() => 
-    initialItems.map(item => ({
+  const normalizeItems = (rawItems: any[]): EvidenceItem[] =>
+    rawItems.map((item) => ({
       ...item,
       legalDate: item.legalDate ? new Date(item.legalDate) : null,
       originalDate: item.originalDate ? new Date(item.originalDate) : null,
@@ -56,21 +56,16 @@ export default function EvidenceTabs({ initialItems, projectId, claims = [] }: E
       legalPriority: item.legalPriority ?? item.evidenceNumber,
       category: item.category ?? null,
       missingLinkResolved: item.missingLinkResolved ?? false,
-      includeInReport: item.includeInReport ?? true // Default to true if missing
-    }))
+      includeInReport: item.includeInReport ?? true,
+    }));
+
+  // Transform initial items to ensure Dates are Dates
+  const [items, setItems] = useState<EvidenceItem[]>(() => 
+    normalizeItems(initialItems)
   );
 
   useEffect(() => {
-    setItems(initialItems.map(item => ({
-      ...item,
-      legalDate: item.legalDate ? new Date(item.legalDate) : null,
-      originalDate: item.originalDate ? new Date(item.originalDate) : null,
-      createdAt: new Date(item.createdAt),
-      legalPriority: item.legalPriority ?? item.evidenceNumber,
-      category: item.category ?? null,
-      missingLinkResolved: item.missingLinkResolved ?? false,
-      includeInReport: item.includeInReport ?? true // Default to true if missing
-    })));
+    setItems(normalizeItems(initialItems));
   }, [initialItems]);
 
   const [filter, setFilter] = useState("all");
@@ -97,6 +92,15 @@ export default function EvidenceTabs({ initialItems, projectId, claims = [] }: E
     ));
   };
 
+  const refreshEvidenceItems = async () => {
+    try {
+      const updated = await getEvidenceItems(projectId);
+      setItems(normalizeItems(updated));
+    } catch (error) {
+      toast.error("Kunne ikke oppdatere bevislisten");
+    }
+  };
+
   return (
     <div className="space-y-6">
       <div className="flex flex-col gap-4">
@@ -113,7 +117,7 @@ export default function EvidenceTabs({ initialItems, projectId, claims = [] }: E
               </TabsTrigger>
             </TabsList>
             
-            <NewEvidenceDialog projectId={projectId} claims={claims} />
+            <NewEvidenceDialog projectId={projectId} claims={claims} onSuccess={refreshEvidenceItems} />
           </div>
 
           {/* Filter Bar */}
