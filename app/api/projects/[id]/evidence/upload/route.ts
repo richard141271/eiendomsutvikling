@@ -4,6 +4,7 @@ import { prisma } from "@/lib/prisma";
 import { NextResponse } from "next/server";
 import { getNextEvidenceNumber } from "@/app/actions/evidence";
 import crypto from "crypto";
+import { createAdminClient } from "@/lib/supabase-admin";
 
 export async function POST(
   request: Request,
@@ -20,6 +21,26 @@ export async function POST(
     const projectId = params.id;
     if (!projectId) {
       return NextResponse.json({ error: "Project ID missing" }, { status: 400 });
+    }
+
+    const dbUser = await prisma.user.findUnique({ where: { authId: user.id } });
+    if (!dbUser) {
+      return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+    }
+
+    const project = await prisma.project.findUnique({
+      where: { id: projectId },
+      include: { property: { select: { ownerId: true } } },
+    });
+
+    if (!project) {
+      return NextResponse.json({ error: "Prosjekt ikke funnet" }, { status: 404 });
+    }
+
+    const isPrivileged = ["OWNER", "ADMIN", "MANAGER"].includes(dbUser.role as any);
+    const isOwner = project.property?.ownerId ? project.property.ownerId === dbUser.id : false;
+    if (!isPrivileged && !isOwner) {
+      return NextResponse.json({ error: "Forbidden" }, { status: 403 });
     }
 
     const formData = await request.formData();
@@ -264,21 +285,41 @@ export async function POST(
     const fileName = `${projectId}/${Date.now()}-${Math.random().toString(36).substring(2, 9)}.${fileExt}`;
     const bucketName = process.env.NEXT_PUBLIC_SUPABASE_STORAGE_BUCKET || "project-assets"; 
 
-    const { error: uploadError } = await supabase.storage
-      .from(bucketName)
-      .upload(fileName, uploadBuffer, {
+    let uploadError: any | null = null;
+    try {
+      const admin = createAdminClient();
+      const { error } = await admin.storage.from(bucketName).upload(fileName, uploadBuffer, {
         contentType: fileType,
-        upsert: false
+        upsert: false,
       });
+      uploadError = error || null;
+    } catch (e: any) {
+      const { error } = await supabase.storage.from(bucketName).upload(fileName, uploadBuffer, {
+        contentType: fileType,
+        upsert: false,
+      });
+      uploadError = error || null;
+    }
 
     if (uploadError) {
         console.error("Upload failed:", uploadError);
         return NextResponse.json({ error: `Upload failed: ${uploadError.message}` }, { status: 500 });
     }
 
-    const { data: { publicUrl } } = supabase.storage
-      .from(bucketName)
-      .getPublicUrl(fileName);
+    let urlForClient: string | undefined;
+    try {
+      const admin = createAdminClient();
+      const { data } = await admin.storage.from(bucketName).createSignedUrl(fileName, 3600);
+      urlForClient = data?.signedUrl;
+    } catch {
+      const { data } = await supabase.storage.from(bucketName).createSignedUrl(fileName, 3600);
+      urlForClient = data?.signedUrl;
+    }
+
+    if (!urlForClient) {
+      const { data: publicData } = supabase.storage.from(bucketName).getPublicUrl(fileName);
+      urlForClient = publicData.publicUrl;
+    }
 
     // --- DB RECORDS ---
     
@@ -297,7 +338,7 @@ export async function POST(
       fileRecord = await (prisma as any).file.create({
         data: {
           projectId,
-          storagePath: publicUrl,
+          storagePath: fileName,
           fileType: fileType,
           fileSize: fileSize,
           originalName: file.name,
@@ -374,7 +415,7 @@ export async function POST(
       success: true, 
       evidenceId: evidenceItem.id,
       evidenceNumber: evidenceItem.evidenceNumber,
-      url: publicUrl,
+      url: urlForClient,
       originalName: file.name,
       fileType: fileType,
       title: title || file.name

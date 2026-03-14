@@ -21,6 +21,7 @@ export function DropzoneUpload({ projectId, onUploadComplete, onBeforeUpload, on
   const [progress, setProgress] = useState<{ current: number; total: number; filename: string } | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const folderInputRef = useRef<HTMLInputElement>(null);
+  const cameraInputRef = useRef<HTMLInputElement>(null);
 
   const handleDragOver = useCallback((e: React.DragEvent) => {
     e.preventDefault();
@@ -183,6 +184,14 @@ export function DropzoneUpload({ projectId, onUploadComplete, onBeforeUpload, on
           className="hidden"
           onChange={handleFileInputChange}
         />
+        <input
+          ref={cameraInputRef}
+          type="file"
+          accept="image/*"
+          {...({ capture: "environment" } as any)}
+          className="hidden"
+          onChange={handleFileInputChange}
+        />
 
         {uploading ? (
           <div className="flex flex-col items-center gap-3">
@@ -211,6 +220,10 @@ export function DropzoneUpload({ projectId, onUploadComplete, onBeforeUpload, on
               <Button onClick={() => fileInputRef.current?.click()} variant="outline" size="sm">
                 <FileIcon className="w-4 h-4 mr-2" />
                 Velg filer
+              </Button>
+              <Button onClick={() => cameraInputRef.current?.click()} variant="outline" size="sm">
+                <ImageIcon className="w-4 h-4 mr-2" />
+                Ta bilde
               </Button>
               <Button onClick={() => folderInputRef.current?.click()} variant="outline" size="sm">
                 <Folder className="w-4 h-4 mr-2" />

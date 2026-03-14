@@ -9,7 +9,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { createProject } from "@/app/actions/projects";
-import { Loader2, Gavel, Upload, Calendar, ArrowRight, Check, MoveVertical, FileText, X, AlertCircle, Folder } from "lucide-react";
+import { Camera, Loader2, Gavel, Upload, Calendar, ArrowRight, Check, MoveVertical, FileText, X, AlertCircle, Folder } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { format } from "date-fns";
 import { nb } from "date-fns/locale";
@@ -76,68 +76,69 @@ export default function LegalProjectWizard() {
     }
   };
 
-  const onDrop = useCallback((e: React.DragEvent) => {
-    e.preventDefault();
-    if (step !== 2 || !projectId) return;
+  const uploadFile = useCallback(
+    async (file: File) => {
+      if (!projectId) return;
 
-    const files = Array.from(e.dataTransfer.files);
-    if (files.length === 0) return;
+      setUploads((prev) => prev.map((u) => (u.file === file ? { ...u, status: "uploading" } : u)));
 
-    // Add to uploads list
-    const newUploads = files.map(file => ({
-      file,
-      status: "pending" as const,
-      progress: 0
-    }));
+      const formData = new FormData();
+      formData.append("file", file);
+      formData.append("projectId", projectId);
+      formData.append("lastModified", file.lastModified.toString());
 
-    setUploads(prev => [...prev, ...newUploads]);
-    
-    // Trigger upload for new files
-    newUploads.forEach(uploadItem => uploadFile(uploadItem.file));
-  }, [step, projectId]);
+      try {
+        const xhr = new XMLHttpRequest();
+        xhr.open("POST", `/api/projects/${projectId}/evidence/upload`);
 
-  const uploadFile = async (file: File) => {
-    if (!projectId) return;
+        xhr.upload.onprogress = (event) => {
+          if (event.lengthComputable) {
+            const progress = Math.round((event.loaded / event.total) * 100);
+            setUploads((prev) => prev.map((u) => (u.file === file ? { ...u, progress } : u)));
+          }
+        };
 
-    // Update status to uploading
-    setUploads(prev => prev.map(u => u.file === file ? { ...u, status: "uploading" } : u));
+        xhr.onload = () => {
+          if (xhr.status === 200) {
+            const response = JSON.parse(xhr.responseText);
+            setUploads((prev) => prev.map((u) => (u.file === file ? { ...u, status: "done", id: response.evidenceId } : u)));
+          } else {
+            setUploads((prev) => prev.map((u) => (u.file === file ? { ...u, status: "error" } : u)));
+          }
+        };
 
-    const formData = new FormData();
-    formData.append("file", file);
-    formData.append("projectId", projectId);
-    formData.append("lastModified", file.lastModified.toString());
+        xhr.onerror = () => {
+          setUploads((prev) => prev.map((u) => (u.file === file ? { ...u, status: "error" } : u)));
+        };
 
-    try {
-      // Use XMLHttpRequest for progress
-      const xhr = new XMLHttpRequest();
-      xhr.open("POST", `/api/projects/${projectId}/evidence/upload`);
-      
-      xhr.upload.onprogress = (event) => {
-        if (event.lengthComputable) {
-          const progress = Math.round((event.loaded / event.total) * 100);
-          setUploads(prev => prev.map(u => u.file === file ? { ...u, progress } : u));
-        }
-      };
+        xhr.send(formData);
+      } catch (error) {
+        console.error("Upload error:", error);
+        setUploads((prev) => prev.map((u) => (u.file === file ? { ...u, status: "error" } : u)));
+      }
+    },
+    [projectId]
+  );
 
-      xhr.onload = () => {
-        if (xhr.status === 200) {
-          const response = JSON.parse(xhr.responseText);
-          setUploads(prev => prev.map(u => u.file === file ? { ...u, status: "done", id: response.evidenceId } : u));
-        } else {
-          setUploads(prev => prev.map(u => u.file === file ? { ...u, status: "error" } : u));
-        }
-      };
+  const onDrop = useCallback(
+    (e: React.DragEvent) => {
+      e.preventDefault();
+      if (step !== 2 || !projectId) return;
 
-      xhr.onerror = () => {
-        setUploads(prev => prev.map(u => u.file === file ? { ...u, status: "error" } : u));
-      };
+      const files = Array.from(e.dataTransfer.files);
+      if (files.length === 0) return;
 
-      xhr.send(formData);
-    } catch (error) {
-      console.error("Upload error:", error);
-      setUploads(prev => prev.map(u => u.file === file ? { ...u, status: "error" } : u));
-    }
-  };
+      const newUploads = files.map((file) => ({
+        file,
+        status: "pending" as const,
+        progress: 0,
+      }));
+
+      setUploads((prev) => [...prev, ...newUploads]);
+      newUploads.forEach((uploadItem) => uploadFile(uploadItem.file));
+    },
+    [step, projectId, uploadFile]
+  );
 
   const handleFinish = () => {
     if (projectId) {
@@ -285,6 +286,9 @@ export default function LegalProjectWizard() {
                 <Button variant="outline" onClick={() => document.getElementById('file-upload')?.click()}>
                   <FileText className="mr-2 h-4 w-4" /> Velg filer
                 </Button>
+                <Button variant="outline" onClick={() => document.getElementById('camera-upload')?.click()}>
+                  <Camera className="mr-2 h-4 w-4" /> Ta bilde
+                </Button>
                 <Button variant="outline" onClick={() => document.getElementById('folder-upload')?.click()}>
                   <Folder className="mr-2 h-4 w-4" /> Velg mappe
                 </Button>
@@ -304,6 +308,23 @@ export default function LegalProjectWizard() {
                      } as unknown as React.DragEvent;
                      onDrop(event);
                   }
+                }}
+              />
+              <input
+                type="file"
+                id="camera-upload"
+                className="hidden"
+                accept="image/*"
+                {...({ capture: "environment" } as any)}
+                onChange={(e) => {
+                  if (e.target.files && e.target.files.length > 0) {
+                    const event = {
+                      preventDefault: () => {},
+                      dataTransfer: { files: e.target.files },
+                    } as unknown as React.DragEvent;
+                    onDrop(event);
+                  }
+                  e.target.value = "";
                 }}
               />
               <input 

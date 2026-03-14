@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useState } from "react";
+import { useCallback, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -32,6 +32,8 @@ export default function DamageReportWizard({ properties }: DamageReportWizardPro
   const [step, setStep] = useState(1);
   const [loading, setLoading] = useState(false);
   const [projectId, setProjectId] = useState<string | null>(null);
+  const fileInputRef = useRef<HTMLInputElement | null>(null);
+  const cameraInputRef = useRef<HTMLInputElement | null>(null);
 
   const [selectedPropertyId, setSelectedPropertyId] = useState<string>("");
   const [customPropertyName, setCustomPropertyName] = useState<string>("");
@@ -97,44 +99,47 @@ export default function DamageReportWizard({ properties }: DamageReportWizardPro
     }
   };
 
-  const uploadFile = async (file: File) => {
-    if (!projectId) return;
-    setUploads((prev) => prev.map((u) => (u.file === file ? { ...u, status: "uploading" } : u)));
+  const uploadFile = useCallback(
+    async (file: File) => {
+      if (!projectId) return;
+      setUploads((prev) => prev.map((u) => (u.file === file ? { ...u, status: "uploading" } : u)));
 
-    const body = new FormData();
-    body.append("file", file);
-    body.append("projectId", projectId);
-    body.append("lastModified", file.lastModified.toString());
+      const body = new FormData();
+      body.append("file", file);
+      body.append("projectId", projectId);
+      body.append("lastModified", file.lastModified.toString());
 
-    try {
-      const xhr = new XMLHttpRequest();
-      xhr.open("POST", `/api/projects/${projectId}/evidence/upload`);
+      try {
+        const xhr = new XMLHttpRequest();
+        xhr.open("POST", `/api/projects/${projectId}/evidence/upload`);
 
-      xhr.upload.onprogress = (event) => {
-        if (!event.lengthComputable) return;
-        const progress = Math.round((event.loaded / event.total) * 100);
-        setUploads((prev) => prev.map((u) => (u.file === file ? { ...u, progress } : u)));
-      };
+        xhr.upload.onprogress = (event) => {
+          if (!event.lengthComputable) return;
+          const progress = Math.round((event.loaded / event.total) * 100);
+          setUploads((prev) => prev.map((u) => (u.file === file ? { ...u, progress } : u)));
+        };
 
-      xhr.onload = () => {
-        if (xhr.status === 200) {
-          const response = JSON.parse(xhr.responseText);
-          setUploads((prev) => prev.map((u) => (u.file === file ? { ...u, status: "done", id: response.evidenceId } : u)));
-        } else {
+        xhr.onload = () => {
+          if (xhr.status === 200) {
+            const response = JSON.parse(xhr.responseText);
+            setUploads((prev) => prev.map((u) => (u.file === file ? { ...u, status: "done", id: response.evidenceId } : u)));
+          } else {
+            setUploads((prev) => prev.map((u) => (u.file === file ? { ...u, status: "error" } : u)));
+          }
+        };
+
+        xhr.onerror = () => {
           setUploads((prev) => prev.map((u) => (u.file === file ? { ...u, status: "error" } : u)));
-        }
-      };
+        };
 
-      xhr.onerror = () => {
+        xhr.send(body);
+      } catch (error) {
+        console.error(error);
         setUploads((prev) => prev.map((u) => (u.file === file ? { ...u, status: "error" } : u)));
-      };
-
-      xhr.send(body);
-    } catch (error) {
-      console.error(error);
-      setUploads((prev) => prev.map((u) => (u.file === file ? { ...u, status: "error" } : u)));
-    }
-  };
+      }
+    },
+    [projectId]
+  );
 
   const onDrop = useCallback(
     (e: React.DragEvent) => {
@@ -153,7 +158,7 @@ export default function DamageReportWizard({ properties }: DamageReportWizardPro
       setUploads((prev) => [...prev, ...newUploads]);
       newUploads.forEach((u) => uploadFile(u.file));
     },
-    [projectId, step]
+    [projectId, step, uploadFile]
   );
 
   const handleFinish = () => {
@@ -293,7 +298,52 @@ export default function DamageReportWizard({ properties }: DamageReportWizardPro
               <Upload className="w-10 h-10 mx-auto mb-4 text-slate-400" />
               <p className="text-slate-700 font-medium">Dra filer hit for opplasting</p>
               <p className="text-sm text-slate-500 mt-1">Støtter bilder, PDF, DOCX, video, tegninger og e-post.</p>
+              <div className="mt-5 flex items-center justify-center gap-2">
+                <Button type="button" variant="outline" size="sm" onClick={() => fileInputRef.current?.click()}>
+                  Velg filer
+                </Button>
+                <Button type="button" variant="outline" size="sm" onClick={() => cameraInputRef.current?.click()}>
+                  Ta bilde
+                </Button>
+              </div>
             </div>
+            <input
+              ref={fileInputRef}
+              type="file"
+              multiple
+              className="hidden"
+              onChange={(e) => {
+                const files = Array.from(e.target.files || []);
+                if (files.length === 0) return;
+                const newUploads = files.map((file) => ({
+                  file,
+                  status: "pending" as const,
+                  progress: 0,
+                }));
+                setUploads((prev) => [...prev, ...newUploads]);
+                newUploads.forEach((u) => uploadFile(u.file));
+                e.target.value = "";
+              }}
+            />
+            <input
+              ref={cameraInputRef}
+              type="file"
+              accept="image/*"
+              {...({ capture: "environment" } as any)}
+              className="hidden"
+              onChange={(e) => {
+                const files = Array.from(e.target.files || []);
+                if (files.length === 0) return;
+                const newUploads = files.map((file) => ({
+                  file,
+                  status: "pending" as const,
+                  progress: 0,
+                }));
+                setUploads((prev) => [...prev, ...newUploads]);
+                newUploads.forEach((u) => uploadFile(u.file));
+                e.target.value = "";
+              }}
+            />
 
             {uploads.length > 0 && (
               <div className="mt-6 space-y-3">
@@ -343,4 +393,3 @@ export default function DamageReportWizard({ properties }: DamageReportWizardPro
     </div>
   );
 }
-

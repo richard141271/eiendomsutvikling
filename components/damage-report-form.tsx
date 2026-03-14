@@ -149,7 +149,6 @@ export function DamageReportDraftForm({ projectId, initialData, evidenceItems, i
       }
       toast.success("Hendelse opprettet");
       setNewEvent({ title: "", description: "", date: new Date(), selectedEvidence: new Set() });
-      router.refresh();
       setEvents((prev) => [
         ...prev,
         {
