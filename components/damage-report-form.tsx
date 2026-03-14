@@ -686,7 +686,7 @@ export function DamageReportDraftForm({ projectId, initialData, evidenceItems, i
       <Card>
         <CardHeader>
           <CardTitle>7. Konklusjon</CardTitle>
-          <CardDescription>Dette er en faglig konklusjon, ikke en juridisk.</CardDescription>
+          <CardDescription>Konklusjonen skal baseres på dokumentasjon, observasjoner og tekniske vurderinger presentert i rapporten.</CardDescription>
         </CardHeader>
         <CardContent>
           <FigureRefPicker field="conclusion" />
