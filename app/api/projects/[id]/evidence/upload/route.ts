@@ -4,7 +4,7 @@ import { prisma } from "@/lib/prisma";
 import { NextResponse } from "next/server";
 import { getNextEvidenceNumber } from "@/app/actions/evidence";
 import crypto from "crypto";
-import { createAdminClient } from "@/lib/supabase-admin";
+import { createAdminClient, ensureBucketExists } from "@/lib/supabase-admin";
 
 export const runtime = "nodejs";
 export const maxDuration = 300;
@@ -50,7 +50,10 @@ export async function POST(
     if (contentType.includes("application/json")) {
       const body = await request.json();
       const action = body?.action;
-      const bucketName = process.env.NEXT_PUBLIC_SUPABASE_STORAGE_BUCKET || "project-assets";
+      const bucketName =
+        process.env.NEXT_PUBLIC_SUPABASE_STORAGE_BUCKET ||
+        process.env.NEXT_PUBLIC_SUPABASE_BUCKET ||
+        "project-assets";
 
       if (action === "signed-upload-url") {
         const originalName = String(body?.filename || body?.originalName || "upload.bin");
@@ -82,14 +85,40 @@ export async function POST(
 
         const storagePath = `${projectId}/${Date.now()}-${Math.random().toString(36).slice(2, 9)}-${finalName}`;
 
-        const admin = createAdminClient();
-        const { data, error } = await admin.storage.from(bucketName).createSignedUploadUrl(storagePath);
+        try {
+          await ensureBucketExists(bucketName, { public: true, allowedMimeTypes: null });
+        } catch {}
 
-        if (error || !data?.token || !data?.signedUrl) {
-          return NextResponse.json(
-            { error: error?.message || "Kunne ikke lage signert opplastingslenke" },
-            { status: 500 }
-          );
+        const tryCreateSignedUploadUrl = async () => {
+          try {
+            const admin = createAdminClient();
+            const { data, error } = await admin.storage.from(bucketName).createSignedUploadUrl(storagePath);
+            if (error || !data?.token || !data?.signedUrl) {
+              throw new Error(error?.message || "Kunne ikke lage signert opplastingslenke");
+            }
+            return { token: data.token, signedUrl: data.signedUrl };
+          } catch {
+            const { data, error } = await supabase.storage.from(bucketName).createSignedUploadUrl(storagePath);
+            if (error || !data?.token || !data?.signedUrl) {
+              throw new Error(error?.message || "Kunne ikke lage signert opplastingslenke");
+            }
+            return { token: data.token, signedUrl: data.signedUrl };
+          }
+        };
+
+        let signed: { token: string; signedUrl: string };
+        try {
+          signed = await tryCreateSignedUploadUrl();
+        } catch (e) {
+          const msg = e instanceof Error ? e.message : "";
+          if (msg.toLowerCase().includes("bucket not found")) {
+            try {
+              await ensureBucketExists(bucketName, { public: true, allowedMimeTypes: null });
+            } catch {}
+            signed = await tryCreateSignedUploadUrl();
+          } else {
+            return NextResponse.json({ error: msg || "Kunne ikke lage signert opplastingslenke" }, { status: 500 });
+          }
         }
 
         return NextResponse.json({
@@ -97,8 +126,8 @@ export async function POST(
           action: "signed-upload-url",
           bucket: bucketName,
           path: storagePath,
-          token: data.token,
-          signedUrl: data.signedUrl,
+          token: signed.token,
+          signedUrl: signed.signedUrl,
         });
       }
 
@@ -401,7 +430,10 @@ export async function POST(
             console.log("Converting HTML to PDF...");
             // Upload original HTML first
             const htmlFileName = `${projectId}/${Date.now()}-original-${Math.random().toString(36).substring(2, 9)}.html`;
-            const bucketName = process.env.NEXT_PUBLIC_SUPABASE_STORAGE_BUCKET || "project-assets"; 
+            const bucketName =
+              process.env.NEXT_PUBLIC_SUPABASE_STORAGE_BUCKET ||
+              process.env.NEXT_PUBLIC_SUPABASE_BUCKET ||
+              "project-assets"; 
             
             const { error: htmlUploadError } = await supabase.storage
                 .from(bucketName)
@@ -473,22 +505,35 @@ export async function POST(
     // --- UPLOAD TO STORAGE ---
     const fileExt = fileType === "application/pdf" ? "pdf" : (file.name.split('.').pop()?.toLowerCase() || "bin");
     const fileName = `${projectId}/${Date.now()}-${Math.random().toString(36).substring(2, 9)}.${fileExt}`;
-    const bucketName = process.env.NEXT_PUBLIC_SUPABASE_STORAGE_BUCKET || "project-assets"; 
+    const bucketName =
+      process.env.NEXT_PUBLIC_SUPABASE_STORAGE_BUCKET ||
+      process.env.NEXT_PUBLIC_SUPABASE_BUCKET ||
+      "project-assets"; 
 
     let uploadError: any | null = null;
-    try {
-      const admin = createAdminClient();
-      const { error } = await admin.storage.from(bucketName).upload(fileName, uploadBuffer, {
-        contentType: fileType,
-        upsert: false,
-      });
-      uploadError = error || null;
-    } catch (e: any) {
-      const { error } = await supabase.storage.from(bucketName).upload(fileName, uploadBuffer, {
-        contentType: fileType,
-        upsert: false,
-      });
-      uploadError = error || null;
+    const tryUpload = async () => {
+      try {
+        const admin = createAdminClient();
+        const { error } = await admin.storage.from(bucketName).upload(fileName, uploadBuffer, {
+          contentType: fileType,
+          upsert: false,
+        });
+        return error || null;
+      } catch {
+        const { error } = await supabase.storage.from(bucketName).upload(fileName, uploadBuffer, {
+          contentType: fileType,
+          upsert: false,
+        });
+        return error || null;
+      }
+    };
+
+    uploadError = await tryUpload();
+    if (uploadError?.message && String(uploadError.message).toLowerCase().includes("bucket not found")) {
+      try {
+        await ensureBucketExists(bucketName, { public: true, allowedMimeTypes: null });
+      } catch {}
+      uploadError = await tryUpload();
     }
 
     if (uploadError) {
