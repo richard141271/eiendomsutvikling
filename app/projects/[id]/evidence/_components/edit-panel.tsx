@@ -40,6 +40,7 @@ interface EvidenceItem {
     storagePath: string;
     url?: string;
     originalName?: string;
+    extractedText?: string | null;
   };
   createdAt: Date | string;
 }
@@ -66,6 +67,7 @@ export function EditPanel({ item, availableEvidence, isOpen, onClose, onSave }: 
   const [missingLinkResolved, setMissingLinkResolved] = useState(false);
   const [linkedEvidenceId, setLinkedEvidenceId] = useState<string>("none");
   const [isSaving, setIsSaving] = useState(false);
+  const [isTranscribing, setIsTranscribing] = useState(false);
 
   useEffect(() => {
     if (item) {
@@ -147,6 +149,7 @@ export function EditPanel({ item, availableEvidence, isOpen, onClose, onSave }: 
 
   const isImage = item.file.fileType.startsWith("image/");
   const isAudioOrVideo = item.file.fileType.startsWith("audio/") || item.file.fileType.startsWith("video/");
+  const hasTranscription = Boolean(item.file.extractedText && item.file.extractedText.trim().length > 0);
 
   const getFileUrl = (path: string) => {
     if (path.startsWith("http") || path.startsWith("blob:")) return path;
@@ -154,6 +157,40 @@ export function EditPanel({ item, availableEvidence, isOpen, onClose, onSave }: 
     const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
     if (!supabaseUrl) return path; // Fallback
     return `${supabaseUrl}/storage/v1/object/public/${bucket}/${path}`;
+  };
+
+  const handleTranscribe = async () => {
+    if (!item?.projectId) return;
+    try {
+      setIsTranscribing(true);
+      const res = await fetch(`/api/projects/${item.projectId}/evidence/upload`, {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ action: "transcribe", evidenceId: item.id }),
+      });
+
+      const text = await res.text();
+      let data: any = null;
+      try {
+        data = JSON.parse(text);
+      } catch {}
+
+      if (!res.ok || !data?.success) {
+        const msg = data?.error ? String(data.error) : text || "Transkripsjon feilet";
+        throw new Error(msg);
+      }
+
+      toast.success("Transkripsjon ferdig");
+      const url = typeof data.transcriptionEditorUrl === "string" && data.transcriptionEditorUrl
+        ? data.transcriptionEditorUrl
+        : `/projects/${item.projectId}/evidence/transcription/${item.id}`;
+      window.open(url, "_blank", "noopener,noreferrer");
+    } catch (error) {
+      const msg = error instanceof Error ? error.message : "Transkripsjon feilet";
+      toast.error(msg);
+    } finally {
+      setIsTranscribing(false);
+    }
   };
 
   return (
@@ -209,12 +246,18 @@ export function EditPanel({ item, availableEvidence, isOpen, onClose, onSave }: 
           </div>
 
           {isAudioOrVideo && item.projectId && (
-            <Button
-              variant="outline"
-              onClick={() => window.open(`/projects/${item.projectId}/evidence/transcription/${item.id}`, "_blank", "noopener,noreferrer")}
-            >
-              Åpne transkripsjon
-            </Button>
+            <div className="flex flex-col sm:flex-row gap-2">
+              <Button variant="outline" onClick={handleTranscribe} disabled={isTranscribing}>
+                {isTranscribing ? "Transkriberer..." : hasTranscription ? "Transkriber på nytt" : "Transkriber"}
+              </Button>
+              <Button
+                variant="outline"
+                disabled={!hasTranscription}
+                onClick={() => window.open(`/projects/${item.projectId}/evidence/transcription/${item.id}`, "_blank", "noopener,noreferrer")}
+              >
+                Åpne transkripsjon
+              </Button>
+            </div>
           )}
 
           {/* Title & Description */}

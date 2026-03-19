@@ -67,6 +67,73 @@ export async function POST(
         process.env.NEXT_PUBLIC_SUPABASE_BUCKET ||
         "project-assets";
 
+      if (action === "transcribe") {
+        const evidenceId = typeof body?.evidenceId === "string" ? body.evidenceId : "";
+        if (!evidenceId) {
+          return NextResponse.json({ error: "Missing evidenceId" }, { status: 400 });
+        }
+
+        const evidence = await (prisma as any).evidenceItem.findFirst({
+          where: { id: evidenceId, projectId, deletedAt: null },
+          include: { file: true },
+        });
+
+        if (!evidence?.file?.storagePath || !evidence?.file?.fileType) {
+          return NextResponse.json({ error: "Bevis eller fil ikke funnet" }, { status: 404 });
+        }
+
+        const fileType = String(evidence.file.fileType || "");
+        if (!fileType.startsWith("audio/") && !fileType.startsWith("video/")) {
+          return NextResponse.json({ error: "Beviset er ikke lyd eller video" }, { status: 400 });
+        }
+
+        if (!process.env.OPENAI_API_KEY) {
+          return NextResponse.json({ error: "Transkripsjon er ikke konfigurert" }, { status: 500 });
+        }
+
+        const storagePath = String(evidence.file.storagePath);
+        const originalName = String(evidence.file.originalName || evidence.title || "opptak");
+
+        let transcriptionText = "";
+        try {
+          const blob = await downloadFromStorage(bucketName, storagePath, supabase);
+          const uploadFile = new File([blob], originalName, { type: fileType });
+          const transcription = await openai.audio.transcriptions.create({
+            file: uploadFile,
+            model: "whisper-1",
+            language: "no",
+          });
+          transcriptionText = transcription.text;
+        } catch (aiError: any) {
+          const msg = aiError?.message ? String(aiError.message) : "Ukjent feil";
+          return NextResponse.json({ error: `Transkripsjon feilet: ${msg}` }, { status: 500 });
+        }
+
+        const existingMetadata =
+          evidence?.file?.metadata && typeof evidence.file.metadata === "object" ? evidence.file.metadata : {};
+
+        await (prisma as any).file.update({
+          where: { id: evidence.fileId },
+          data: {
+            extractedText: transcriptionText.substring(0, 100000),
+            metadata: {
+              ...existingMetadata,
+              transcription: {
+                model: "whisper-1",
+                language: "no",
+                updatedAt: new Date().toISOString(),
+              },
+            },
+          },
+        });
+
+        return NextResponse.json({
+          success: true,
+          evidenceId: evidence.id,
+          transcriptionEditorUrl: `/projects/${projectId}/evidence/transcription/${evidence.id}`,
+        });
+      }
+
       if (action === "signed-upload-url") {
         const originalName = String(body?.filename || body?.originalName || "upload.bin");
         const providedType = typeof body?.fileType === "string" ? body.fileType : "";

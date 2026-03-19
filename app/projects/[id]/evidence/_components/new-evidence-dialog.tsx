@@ -1,6 +1,6 @@
 "use client";
 
-import { useRef, useState } from "react";
+import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { AlertDialog, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
@@ -45,10 +45,6 @@ export default function NewEvidenceDialog({ projectId, claims = [], onSuccess }:
     currentFile: File | null;
   } | null>(null);
 
-  const [transcriptionDialogOpen, setTranscriptionDialogOpen] = useState(false);
-  const [transcriptionTargetName, setTranscriptionTargetName] = useState<string>("");
-  const transcriptionResolveRef = useRef<((value: boolean) => void) | null>(null);
-
   const router = useRouter();
 
   const handleOpenChange = (newOpen: boolean) => {
@@ -65,9 +61,6 @@ export default function NewEvidenceDialog({ projectId, claims = [], onSuccess }:
       setDuplicateData(null);
       setSelectedClaimId("none");
       setSelectedClaimRole("SOURCE");
-      setTranscriptionDialogOpen(false);
-      setTranscriptionTargetName("");
-      transcriptionResolveRef.current = null;
     }
   };
 
@@ -77,14 +70,6 @@ export default function NewEvidenceDialog({ projectId, claims = [], onSuccess }:
     const hashArray = Array.from(new Uint8Array(hashBuffer));
     const hashHex = hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
     return hashHex;
-  };
-
-  const askTranscription = async (file: File): Promise<boolean> => {
-    return await new Promise<boolean>((resolve) => {
-      transcriptionResolveRef.current = resolve;
-      setTranscriptionTargetName(file.name || "opptaket");
-      setTranscriptionDialogOpen(true);
-    });
   };
 
   const handleBeforeUpload = async (file: File): Promise<boolean> => {
@@ -265,7 +250,6 @@ export default function NewEvidenceDialog({ projectId, claims = [], onSuccess }:
                 <DropzoneUpload 
                   projectId={projectId}
                   onBeforeUpload={handleBeforeUpload}
-                  onAskTranscription={askTranscription}
                   onUploadComplete={(data) => {
                     // If batch upload, we don't update the form state for individual files
                     if (data.isBatch) return;
@@ -293,17 +277,6 @@ export default function NewEvidenceDialog({ projectId, claims = [], onSuccess }:
                       else if (data.fileType === "message/rfc822") type = "email";
                       
                       setDetectedSourceType(type);
-                    }
-
-                    if (typeof data.transcriptionEditorUrl === "string" && data.transcriptionEditorUrl) {
-                      window.open(data.transcriptionEditorUrl, "_blank", "noopener,noreferrer");
-                      if (onSuccess) {
-                        Promise.resolve(onSuccess(null));
-                      } else {
-                        router.refresh();
-                      }
-                      handleOpenChange(false);
-                      return;
                     }
 
                     if (onSuccess) Promise.resolve(onSuccess(null));
@@ -466,54 +439,6 @@ export default function NewEvidenceDialog({ projectId, claims = [], onSuccess }:
             </AlertDialogCancel>
             <Button onClick={handleUseExistingFile}>
               Bruk eksisterende fil
-            </Button>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
-
-      <AlertDialog
-        open={transcriptionDialogOpen}
-        onOpenChange={(open) => {
-          setTranscriptionDialogOpen(open);
-          if (!open && transcriptionResolveRef.current) {
-            transcriptionResolveRef.current(false);
-            transcriptionResolveRef.current = null;
-          }
-        }}
-      >
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>Vil du lage transkripsjon?</AlertDialogTitle>
-            <AlertDialogDescription className="space-y-2">
-              <p>
-                Ønsker du å lage en transkripsjon av <strong>{transcriptionTargetName}</strong>?
-              </p>
-              <p>
-                Hvis du svarer ja, åpnes et eget vindu hvor du kan høre gjennom opptaket og redigere teksten.
-              </p>
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <Button
-              variant="outline"
-              onClick={() => {
-                const resolve = transcriptionResolveRef.current;
-                transcriptionResolveRef.current = null;
-                setTranscriptionDialogOpen(false);
-                resolve?.(false);
-              }}
-            >
-              Nei
-            </Button>
-            <Button
-              onClick={() => {
-                const resolve = transcriptionResolveRef.current;
-                transcriptionResolveRef.current = null;
-                setTranscriptionDialogOpen(false);
-                resolve?.(true);
-              }}
-            >
-              Ja
             </Button>
           </AlertDialogFooter>
         </AlertDialogContent>

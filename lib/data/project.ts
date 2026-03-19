@@ -59,7 +59,9 @@ export async function getProject(id: string) {
            file: {
                select: {
                  storagePath: true,
-                 fileType: true
+                 fileType: true,
+                 originalName: true,
+                 extractedText: true
                }
              },
            missingLink: true,

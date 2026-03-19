@@ -33,6 +33,8 @@ interface EvidenceItem {
     fileType: string;
     storagePath: string;
     url?: string;
+    originalName?: string;
+    extractedText?: string | null;
   };
   createdAt: Date | string;
 }
