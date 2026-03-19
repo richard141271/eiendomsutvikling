@@ -14,6 +14,7 @@ import { Card } from "@/components/ui/card";
 
 interface EvidenceItem {
   id: string;
+  projectId: string;
   evidenceNumber: number;
   title: string;
   description: string | null;

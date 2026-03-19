@@ -481,3 +481,40 @@ export async function updateEvidenceItems(items: { id: string; legalDate?: Date;
     )
   );
 }
+
+export async function updateEvidenceTranscription(evidenceId: string, transcription: string) {
+  const supabase = createClient();
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) throw new Error("Unauthorized");
+
+  const evidence = await (prisma as any).evidenceItem.findUnique({
+    where: { id: evidenceId },
+    select: { fileId: true }
+  });
+
+  if (!evidence?.fileId) throw new Error("Bevis ikke funnet");
+
+  const file = await (prisma as any).file.findUnique({
+    where: { id: evidence.fileId },
+    select: { metadata: true }
+  });
+
+  const existingMetadata =
+    file?.metadata && typeof file.metadata === "object" ? file.metadata : {};
+
+  await (prisma as any).file.update({
+    where: { id: evidence.fileId },
+    data: {
+      extractedText: (transcription || "").substring(0, 100000),
+      metadata: {
+        ...existingMetadata,
+        transcription: {
+          ...(existingMetadata as any)?.transcription,
+          updatedAt: new Date().toISOString(),
+        },
+      },
+    },
+  });
+
+  return { success: true };
+}

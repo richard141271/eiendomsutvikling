@@ -12,6 +12,7 @@ import { getEvidenceItems } from "@/app/actions/evidence";
 
 interface EvidenceItem {
   id: string;
+  projectId: string;
   evidenceNumber: number;
   title: string;
   description: string | null;

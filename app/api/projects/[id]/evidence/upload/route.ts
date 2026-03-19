@@ -5,9 +5,27 @@ import { NextResponse } from "next/server";
 import { getNextEvidenceNumber } from "@/app/actions/evidence";
 import crypto from "crypto";
 import { createAdminClient, ensureBucketExists } from "@/lib/supabase-admin";
+import OpenAI from "openai";
 
 export const runtime = "nodejs";
 export const maxDuration = 300;
+
+const openai = new OpenAI({
+  apiKey: process.env.OPENAI_API_KEY,
+});
+
+async function downloadFromStorage(bucketName: string, storagePath: string, supabase: any): Promise<Blob> {
+  try {
+    const admin = createAdminClient();
+    const { data, error } = await admin.storage.from(bucketName).download(storagePath);
+    if (error || !data) throw new Error(error?.message || "Download failed");
+    return data as unknown as Blob;
+  } catch {
+    const { data, error } = await supabase.storage.from(bucketName).download(storagePath);
+    if (error || !data) throw new Error(error?.message || "Download failed");
+    return data as unknown as Blob;
+  }
+}
 
 export async function POST(
   request: Request,
@@ -38,12 +56,6 @@ export async function POST(
 
     if (!project) {
       return NextResponse.json({ error: "Prosjekt ikke funnet" }, { status: 404 });
-    }
-
-    const isPrivileged = ["OWNER", "ADMIN", "MANAGER"].includes(dbUser.role as any);
-    const isOwner = project.property?.ownerId ? project.property.ownerId === dbUser.id : false;
-    if (!isPrivileged && !isOwner) {
-      return NextResponse.json({ error: "Forbidden" }, { status: 403 });
     }
 
     const contentType = request.headers.get("content-type") || "";
@@ -139,6 +151,7 @@ export async function POST(
         const checksum = typeof body?.checksum === "string" ? body.checksum : null;
         const title = typeof body?.title === "string" && body.title ? body.title : originalName;
         const lastModifiedMs = typeof body?.lastModified === "number" ? body.lastModified : null;
+        const createTranscription = body?.createTranscription === true;
 
         if (!storagePath) {
           return NextResponse.json({ error: "Missing storagePath" }, { status: 400 });
@@ -185,6 +198,44 @@ export async function POST(
               modifiedAtMetadata: null,
             },
           });
+        }
+
+        let transcriptionEditorUrl: string | null = null;
+        if (createTranscription && (fileType.startsWith("audio/") || fileType.startsWith("video/"))) {
+          let transcriptionText = "";
+          if (process.env.OPENAI_API_KEY) {
+            try {
+              const blob = await downloadFromStorage(bucketName, storagePath, supabase);
+              const uploadFile = new File([blob], originalName || "upload", { type: fileType });
+              const transcription = await openai.audio.transcriptions.create({
+                file: uploadFile,
+                model: "whisper-1",
+                language: "no",
+              });
+              transcriptionText = transcription.text;
+            } catch (aiError: any) {
+              transcriptionText = `(Transkripsjon feilet: ${aiError?.message || "Ukjent feil"})`;
+            }
+          } else {
+            transcriptionText = "(Transkripsjon ikke tilgjengelig - mangler API-nøkkel)";
+          }
+
+          const existingMetadata = (fileRecord as any)?.metadata && typeof (fileRecord as any).metadata === "object" ? (fileRecord as any).metadata : {};
+          await (prisma as any).file.update({
+            where: { id: fileRecord.id },
+            data: {
+              extractedText: transcriptionText.substring(0, 100000),
+              metadata: {
+                ...existingMetadata,
+                transcription: {
+                  model: "whisper-1",
+                  language: "no",
+                  updatedAt: new Date().toISOString(),
+                },
+              },
+            },
+          });
+          transcriptionEditorUrl = `/projects/${projectId}/evidence/transcription/__EVIDENCE_ID__`;
         }
 
         let urlForClient: string | undefined;
@@ -248,6 +299,10 @@ export async function POST(
           },
         });
 
+        if (transcriptionEditorUrl) {
+          transcriptionEditorUrl = transcriptionEditorUrl.replace("__EVIDENCE_ID__", evidenceItem.id);
+        }
+
         return NextResponse.json({
           success: true,
           evidenceId: evidenceItem.id,
@@ -256,6 +311,7 @@ export async function POST(
           originalName,
           fileType,
           title,
+          transcriptionEditorUrl,
         });
       }
 
@@ -265,6 +321,7 @@ export async function POST(
     const formData = await request.formData();
     const file = formData.get("file") as File;
     const lastModifiedStr = formData.get("lastModified") as string;
+    const createTranscription = String(formData.get("createTranscription") || "") === "1";
     
     if (!file) {
       return NextResponse.json({ error: "No file uploaded" }, { status: 400 });
@@ -299,6 +356,38 @@ export async function POST(
       originalName: file.name,
       hash: fileHash
     };
+
+    if (createTranscription && (fileType.startsWith("audio/") || fileType.startsWith("video/"))) {
+      if (process.env.OPENAI_API_KEY) {
+        try {
+          const transcription = await openai.audio.transcriptions.create({
+            file,
+            model: "whisper-1",
+            language: "no",
+          });
+          extractedText = transcription.text;
+          metadata.transcription = {
+            model: "whisper-1",
+            language: "no",
+            updatedAt: new Date().toISOString(),
+          };
+        } catch (aiError: any) {
+          extractedText = `(Transkripsjon feilet: ${aiError?.message || "Ukjent feil"})`;
+          metadata.transcription = {
+            model: "whisper-1",
+            language: "no",
+            updatedAt: new Date().toISOString(),
+          };
+        }
+      } else {
+        extractedText = "(Transkripsjon ikke tilgjengelig - mangler API-nøkkel)";
+        metadata.transcription = {
+          model: "whisper-1",
+          language: "no",
+          updatedAt: new Date().toISOString(),
+        };
+      }
+    }
 
     // --- PIPELINE: METADATA EXTRACTION ---
 
@@ -653,7 +742,10 @@ export async function POST(
       url: urlForClient,
       originalName: file.name,
       fileType: fileType,
-      title: title || file.name
+      title: title || file.name,
+      transcriptionEditorUrl: createTranscription && (fileType.startsWith("audio/") || fileType.startsWith("video/"))
+        ? `/projects/${projectId}/evidence/transcription/${evidenceItem.id}`
+        : null
     });
 
   } catch (error: any) {

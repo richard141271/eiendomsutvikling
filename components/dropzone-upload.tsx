@@ -11,11 +11,12 @@ interface DropzoneUploadProps {
   projectId: string;
   onUploadComplete: (data: any) => void;
   onBeforeUpload?: (file: File) => Promise<boolean>;
+  onAskTranscription?: (file: File) => Promise<boolean>;
   onBatchComplete?: (count: number) => void;
   className?: string;
 }
 
-export function DropzoneUpload({ projectId, onUploadComplete, onBeforeUpload, onBatchComplete, className }: DropzoneUploadProps) {
+export function DropzoneUpload({ projectId, onUploadComplete, onBeforeUpload, onAskTranscription, onBatchComplete, className }: DropzoneUploadProps) {
   const [isDragging, setIsDragging] = useState(false);
   const [uploading, setUploading] = useState(false);
   const [progress, setProgress] = useState<{ current: number; total: number; filename: string } | null>(null);
@@ -52,10 +53,11 @@ export function DropzoneUpload({ projectId, onUploadComplete, onBeforeUpload, on
       return `${text.slice(0, 240)}…`;
     };
 
-    const uploadViaServer = async (file: File) => {
+    const uploadViaServer = async (file: File, createTranscription: boolean) => {
       const formData = new FormData();
       formData.append("file", file);
       formData.append("lastModified", file.lastModified.toString());
+      formData.append("createTranscription", createTranscription ? "1" : "0");
 
       const response = await fetch(`/api/projects/${projectId}/evidence/upload`, {
         method: "POST",
@@ -82,10 +84,14 @@ export function DropzoneUpload({ projectId, onUploadComplete, onBeforeUpload, on
         throw new Error(toShortError(message));
       }
 
-      return await response.json();
+      const data = await response.json();
+      if (!data?.success) {
+        throw new Error(toShortError(String(data?.error || "Upload feilet")));
+      }
+      return data;
     };
 
-    const uploadViaSignedUrl = async (file: File) => {
+    const uploadViaSignedUrl = async (file: File, createTranscription: boolean) => {
       const initRes = await fetch(`/api/projects/${projectId}/evidence/upload`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -111,6 +117,9 @@ export function DropzoneUpload({ projectId, onUploadComplete, onBeforeUpload, on
       }
 
       const initData = await initRes.json();
+      if (!initData?.success) {
+        throw new Error(toShortError(String(initData?.error || "Kunne ikke starte opplasting")));
+      }
       const bucket = String(initData.bucket || "");
       const path = String(initData.path || "");
       const token = String(initData.token || "");
@@ -139,6 +148,7 @@ export function DropzoneUpload({ projectId, onUploadComplete, onBeforeUpload, on
           fileType: file.type,
           fileSize: file.size,
           lastModified: file.lastModified,
+          createTranscription,
         }),
       });
 
@@ -155,7 +165,11 @@ export function DropzoneUpload({ projectId, onUploadComplete, onBeforeUpload, on
         throw new Error(toShortError(message));
       }
 
-      return await finalizeRes.json();
+      const finalizeData = await finalizeRes.json();
+      if (!finalizeData?.success) {
+        throw new Error(toShortError(String(finalizeData?.error || "Kunne ikke fullføre opplasting")));
+      }
+      return finalizeData;
     };
 
     for (let i = 0; i < files.length; i++) {
@@ -171,18 +185,29 @@ export function DropzoneUpload({ projectId, onUploadComplete, onBeforeUpload, on
           }
         }
 
+        const isAudioOrVideo = (() => {
+          if (file.type.startsWith("audio/") || file.type.startsWith("video/")) return true;
+          const ext = file.name.split(".").pop()?.toLowerCase();
+          return ["mp3", "wav", "m4a", "aac", "ogg", "wma", "mp4", "mov", "avi", "webm"].includes(ext || "");
+        })();
+
+        let createTranscription = false;
+        if (isAudioOrVideo && onAskTranscription) {
+          createTranscription = await onAskTranscription(file);
+        }
+
         const shouldPreferSigned = file.size > 3_500_000;
         let data: any;
 
         if (shouldPreferSigned) {
-          data = await uploadViaSignedUrl(file);
+          data = await uploadViaSignedUrl(file, createTranscription);
         } else {
           try {
-            data = await uploadViaServer(file);
+            data = await uploadViaServer(file, createTranscription);
           } catch (e) {
             const msg = e instanceof Error ? e.message : "";
             if (msg === "PAYLOAD_TOO_LARGE" || (e as any)?.code === "PAYLOAD_TOO_LARGE") {
-              data = await uploadViaSignedUrl(file);
+              data = await uploadViaSignedUrl(file, createTranscription);
             } else {
               throw e;
             }
@@ -213,7 +238,7 @@ export function DropzoneUpload({ projectId, onUploadComplete, onBeforeUpload, on
     if (onBatchComplete) {
       onBatchComplete(successCount);
     }
-  }, [projectId, onBeforeUpload, onUploadComplete, onBatchComplete]);
+  }, [projectId, onBeforeUpload, onAskTranscription, onUploadComplete, onBatchComplete]);
 
   const handleFileInputChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files.length > 0) {

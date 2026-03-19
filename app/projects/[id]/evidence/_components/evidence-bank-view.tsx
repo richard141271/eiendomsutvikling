@@ -13,6 +13,7 @@ import { EditPanel } from "./edit-panel";
 
 interface EvidenceItem {
   id: string;
+  projectId: string;
   evidenceNumber: number;
   title: string;
   description: string | null;

@@ -19,6 +19,7 @@ import Image from "next/image";
 
 interface EvidenceItem {
   id: string;
+  projectId: string;
   evidenceNumber: number;
   title: string;
   description: string | null;
@@ -145,6 +146,7 @@ export function EditPanel({ item, availableEvidence, isOpen, onClose, onSave }: 
   if (!item) return null;
 
   const isImage = item.file.fileType.startsWith("image/");
+  const isAudioOrVideo = item.file.fileType.startsWith("audio/") || item.file.fileType.startsWith("video/");
 
   const getFileUrl = (path: string) => {
     if (path.startsWith("http") || path.startsWith("blob:")) return path;
@@ -205,6 +207,15 @@ export function EditPanel({ item, availableEvidence, isOpen, onClose, onSave }: 
               </div>
             )}
           </div>
+
+          {isAudioOrVideo && item.projectId && (
+            <Button
+              variant="outline"
+              onClick={() => window.open(`/projects/${item.projectId}/evidence/transcription/${item.id}`, "_blank", "noopener,noreferrer")}
+            >
+              Åpne transkripsjon
+            </Button>
+          )}
 
           {/* Title & Description */}
           <div className="grid gap-2">
