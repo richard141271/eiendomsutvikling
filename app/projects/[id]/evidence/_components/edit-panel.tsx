@@ -223,7 +223,14 @@ export function EditPanel({ item, availableEvidence, isOpen, onClose, onSave }: 
                  </div>
                )
             ) : (
-              <div className="flex flex-col items-center text-slate-400 cursor-pointer hover:text-slate-600" onClick={() => (item.file.url || item.file.storagePath) && window.open(item.file.url || item.file.storagePath, '_blank')}>
+              <div
+                className="flex flex-col items-center text-slate-400 cursor-pointer hover:text-slate-600"
+                onClick={() => {
+                  const path = item.file.url || item.file.storagePath;
+                  if (!path) return;
+                  window.open(getFileUrl(path), "_blank", "noopener,noreferrer");
+                }}
+              >
                 {(item.sourceType === "audio" || item.file.fileType.startsWith("audio/")) ? (
                   <Music className="h-12 w-12 mb-2" />
                 ) : (item.sourceType === "video" || item.file.fileType.startsWith("video/")) ? (
