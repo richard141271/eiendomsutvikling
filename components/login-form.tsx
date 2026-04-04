@@ -18,6 +18,10 @@ import {
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { login } from "@/app/login/actions"
+import { createClient } from "@/lib/supabase"
+import { toast } from "sonner"
+import { Eye, EyeOff } from "lucide-react"
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 
 const formSchema = z.object({
   email: z.string().email("Ugyldig e-postadresse"),
@@ -28,6 +32,10 @@ export function LoginForm() {
   const router = useRouter()
   const [isLoading, setIsLoading] = React.useState(false)
   const [error, setError] = React.useState<string | null>(null)
+  const [showPassword, setShowPassword] = React.useState(false)
+  const [forgotOpen, setForgotOpen] = React.useState(false)
+  const [forgotEmail, setForgotEmail] = React.useState("")
+  const [forgotLoading, setForgotLoading] = React.useState(false)
 
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
@@ -63,6 +71,31 @@ export function LoginForm() {
     }
   }
 
+  const handleForgotPassword = async () => {
+    const email = forgotEmail.trim()
+    if (!email) {
+      toast.error("Skriv inn e-postadressen din")
+      return
+    }
+
+    try {
+      setForgotLoading(true)
+      const supabase = createClient()
+      const redirectTo = `${window.location.origin}/api/auth/callback?next=/reset-password`
+      const { error } = await supabase.auth.resetPasswordForEmail(email, { redirectTo })
+      if (error) {
+        throw new Error(error.message || "Kunne ikke sende e-post")
+      }
+      toast.success("Vi har sendt deg en e-post for å sette nytt passord")
+      setForgotOpen(false)
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : "Kunne ikke sende e-post"
+      toast.error(msg)
+    } finally {
+      setForgotLoading(false)
+    }
+  }
+
   return (
     <Card className="w-full max-w-sm">
       <CardHeader>
@@ -89,17 +122,36 @@ export function LoginForm() {
             </div>
             <div className="flex flex-col space-y-1.5">
               <Label htmlFor="password">Passord (PIN)</Label>
-              <Input
-                id="password"
-                type="password"
-                placeholder="Minst 4 tegn"
-                {...form.register("password")}
-              />
+              <div className="relative">
+                <Input
+                  id="password"
+                  type={showPassword ? "text" : "password"}
+                  placeholder="Minst 4 tegn"
+                  className="pr-10"
+                  {...form.register("password")}
+                />
+                <button
+                  type="button"
+                  className="absolute inset-y-0 right-0 flex items-center px-3 text-slate-500 hover:text-slate-800"
+                  onClick={() => setShowPassword((v) => !v)}
+                  aria-label={showPassword ? "Skjul passord" : "Vis passord"}
+                >
+                  {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                </button>
+              </div>
               {form.formState.errors.password && (
                 <span className="text-sm text-red-500">
                   {form.formState.errors.password.message}
                 </span>
               )}
+              <Button
+                type="button"
+                variant="link"
+                className="h-auto p-0 justify-start text-sm"
+                onClick={() => setForgotOpen(true)}
+              >
+                Glemt passord?
+              </Button>
             </div>
           </div>
           {error && <div className="mt-4 text-sm text-red-500">{error}</div>}
@@ -115,6 +167,44 @@ export function LoginForm() {
           Har du ikke konto? Registrer deg
         </Button>
       </CardFooter>
+
+      <Dialog
+        open={forgotOpen}
+        onOpenChange={(open) => {
+          setForgotOpen(open)
+          if (open) {
+            setForgotEmail(form.getValues("email") || "")
+          }
+        }}
+      >
+        <DialogContent className="sm:max-w-[420px]">
+          <DialogHeader>
+            <DialogTitle>Glemt passord</DialogTitle>
+            <DialogDescription>
+              Skriv inn e-posten din, så sender vi deg en lenke for å sette nytt passord.
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="grid gap-2">
+            <Label htmlFor="forgot-email">E-post</Label>
+            <Input
+              id="forgot-email"
+              value={forgotEmail}
+              onChange={(e) => setForgotEmail(e.target.value)}
+              placeholder="navn@eksempel.no"
+            />
+          </div>
+
+          <DialogFooter>
+            <Button type="button" variant="outline" onClick={() => setForgotOpen(false)} disabled={forgotLoading}>
+              Avbryt
+            </Button>
+            <Button type="button" onClick={handleForgotPassword} disabled={forgotLoading}>
+              {forgotLoading ? "Sender..." : "Send lenke"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </Card>
   )
 }
