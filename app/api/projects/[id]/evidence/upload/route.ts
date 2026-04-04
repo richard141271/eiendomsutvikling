@@ -6,13 +6,13 @@ import { getNextEvidenceNumber } from "@/app/actions/evidence";
 import crypto from "crypto";
 import { createAdminClient, ensureBucketExists } from "@/lib/supabase-admin";
 import OpenAI, { toFile } from "openai";
+import { File as NodeFile } from "node:buffer";
 
 export const runtime = "nodejs";
 export const maxDuration = 300;
-
-const openai = new OpenAI({
-  apiKey: process.env.OPENAI_API_KEY,
-});
+if (typeof (globalThis as any).File === "undefined") {
+  (globalThis as any).File = NodeFile;
+}
 
 async function downloadFromStorage(bucketName: string, storagePath: string, supabase: any): Promise<Blob> {
   try {
@@ -93,6 +93,7 @@ export async function POST(
 
         const storagePath = String(evidence.file.storagePath);
         const originalName = String(evidence.file.originalName || evidence.title || "opptak");
+        const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
 
         let transcriptionText = "";
         try {
@@ -272,8 +273,9 @@ export async function POST(
           let transcriptionText = "";
           if (process.env.OPENAI_API_KEY) {
             try {
+              const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
               const blob = await downloadFromStorage(bucketName, storagePath, supabase);
-              const uploadFile = new File([blob], originalName || "upload", { type: fileType });
+              const uploadFile = await toFile(blob as any, originalName || "upload", { type: fileType });
               const transcription = await openai.audio.transcriptions.create({
                 file: uploadFile,
                 model: "whisper-1",
@@ -427,8 +429,10 @@ export async function POST(
     if (createTranscription && (fileType.startsWith("audio/") || fileType.startsWith("video/"))) {
       if (process.env.OPENAI_API_KEY) {
         try {
+          const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
+          const uploadFile = await toFile(file as any, file.name || "upload", { type: fileType || file.type });
           const transcription = await openai.audio.transcriptions.create({
-            file,
+            file: uploadFile,
             model: "whisper-1",
             language: "no",
           });
