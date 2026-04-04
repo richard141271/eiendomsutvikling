@@ -5,7 +5,7 @@ import { NextResponse } from "next/server";
 import { getNextEvidenceNumber } from "@/app/actions/evidence";
 import crypto from "crypto";
 import { createAdminClient, ensureBucketExists } from "@/lib/supabase-admin";
-import OpenAI from "openai";
+import OpenAI, { toFile } from "openai";
 
 export const runtime = "nodejs";
 export const maxDuration = 300;
@@ -97,7 +97,7 @@ export async function POST(
         let transcriptionText = "";
         try {
           const blob = await downloadFromStorage(bucketName, storagePath, supabase);
-          const uploadFile = new File([blob], originalName, { type: fileType });
+            const uploadFile = await toFile(blob as any, originalName, { type: fileType });
           const transcription = await openai.audio.transcriptions.create({
             file: uploadFile,
             model: "whisper-1",
