@@ -31,6 +31,17 @@ import {
   formatDate,
 } from "@/src/modules/rydderen/utils";
 
+function scrollWorkAreaIntoView(element: HTMLElement | null) {
+  if (!element || typeof window === "undefined") {
+    return;
+  }
+
+  window.requestAnimationFrame(() => {
+    const top = element.getBoundingClientRect().top + window.scrollY - 88;
+    window.scrollTo({ top: Math.max(0, top), behavior: "auto" });
+  });
+}
+
 export function RydderenHeader(props: {
   title: string;
   description?: string | null;
@@ -300,6 +311,9 @@ export function RydderenRegisterFlow(props: {
   autoOpenCameraCount?: number;
 }) {
   const cameraInputRef = useRef<HTMLInputElement | null>(null);
+  const cameraSectionRef = useRef<HTMLElement | null>(null);
+  const categorySectionRef = useRef<HTMLElement | null>(null);
+  const actionSectionRef = useRef<HTMLElement | null>(null);
 
   useEffect(() => {
     if (!props.autoOpenCameraCount || props.step !== "camera") {
@@ -311,11 +325,23 @@ export function RydderenRegisterFlow(props: {
     return () => window.clearTimeout(timeout);
   }, [props.autoOpenCameraCount, props.step]);
 
+  useEffect(() => {
+    if (props.step === "camera") {
+      scrollWorkAreaIntoView(cameraSectionRef.current);
+      return;
+    }
+    if (props.step === "category") {
+      scrollWorkAreaIntoView(categorySectionRef.current);
+      return;
+    }
+    scrollWorkAreaIntoView(actionSectionRef.current);
+  }, [props.step]);
+
   return (
     <div className="space-y-4">
       {props.error ? <div className="rounded-xl bg-red-50 p-3 text-sm text-red-700">{props.error}</div> : null}
       {props.step === "camera" ? (
-        <section className="rounded-[20px] bg-white p-5 shadow-[0_16px_40px_rgba(17,24,39,0.10)]">
+        <section ref={cameraSectionRef} className="rounded-[20px] bg-white p-5 shadow-[0_16px_40px_rgba(17,24,39,0.10)]">
           <div className="mb-5">
             <p className="mb-1 text-xs uppercase tracking-[0.08em] text-slate-500">Registrering</p>
             <h2 className="text-2xl font-bold">Ta bilde av neste objekt</h2>
@@ -345,7 +371,7 @@ export function RydderenRegisterFlow(props: {
       ) : null}
 
       {props.step === "category" ? (
-        <section className="overflow-hidden rounded-[20px] bg-white p-5 shadow-[0_16px_40px_rgba(17,24,39,0.10)]">
+        <section ref={categorySectionRef} className="overflow-hidden rounded-[20px] bg-white p-5 shadow-[0_16px_40px_rgba(17,24,39,0.10)]">
           <div className="mb-5">
             <p className="mb-1 text-xs uppercase tracking-[0.08em] text-slate-500">Steg 1 av 2</p>
             <h2 className="text-2xl font-bold">Velg kategori</h2>
@@ -386,7 +412,7 @@ export function RydderenRegisterFlow(props: {
       ) : null}
 
       {props.step === "action" ? (
-        <section className="overflow-hidden rounded-[20px] bg-white p-5 shadow-[0_16px_40px_rgba(17,24,39,0.10)]">
+        <section ref={actionSectionRef} className="overflow-hidden rounded-[20px] bg-white p-5 shadow-[0_16px_40px_rgba(17,24,39,0.10)]">
           <div className="mb-5">
             <p className="mb-1 text-xs uppercase tracking-[0.08em] text-slate-500">Steg 2 av 2</p>
             <h2 className="text-2xl font-bold">Velg handling</h2>
@@ -475,6 +501,7 @@ export function RydderenValuationCard(props: {
   const [note, setNote] = useState(props.item.note || "");
   const [showMore, setShowMore] = useState(false);
   const inputRef = useRef<HTMLInputElement | null>(null);
+  const cardRef = useRef<HTMLDivElement | null>(null);
 
   useEffect(() => {
     setValue(props.item.value?.toString() || "");
@@ -485,12 +512,13 @@ export function RydderenValuationCard(props: {
   }, [props.item]);
 
   useEffect(() => {
+    scrollWorkAreaIntoView(cardRef.current);
     inputRef.current?.focus();
     inputRef.current?.select();
   }, [props.item.id]);
 
   return (
-    <Card className="rounded-[20px] border bg-slate-50 shadow-none">
+    <Card ref={cardRef} className="rounded-[20px] border bg-slate-50 shadow-none">
       <CardHeader className="space-y-2">
         <div className="space-y-1">
           <p className="text-xs uppercase tracking-[0.08em] text-slate-500">Verdisetting</p>
@@ -584,7 +612,9 @@ export function RydderenValuationQueue(props: {
   return <RydderenValuationCard item={props.currentItem} saving={props.saving} onNext={props.onNext} onExitHref={props.onExitHref} />;
 }
 
-export function RydderenStatsCards(props: { report: CleanupReportSummary }) {
+export function RydderenStatsCards(props: {
+  report: Pick<CleanupReportSummary, "castCount" | "sellCount" | "keepCount" | "totalItems">;
+}) {
   const stats = [
     { label: "Kast", value: props.report.castCount.toString() },
     { label: "Selg", value: props.report.sellCount.toString() },

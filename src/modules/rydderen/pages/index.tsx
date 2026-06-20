@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { AlertTriangle, ArrowRight, Plus } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -30,7 +30,7 @@ import {
   useCleanupReport,
   useCleanupValuationQueue,
 } from "@/src/modules/rydderen/hooks";
-import type { CleanupContextOptions, CleanupProjectContextType } from "@/src/modules/rydderen/types";
+import type { CleanupContextOptions, CleanupCost, CleanupItem, CleanupProject, CleanupProjectContextType } from "@/src/modules/rydderen/types";
 import { CLEANUP_MODULE_BRAND, formatCurrency } from "@/src/modules/rydderen/utils";
 
 function createLoadingProject(cleanupProjectId: string) {
@@ -57,6 +57,48 @@ function createLoadingProject(cleanupProjectId: string) {
     totalValue: 0,
     costsTotal: 0,
     links: [],
+  };
+}
+
+function scrollWorkAreaIntoView(element: HTMLElement | null) {
+  if (!element || typeof window === "undefined") {
+    return;
+  }
+
+  window.requestAnimationFrame(() => {
+    const top = element.getBoundingClientRect().top + window.scrollY - 88;
+    window.scrollTo({ top: Math.max(0, top), behavior: "auto" });
+  });
+}
+
+function buildOverviewSummary(items: CleanupItem[], costs: CleanupCost[], project: CleanupProject | null) {
+  const castCount = items.filter((item) => item.action === "kast").length;
+  const sellCount = items.filter((item) => item.action === "selg").length;
+  const keepCount = items.filter((item) => item.action === "behold").length;
+  const totalValue = items.reduce((sum, item) => sum + (item.value ?? 0), 0);
+  const totalSellValue = items
+    .filter((item) => item.action === "selg")
+    .reduce((sum, item) => sum + (item.value ?? 0), 0);
+  const totalCastValue = items
+    .filter((item) => item.action === "kast")
+    .reduce((sum, item) => sum + (item.value ?? 0), 0);
+  const totalKeepValue = items
+    .filter((item) => item.action === "behold")
+    .reduce((sum, item) => sum + (item.value ?? 0), 0);
+  const projectCosts = costs.reduce((sum, cost) => sum + cost.amount, 0);
+
+  return {
+    castCount,
+    sellCount,
+    keepCount,
+    totalItems: items.length,
+    totalValue,
+    totalSellValue,
+    totalCastValue,
+    totalKeepValue,
+    projectCosts,
+    netValue: totalValue - projectCosts,
+    project,
   };
 }
 
@@ -225,10 +267,15 @@ export function RydderenProjectDetailsPage(props: { cleanupProjectId: string; ba
   const { projects, createProject, deleteProject } = useCleanupProjects();
   const { items, loading: itemsLoading } = useCleanupItems(props.cleanupProjectId);
   const { costs, saving: costSaving, addCost } = useCleanupCosts(props.cleanupProjectId);
-  const { report, loading: reportLoading } = useCleanupReport(props.cleanupProjectId);
   const { actionFilter, setActionFilter, filteredItems } = useCleanupFilters(items);
   const activeProject = project ?? createLoadingProject(props.cleanupProjectId);
   const visibleProjects = projects.length ? projects : [activeProject];
+  const summary = useMemo(() => buildOverviewSummary(items, costs, project), [costs, items, project]);
+  const overviewSectionRef = useRef<HTMLElement | null>(null);
+
+  useEffect(() => {
+    scrollWorkAreaIntoView(overviewSectionRef.current);
+  }, [props.cleanupProjectId]);
 
   if (projectError && !project) {
     return <div className="rounded-xl bg-red-50 p-3 text-sm text-red-700">{projectError}</div>;
@@ -236,7 +283,7 @@ export function RydderenProjectDetailsPage(props: { cleanupProjectId: string; ba
 
   return (
     <RydderenAppShell project={activeProject} projects={visibleProjects} cleanupProjectId={activeProject.id} basePath={props.basePath} active="overview">
-      <section className="rounded-[20px] bg-white p-5 shadow-sm">
+      <section ref={overviewSectionRef} className="rounded-[20px] bg-white p-5 shadow-sm">
         <div className="mb-5">
           <p className="mb-1 text-xs uppercase tracking-[0.08em] text-slate-500">Oversikt</p>
           <h2 className="text-2xl font-bold">Registrerte objekter</h2>
@@ -244,7 +291,7 @@ export function RydderenProjectDetailsPage(props: { cleanupProjectId: string; ba
 
         {projectLoading && !project ? <div className="mb-4 text-sm text-muted-foreground">Laster ryddeprosjekt i bakgrunnen...</div> : null}
 
-        {report && !reportLoading ? <RydderenStatsCards report={report} /> : null}
+        <RydderenStatsCards report={summary} />
 
         <div className="mb-4 mt-4 flex flex-wrap gap-2">
           <Button variant={actionFilter === "alle" ? "default" : "outline"} onClick={() => setActionFilter("alle")}>
@@ -322,24 +369,22 @@ export function RydderenProjectDetailsPage(props: { cleanupProjectId: string; ba
           </Card>
         </div>
 
-        {report ? (
-          <Card className="mb-4 rounded-[18px] border bg-slate-50">
-            <CardHeader>
-              <CardTitle>Lageroppryddingsrapport</CardTitle>
-              <CardDescription>Dato: {new Date(report.generatedAt).toLocaleDateString("no-NO")}</CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-1 text-sm">
-              <p>Prosjekt: {report.project.name}</p>
-              <p>Kast: {report.castCount} objekter</p>
-              <p>Selg: {report.sellCount} objekter</p>
-              <p>Behold: {report.keepCount} objekter</p>
-              <p>Totalt: {report.totalItems} objekter</p>
-              <p>Totalt registrert verdi: {formatCurrency(report.totalValue)}</p>
-              <p>Totale prosjektkostnader: {formatCurrency(report.projectCosts)}</p>
-              <p>Netto verdi: {formatCurrency(report.netValue)}</p>
-            </CardContent>
-          </Card>
-        ) : null}
+        <Card className="mb-4 rounded-[18px] border bg-slate-50">
+          <CardHeader>
+            <CardTitle>Lageroppryddingsrapport</CardTitle>
+            <CardDescription>Dato: {new Date().toLocaleDateString("no-NO")}</CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-1 text-sm">
+            <p>Prosjekt: {activeProject.name}</p>
+            <p>Kast: {summary.castCount} objekter</p>
+            <p>Selg: {summary.sellCount} objekter</p>
+            <p>Behold: {summary.keepCount} objekter</p>
+            <p>Totalt: {summary.totalItems} objekter</p>
+            <p>Totalt registrert verdi: {formatCurrency(summary.totalValue)}</p>
+            <p>Totale prosjektkostnader: {formatCurrency(summary.projectCosts)}</p>
+            <p>Netto verdi: {formatCurrency(summary.netValue)}</p>
+          </CardContent>
+        </Card>
 
         <div className="mt-4">
           {itemsLoading ? <div className="text-sm text-muted-foreground">Laster objekter...</div> : <RydderenItemsList items={filteredItems} />}
@@ -393,6 +438,11 @@ export function RydderenValuationPage(props: { cleanupProjectId: string; basePat
   const queue = useCleanupValuationQueue(props.cleanupProjectId);
   const activeProject = project ?? createLoadingProject(props.cleanupProjectId);
   const visibleProjects = projects.length ? projects : [activeProject];
+  const valuationSectionRef = useRef<HTMLElement | null>(null);
+
+  useEffect(() => {
+    scrollWorkAreaIntoView(valuationSectionRef.current);
+  }, [props.cleanupProjectId, queue.currentItem?.id]);
 
   if (error && !project) {
     return <div className="rounded-xl bg-red-50 p-3 text-sm text-red-700">{error}</div>;
@@ -402,15 +452,17 @@ export function RydderenValuationPage(props: { cleanupProjectId: string; basePat
     <RydderenAppShell project={activeProject} projects={visibleProjects} cleanupProjectId={activeProject.id} basePath={props.basePath} active="valuation">
       {loading && !project ? <div className="text-sm text-muted-foreground">Laster prosjekt i bakgrunnen...</div> : null}
       {queue.error ? <div className="rounded-xl bg-red-50 p-3 text-sm text-red-700">{queue.error}</div> : null}
-      <RydderenValuationQueue
-        items={queue.items}
-        currentItem={queue.currentItem}
-        saving={queue.saving}
-        onNext={(payload) => {
-          void queue.saveCurrentAndAdvance(payload);
-        }}
-        onExitHref={`${props.basePath}/projects/${activeProject.id}`}
-      />
+      <section ref={valuationSectionRef}>
+        <RydderenValuationQueue
+          items={queue.items}
+          currentItem={queue.currentItem}
+          saving={queue.saving}
+          onNext={(payload) => {
+            void queue.saveCurrentAndAdvance(payload);
+          }}
+          onExitHref={`${props.basePath}/projects/${activeProject.id}`}
+        />
+      </section>
     </RydderenAppShell>
   );
 }

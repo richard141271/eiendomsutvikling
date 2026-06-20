@@ -13,28 +13,6 @@ import type {
   CleanupReportSummary,
 } from "@/src/modules/rydderen/types";
 
-// #region debug-point B:hook-logger
-const DEBUG_SERVER_URL = "http://192.168.0.35:7777/event";
-const DEBUG_SESSION_ID = "slow-app-performance";
-function reportDebugEvent(hypothesisId: string, location: string, msg: string, data: Record<string, unknown>) {
-  if (typeof window === "undefined") return;
-  fetch(DEBUG_SERVER_URL, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({
-      sessionId: DEBUG_SESSION_ID,
-      runId: "pre-fix",
-      hypothesisId,
-      location,
-      msg,
-      data,
-      ts: Date.now(),
-    }),
-    keepalive: true,
-  }).catch(() => {});
-}
-// #endregion
-
 const cleanupProjectCache = new Map<string, CleanupProject>();
 const cleanupProjectListCache = new Map<string, CleanupProject[]>();
 const cleanupItemsCache = new Map<string, CleanupItem[]>();
@@ -315,29 +293,9 @@ export function useCleanupRegisterFlow(cleanupProjectId: string) {
             action: nextUpload.action,
           });
 
-          // #region debug-point B:register-save-success
-          reportDebugEvent("B", "hooks/index.ts:saveAction:success", "[DEBUG] register save action success", {
-            cleanupProjectId,
-            action: nextUpload.action,
-            category: nextUpload.category,
-            savedItemId: saved.id,
-            savedItemNumber: saved.itemNumber,
-            durationMs: Math.round((typeof performance !== "undefined" ? performance.now() : Date.now()) - nextUpload.queuedAt),
-            queueLengthAfterSave: uploadQueueRef.current.length,
-          });
-          // #endregion
-
           setLastSavedItem(saved);
-        } catch (err) {
-          // #region debug-point B:register-save-error
-          reportDebugEvent("B", "hooks/index.ts:saveAction:error", "[DEBUG] register save action error", {
-            cleanupProjectId,
-            action: nextUpload.action,
-            category: nextUpload.category,
-            error: err instanceof Error ? err.message : "unknown",
-            queueLengthAfterError: uploadQueueRef.current.length,
-          });
-          // #endregion
+        } catch {
+          // Feil logges i API-laget, men UI skal videre uten å blokkeres.
         }
       }
     } finally {
@@ -346,19 +304,11 @@ export function useCleanupRegisterFlow(cleanupProjectId: string) {
         void processUploadQueue();
       }
     }
-  }, [cleanupProjectId, uploadItem]);
+  }, [uploadItem]);
 
   const saveAction = useCallback(
     async (action: "kast" | "selg" | "behold") => {
       if (currentDraftSubmittedRef.current) {
-        // #region debug-point B:register-duplicate-guard
-        reportDebugEvent("B", "hooks/index.ts:saveAction:guard", "[DEBUG] register action ignored while upload in progress", {
-          cleanupProjectId,
-          action,
-          hasSelectedFile: Boolean(selectedFile),
-          category,
-        });
-        // #endregion
         return null;
       }
       if (!selectedFile || !category) {
@@ -369,17 +319,6 @@ export function useCleanupRegisterFlow(cleanupProjectId: string) {
       const queuedAt = typeof performance !== "undefined" ? performance.now() : Date.now();
       const queuedFile = selectedFile;
       const queuedCategory = category;
-
-      // #region debug-point B:register-save-start
-      reportDebugEvent("B", "hooks/index.ts:saveAction:start", "[DEBUG] register save action queued", {
-        cleanupProjectId,
-        action,
-        category: queuedCategory,
-        fileName: queuedFile.name,
-        fileSize: queuedFile.size,
-        queueLengthBeforePush: uploadQueueRef.current.length,
-      });
-      // #endregion
 
       uploadQueueRef.current.push({
         file: queuedFile,
@@ -395,7 +334,7 @@ export function useCleanupRegisterFlow(cleanupProjectId: string) {
       void processUploadQueue();
       return null;
     },
-    [category, cleanupProjectId, processUploadQueue, selectedFile]
+    [category, processUploadQueue, selectedFile]
   );
 
   const reset = useCallback(() => {
@@ -420,47 +359,32 @@ export function useCleanupRegisterFlow(cleanupProjectId: string) {
 }
 
 export function useCleanupValuationQueue(cleanupProjectId: string) {
-  const [items, setItems] = useState<CleanupItem[]>([]);
-  const [loading, setLoading] = useState(true);
+  const cacheKey = getItemsCacheKey(cleanupProjectId, { action: null });
+  const cachedItems = cleanupItemsCache.get(cacheKey) ?? [];
+  const [items, setItems] = useState<CleanupItem[]>(cachedItems);
+  const [loading, setLoading] = useState(cachedItems.length === 0);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const refresh = useCallback(async () => {
+  const refresh = useCallback(async (options?: { showLoading?: boolean }) => {
     try {
-      setLoading(true);
+      if (options?.showLoading ?? items.length === 0) {
+        setLoading(true);
+      }
       setError(null);
-      // #region debug-point D:valuation-refresh-start
-      const startedAt = typeof performance !== "undefined" ? performance.now() : Date.now();
-      reportDebugEvent("D", "hooks/index.ts:valuation:refresh:start", "[DEBUG] valuation queue refresh start", {
-        cleanupProjectId,
-      });
-      // #endregion
       const nextItems = await cleanupApiClient.listItems(cleanupProjectId);
-      // #region debug-point D:valuation-refresh-success
-      reportDebugEvent("D", "hooks/index.ts:valuation:refresh:success", "[DEBUG] valuation queue refresh success", {
-        cleanupProjectId,
-        totalItems: nextItems.length,
-        unvaluedItems: nextItems.filter((item) => item.value === null || item.value === undefined).length,
-        durationMs: Math.round((typeof performance !== "undefined" ? performance.now() : Date.now()) - startedAt),
-      });
-      // #endregion
+      cleanupItemsCache.set(cacheKey, nextItems);
       setItems(nextItems);
     } catch (err) {
-      // #region debug-point D:valuation-refresh-error
-      reportDebugEvent("D", "hooks/index.ts:valuation:refresh:error", "[DEBUG] valuation queue refresh error", {
-        cleanupProjectId,
-        error: err instanceof Error ? err.message : "unknown",
-      });
-      // #endregion
       setError(err instanceof Error ? err.message : "Kunne ikke hente verdisettingskø");
     } finally {
       setLoading(false);
     }
-  }, [cleanupProjectId]);
+  }, [cacheKey, cleanupProjectId, items.length]);
 
   useEffect(() => {
-    void refresh();
-  }, [refresh]);
+    void refresh({ showLoading: cachedItems.length === 0 });
+  }, [cachedItems.length, refresh]);
 
   const queueItems = useMemo(() => items.filter((item) => item.value === null || item.value === undefined), [items]);
   const currentItem = useMemo(() => queueItems[0] || null, [queueItems]);
@@ -470,16 +394,6 @@ export function useCleanupValuationQueue(cleanupProjectId: string) {
       if (!currentItem) return null;
       try {
         setSaving(true);
-        // #region debug-point C:valuation-save-start
-        const startedAt = typeof performance !== "undefined" ? performance.now() : Date.now();
-        reportDebugEvent("C", "hooks/index.ts:valuation:save:start", "[DEBUG] valuation save start", {
-          cleanupProjectId,
-          itemId: currentItem.id,
-          itemNumber: currentItem.itemNumber,
-          action: currentItem.action,
-          inputValue: payload.value,
-        });
-        // #endregion
         const updated = await cleanupApiClient.updateItem(cleanupProjectId, currentItem.id, {
           value: payload.value,
           comment: payload.comment ?? null,
@@ -487,34 +401,20 @@ export function useCleanupValuationQueue(cleanupProjectId: string) {
           note: payload.note ?? null,
           valuedAt: payload.value === null ? null : new Date().toISOString(),
         });
-        // #region debug-point C:valuation-save-success
-        reportDebugEvent("C", "hooks/index.ts:valuation:save:success", "[DEBUG] valuation save success", {
-          cleanupProjectId,
-          itemId: updated.id,
-          itemNumber: updated.itemNumber,
-          action: updated.action,
-          savedValue: updated.value,
-          durationMs: Math.round((typeof performance !== "undefined" ? performance.now() : Date.now()) - startedAt),
+        setItems((current) => {
+          const nextItems = current.map((item) => (item.id === updated.id ? updated : item));
+          cleanupItemsCache.set(cacheKey, nextItems);
+          return nextItems;
         });
-        // #endregion
-        setItems((current) => current.map((item) => (item.id === updated.id ? updated : item)));
         return updated;
       } catch (err) {
-        // #region debug-point C:valuation-save-error
-        reportDebugEvent("C", "hooks/index.ts:valuation:save:error", "[DEBUG] valuation save error", {
-          cleanupProjectId,
-          itemId: currentItem.id,
-          itemNumber: currentItem.itemNumber,
-          error: err instanceof Error ? err.message : "unknown",
-        });
-        // #endregion
         setError(err instanceof Error ? err.message : "Kunne ikke lagre verdisetting");
         throw err;
       } finally {
         setSaving(false);
       }
     },
-    [cleanupProjectId, currentItem]
+    [cacheKey, cleanupProjectId, currentItem]
   );
 
   return { items: queueItems, currentItem, loading, saving, error, refresh, saveCurrentAndAdvance };
