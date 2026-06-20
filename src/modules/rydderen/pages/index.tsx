@@ -33,6 +33,33 @@ import {
 import type { CleanupContextOptions, CleanupProjectContextType } from "@/src/modules/rydderen/types";
 import { CLEANUP_MODULE_BRAND, formatCurrency } from "@/src/modules/rydderen/utils";
 
+function createLoadingProject(cleanupProjectId: string) {
+  const now = new Date().toISOString();
+  return {
+    id: cleanupProjectId,
+    tenantId: "",
+    name: "Laster prosjekt...",
+    slug: null,
+    moduleType: "rydderen",
+    contextType: "standalone" as const,
+    contextId: null,
+    context: { type: "standalone" as const, id: null, label: "Laster..." },
+    description: null,
+    status: "active" as const,
+    coverImagePath: null,
+    coverImageUrl: null,
+    createdBy: "",
+    updatedBy: null,
+    createdAt: now,
+    updatedAt: now,
+    itemCount: 0,
+    unvaluedCount: 0,
+    totalValue: 0,
+    costsTotal: 0,
+    links: [],
+  };
+}
+
 export function RydderenModulePage({ basePath }: { basePath: string }) {
   return (
     <div className="space-y-6">
@@ -200,22 +227,22 @@ export function RydderenProjectDetailsPage(props: { cleanupProjectId: string; ba
   const { costs, saving: costSaving, addCost } = useCleanupCosts(props.cleanupProjectId);
   const { report, loading: reportLoading } = useCleanupReport(props.cleanupProjectId);
   const { actionFilter, setActionFilter, filteredItems } = useCleanupFilters(items);
+  const activeProject = project ?? createLoadingProject(props.cleanupProjectId);
+  const visibleProjects = projects.length ? projects : [activeProject];
 
-  if (projectLoading || !project) {
-    return <div className="text-sm text-muted-foreground">Laster ryddeprosjekt...</div>;
-  }
-
-  if (projectError) {
+  if (projectError && !project) {
     return <div className="rounded-xl bg-red-50 p-3 text-sm text-red-700">{projectError}</div>;
   }
 
   return (
-    <RydderenAppShell project={project} projects={projects.length ? projects : [project]} cleanupProjectId={project.id} basePath={props.basePath} active="overview">
+    <RydderenAppShell project={activeProject} projects={visibleProjects} cleanupProjectId={activeProject.id} basePath={props.basePath} active="overview">
       <section className="rounded-[20px] bg-white p-5 shadow-sm">
         <div className="mb-5">
           <p className="mb-1 text-xs uppercase tracking-[0.08em] text-slate-500">Oversikt</p>
           <h2 className="text-2xl font-bold">Registrerte objekter</h2>
         </div>
+
+        {projectLoading && !project ? <div className="mb-4 text-sm text-muted-foreground">Laster ryddeprosjekt i bakgrunnen...</div> : null}
 
         {report && !reportLoading ? <RydderenStatsCards report={report} /> : null}
 
@@ -247,8 +274,8 @@ export function RydderenProjectDetailsPage(props: { cleanupProjectId: string; ba
             </CardHeader>
             <CardContent className="space-y-4">
               <RydderenProjectManager
-                projects={projects.length ? projects : [project]}
-                activeProjectId={project.id}
+                projects={visibleProjects}
+                activeProjectId={activeProject.id}
                 creating={creatingProject}
                 deletingId={deletingProjectId}
                 onCreate={async (name) => {
@@ -269,7 +296,7 @@ export function RydderenProjectDetailsPage(props: { cleanupProjectId: string; ba
                   try {
                     setDeletingProjectId(projectId);
                     await deleteProject(projectId);
-                    if (projectId === project.id) {
+                    if (projectId === activeProject.id) {
                       router.push(target ? `${props.basePath}/projects/${target.id}` : `${props.basePath}/projects`);
                     }
                   } finally {
@@ -326,17 +353,16 @@ export function RydderenRegisterPage(props: { cleanupProjectId: string; basePath
   const { project, loading, error } = useCleanupProject(props.cleanupProjectId);
   const { projects } = useCleanupProjects();
   const flow = useCleanupRegisterFlow(props.cleanupProjectId);
+  const activeProject = project ?? createLoadingProject(props.cleanupProjectId);
+  const visibleProjects = projects.length ? projects : [activeProject];
 
-  if (loading || !project) {
-    return <div className="text-sm text-muted-foreground">Laster registreringsflyt...</div>;
-  }
-
-  if (error) {
+  if (error && !project) {
     return <div className="rounded-xl bg-red-50 p-3 text-sm text-red-700">{error}</div>;
   }
 
   return (
-    <RydderenAppShell project={project} projects={projects.length ? projects : [project]} cleanupProjectId={project.id} basePath={props.basePath} active="register">
+    <RydderenAppShell project={activeProject} projects={visibleProjects} cleanupProjectId={activeProject.id} basePath={props.basePath} active="register">
+      {loading && !project ? <div className="text-sm text-muted-foreground">Laster prosjekt i bakgrunnen...</div> : null}
       <RydderenRegisterFlow
         previewUrl={flow.previewUrl}
         category={flow.category}
@@ -355,7 +381,7 @@ export function RydderenRegisterPage(props: { cleanupProjectId: string; basePath
         onAction={(action) => {
           void flow.saveAction(action);
         }}
-        onExitHref={`${props.basePath}/projects/${project.id}`}
+        onExitHref={`${props.basePath}/projects/${activeProject.id}`}
       />
     </RydderenAppShell>
   );
@@ -365,17 +391,16 @@ export function RydderenValuationPage(props: { cleanupProjectId: string; basePat
   const { project, loading, error } = useCleanupProject(props.cleanupProjectId);
   const { projects } = useCleanupProjects();
   const queue = useCleanupValuationQueue(props.cleanupProjectId);
+  const activeProject = project ?? createLoadingProject(props.cleanupProjectId);
+  const visibleProjects = projects.length ? projects : [activeProject];
 
-  if (loading || !project) {
-    return <div className="text-sm text-muted-foreground">Laster verdisetting...</div>;
-  }
-
-  if (error) {
+  if (error && !project) {
     return <div className="rounded-xl bg-red-50 p-3 text-sm text-red-700">{error}</div>;
   }
 
   return (
-    <RydderenAppShell project={project} projects={projects.length ? projects : [project]} cleanupProjectId={project.id} basePath={props.basePath} active="valuation">
+    <RydderenAppShell project={activeProject} projects={visibleProjects} cleanupProjectId={activeProject.id} basePath={props.basePath} active="valuation">
+      {loading && !project ? <div className="text-sm text-muted-foreground">Laster prosjekt i bakgrunnen...</div> : null}
       {queue.error ? <div className="rounded-xl bg-red-50 p-3 text-sm text-red-700">{queue.error}</div> : null}
       <RydderenValuationQueue
         items={queue.items}
@@ -384,7 +409,7 @@ export function RydderenValuationPage(props: { cleanupProjectId: string; basePat
         onNext={(payload) => {
           void queue.saveCurrentAndAdvance(payload);
         }}
-        onExitHref={`${props.basePath}/projects/${project.id}`}
+        onExitHref={`${props.basePath}/projects/${activeProject.id}`}
       />
     </RydderenAppShell>
   );
