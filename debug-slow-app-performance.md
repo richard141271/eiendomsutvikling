@@ -25,3 +25,9 @@ Plan:
 3. Bekreft eller avkreft hypotesene.
 4. Implementer minimal ytelsesfiksering basert pa bevis.
 5. Verifiser med pre-fix og post-fix timing.
+
+Implemented Fix:
+- Rydder'n-registerflyten i Eiendom bruker na en intern bakgrunnsko for opplasting.
+- Ved trykk pa `Kast`, `Selg` eller `Behold` nullstilles valgt bilde/kategori umiddelbart og kamera trigges pa nytt med en gang.
+- Serverarbeid som auth, database, storage og thumbnail-generering fortsetter sekvensielt i bakgrunnen uten a blokkere neste registrering.
+- UI i register-siden tolker ikke lenger bakgrunnsopplasting som en blokkering av handlingssteget.

@@ -341,7 +341,7 @@ export function RydderenRegisterPage(props: { cleanupProjectId: string; basePath
         previewUrl={flow.previewUrl}
         category={flow.category}
         step={flow.step}
-        saving={flow.uploading}
+        saving={false}
         error={flow.error}
         autoOpenCameraCount={flow.cameraReopenCount}
         onCapture={flow.chooseFile}

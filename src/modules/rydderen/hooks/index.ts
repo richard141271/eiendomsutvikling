@@ -191,7 +191,16 @@ export function useCleanupRegisterFlow(cleanupProjectId: string) {
   const [category, setCategory] = useState<string | null>(null);
   const [lastSavedItem, setLastSavedItem] = useState<CleanupItem | null>(null);
   const [cameraReopenCount, setCameraReopenCount] = useState(0);
-  const savingActionRef = useRef(false);
+  const currentDraftSubmittedRef = useRef(false);
+  const uploadQueueRef = useRef<
+    Array<{
+      file: File;
+      category: string;
+      action: "kast" | "selg" | "behold";
+      queuedAt: number;
+    }>
+  >([]);
+  const processingQueueRef = useRef(false);
 
   useEffect(() => {
     if (!selectedFile) {
@@ -210,6 +219,7 @@ export function useCleanupRegisterFlow(cleanupProjectId: string) {
   }, [category, selectedFile]);
 
   const chooseFile = useCallback((file: File | null) => {
+    currentDraftSubmittedRef.current = false;
     setSelectedFile(file);
     setCategory(null);
   }, []);
@@ -218,9 +228,63 @@ export function useCleanupRegisterFlow(cleanupProjectId: string) {
     setCategory(value);
   }, []);
 
+  const processUploadQueue = useCallback(async () => {
+    if (processingQueueRef.current) {
+      return;
+    }
+
+    processingQueueRef.current = true;
+
+    try {
+      while (uploadQueueRef.current.length > 0) {
+        const nextUpload = uploadQueueRef.current.shift();
+        if (!nextUpload) {
+          continue;
+        }
+
+        try {
+          const saved = await uploadItem({
+            file: nextUpload.file,
+            category: nextUpload.category,
+            action: nextUpload.action,
+          });
+
+          // #region debug-point B:register-save-success
+          reportDebugEvent("B", "hooks/index.ts:saveAction:success", "[DEBUG] register save action success", {
+            cleanupProjectId,
+            action: nextUpload.action,
+            category: nextUpload.category,
+            savedItemId: saved.id,
+            savedItemNumber: saved.itemNumber,
+            durationMs: Math.round((typeof performance !== "undefined" ? performance.now() : Date.now()) - nextUpload.queuedAt),
+            queueLengthAfterSave: uploadQueueRef.current.length,
+          });
+          // #endregion
+
+          setLastSavedItem(saved);
+        } catch (err) {
+          // #region debug-point B:register-save-error
+          reportDebugEvent("B", "hooks/index.ts:saveAction:error", "[DEBUG] register save action error", {
+            cleanupProjectId,
+            action: nextUpload.action,
+            category: nextUpload.category,
+            error: err instanceof Error ? err.message : "unknown",
+            queueLengthAfterError: uploadQueueRef.current.length,
+          });
+          // #endregion
+        }
+      }
+    } finally {
+      processingQueueRef.current = false;
+      if (uploadQueueRef.current.length > 0) {
+        void processUploadQueue();
+      }
+    }
+  }, [cleanupProjectId, uploadItem]);
+
   const saveAction = useCallback(
     async (action: "kast" | "selg" | "behold") => {
-      if (savingActionRef.current) {
+      if (currentDraftSubmittedRef.current) {
         // #region debug-point B:register-duplicate-guard
         reportDebugEvent("B", "hooks/index.ts:saveAction:guard", "[DEBUG] register action ignored while upload in progress", {
           cleanupProjectId,
@@ -234,49 +298,38 @@ export function useCleanupRegisterFlow(cleanupProjectId: string) {
       if (!selectedFile || !category) {
         throw new Error("Bilde og kategori må velges");
       }
-      savingActionRef.current = true;
-      try {
-        // #region debug-point B:register-save-start
-        const startedAt = typeof performance !== "undefined" ? performance.now() : Date.now();
-        reportDebugEvent("B", "hooks/index.ts:saveAction:start", "[DEBUG] register save action start", {
-          cleanupProjectId,
-          action,
-          category,
-          fileName: selectedFile.name,
-          fileSize: selectedFile.size,
-        });
-        // #endregion
-        const saved = await uploadItem({ file: selectedFile, category, action });
-        // #region debug-point B:register-save-success
-        reportDebugEvent("B", "hooks/index.ts:saveAction:success", "[DEBUG] register save action success", {
-          cleanupProjectId,
-          action,
-          category,
-          savedItemId: saved.id,
-          savedItemNumber: saved.itemNumber,
-          durationMs: Math.round((typeof performance !== "undefined" ? performance.now() : Date.now()) - startedAt),
-        });
-        // #endregion
-        setLastSavedItem(saved);
-        setSelectedFile(null);
-        setCategory(null);
-        setCameraReopenCount((current) => current + 1);
-        return saved;
-      } catch (err) {
-        // #region debug-point B:register-save-error
-        reportDebugEvent("B", "hooks/index.ts:saveAction:error", "[DEBUG] register save action error", {
-          cleanupProjectId,
-          action,
-          category,
-          error: err instanceof Error ? err.message : "unknown",
-        });
-        // #endregion
-        throw err;
-      } finally {
-        savingActionRef.current = false;
-      }
+      currentDraftSubmittedRef.current = true;
+
+      const queuedAt = typeof performance !== "undefined" ? performance.now() : Date.now();
+      const queuedFile = selectedFile;
+      const queuedCategory = category;
+
+      // #region debug-point B:register-save-start
+      reportDebugEvent("B", "hooks/index.ts:saveAction:start", "[DEBUG] register save action queued", {
+        cleanupProjectId,
+        action,
+        category: queuedCategory,
+        fileName: queuedFile.name,
+        fileSize: queuedFile.size,
+        queueLengthBeforePush: uploadQueueRef.current.length,
+      });
+      // #endregion
+
+      uploadQueueRef.current.push({
+        file: queuedFile,
+        category: queuedCategory,
+        action,
+        queuedAt,
+      });
+
+      setSelectedFile(null);
+      setCategory(null);
+      setCameraReopenCount((current) => current + 1);
+
+      void processUploadQueue();
+      return null;
     },
-    [category, cleanupProjectId, selectedFile, uploadItem]
+    [category, cleanupProjectId, processUploadQueue, selectedFile]
   );
 
   const reset = useCallback(() => {
