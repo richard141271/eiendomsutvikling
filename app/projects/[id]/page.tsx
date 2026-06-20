@@ -38,6 +38,11 @@ export default async function ProjectPage({ params }: { params: { id: string } }
            {project.property?.name || "Tilfeldig prosjekt"}
            {project.unit && ` • Enhet ${project.unit.unitNumber || project.unit.name}`}
         </p>
+        <div className="mt-3">
+          <Link href={`/projects/${project.id}/rydderen`} className="text-sm text-blue-600 hover:underline">
+            Åpne i Rydder&apos;n
+          </Link>
+        </div>
       </div>
 
       <ProjectClient project={serialize(project)} />

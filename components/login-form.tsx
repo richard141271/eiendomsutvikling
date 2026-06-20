@@ -105,13 +105,19 @@ export function LoginForm() {
         </CardDescription>
       </CardHeader>
       <CardContent>
-        <form onSubmit={form.handleSubmit(onSubmit)}>
+        <form onSubmit={form.handleSubmit(onSubmit)} method="post" autoComplete="on">
           <div className="grid w-full items-center gap-4">
             <div className="flex flex-col space-y-1.5">
               <Label htmlFor="email">E-post</Label>
               <Input
                 id="email"
+                type="email"
                 placeholder="navn@eksempel.no"
+                autoComplete="username"
+                inputMode="email"
+                autoCapitalize="none"
+                autoCorrect="off"
+                spellCheck={false}
                 {...form.register("email")}
               />
               {form.formState.errors.email && (
@@ -128,6 +134,10 @@ export function LoginForm() {
                   type={showPassword ? "text" : "password"}
                   placeholder="Minst 4 tegn"
                   className="pr-10"
+                  autoComplete="current-password"
+                  autoCapitalize="none"
+                  autoCorrect="off"
+                  spellCheck={false}
                   {...form.register("password")}
                 />
                 <button
