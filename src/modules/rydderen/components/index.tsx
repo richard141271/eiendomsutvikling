@@ -5,7 +5,7 @@ import { useEffect, useRef, useState } from "react";
 import { ArrowRight, Camera, FolderKanban, Printer, X } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
@@ -25,6 +25,7 @@ import {
   CLEANUP_COST_TYPES,
   CLEANUP_MODULE_BRAND,
   DEFAULT_RYDDEREN_CATEGORIES,
+  formatCleanupActionLabel,
   formatCleanupObjectLabel,
   formatCurrency,
   formatDate,
@@ -99,9 +100,16 @@ export function RydderenProjectStrip(props: {
   project: CleanupProject;
   projects: CleanupProject[];
   basePath: string;
+  activeView: "register" | "valuation" | "overview";
 }) {
+  const getProjectHref = (projectId: string) => {
+    if (props.activeView === "register") return `${props.basePath}/projects/${projectId}/register`;
+    if (props.activeView === "valuation") return `${props.basePath}/projects/${projectId}/valuation`;
+    return `${props.basePath}/projects/${projectId}`;
+  };
+
   return (
-    <section className="grid gap-3 rounded-[20px] border bg-white p-4 shadow-sm">
+    <section className="grid gap-3 rounded-[20px] bg-white p-4 shadow-[0_16px_40px_rgba(17,24,39,0.10)]">
       <div>
         <p className="mb-1 text-xs uppercase tracking-[0.08em] text-slate-500">Aktivt prosjekt</p>
         <h2 className="text-xl font-bold">{props.project.name}</h2>
@@ -111,7 +119,7 @@ export function RydderenProjectStrip(props: {
         className="min-h-14 w-full rounded-2xl border border-slate-300 bg-white px-4 py-3 text-base"
         value={props.project.id}
         onChange={(event) => {
-          window.location.href = `${props.basePath}/projects/${event.target.value}`;
+          window.location.href = getProjectHref(event.target.value);
         }}
       >
         {props.projects.map((project) => (
@@ -172,7 +180,7 @@ export function RydderenAppShell(props: {
           <h1 className="text-3xl font-bold">{CLEANUP_MODULE_BRAND}</h1>
         </div>
       </header>
-      <RydderenProjectStrip project={props.project} projects={props.projects} basePath={props.basePath} />
+      <RydderenProjectStrip project={props.project} projects={props.projects} basePath={props.basePath} activeView={props.active} />
       {props.children}
       <RydderenBottomNav cleanupProjectId={props.cleanupProjectId} basePath={props.basePath} active={props.active} />
     </div>
@@ -289,8 +297,6 @@ export function RydderenRegisterFlow(props: {
   autoOpenCameraCount?: number;
 }) {
   const cameraInputRef = useRef<HTMLInputElement | null>(null);
-  const categoryFooterRef = useRef<HTMLDivElement | null>(null);
-  const actionButtonsRef = useRef<HTMLDivElement | null>(null);
 
   useEffect(() => {
     if (!props.autoOpenCameraCount || props.step !== "camera") {
@@ -302,32 +308,11 @@ export function RydderenRegisterFlow(props: {
     return () => window.clearTimeout(timeout);
   }, [props.autoOpenCameraCount, props.step]);
 
-  useEffect(() => {
-    const scrollToTarget = () => {
-      if (props.step === "camera") {
-        window.scrollTo({ top: 0, behavior: "auto" });
-        return;
-      }
-
-      if (props.step === "category") {
-        categoryFooterRef.current?.scrollIntoView({ block: "end", behavior: "auto" });
-        return;
-      }
-
-      if (props.step === "action") {
-        actionButtonsRef.current?.scrollIntoView({ block: "end", behavior: "auto" });
-      }
-    };
-
-    const frame = window.requestAnimationFrame(scrollToTarget);
-    return () => window.cancelAnimationFrame(frame);
-  }, [props.step]);
-
   return (
     <div className="space-y-4">
       {props.error ? <div className="rounded-xl bg-red-50 p-3 text-sm text-red-700">{props.error}</div> : null}
       {props.step === "camera" ? (
-        <section className="rounded-[20px] bg-white p-5 shadow-sm">
+        <section className="rounded-[20px] bg-white p-5 shadow-[0_16px_40px_rgba(17,24,39,0.10)]">
           <div className="mb-5">
             <p className="mb-1 text-xs uppercase tracking-[0.08em] text-slate-500">Registrering</p>
             <h2 className="text-2xl font-bold">Ta bilde av neste objekt</h2>
@@ -357,17 +342,11 @@ export function RydderenRegisterFlow(props: {
       ) : null}
 
       {props.step === "category" ? (
-        <section className="rounded-[20px] bg-white p-5 shadow-sm">
+        <section className="rounded-[20px] bg-white p-5 shadow-[0_16px_40px_rgba(17,24,39,0.10)]">
           <div className="mb-5">
             <p className="mb-1 text-xs uppercase tracking-[0.08em] text-slate-500">Steg 1 av 2</p>
             <h2 className="text-2xl font-bold">Velg kategori</h2>
           </div>
-          {props.previewUrl ? (
-            <div className="mb-4 overflow-hidden rounded-[18px] border border-slate-300 bg-slate-50 p-4">
-              {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img src={props.previewUrl} alt="Forhåndsvisning av valgt objekt" className="w-full rounded-[14px] object-cover" />
-            </div>
-          ) : null}
           <div className="grid grid-cols-2 gap-3">
             {DEFAULT_RYDDEREN_CATEGORIES.map((category) => (
               <button
@@ -380,7 +359,7 @@ export function RydderenRegisterFlow(props: {
               </button>
             ))}
           </div>
-          <div ref={categoryFooterRef} className="mt-4 grid scroll-mb-28 gap-3 md:grid-cols-2">
+          <div className="mt-4 grid gap-3 md:grid-cols-2">
             <button
               type="button"
               className="min-h-16 rounded-[18px] bg-slate-200 px-4 py-3 text-base font-bold text-slate-900"
@@ -398,7 +377,7 @@ export function RydderenRegisterFlow(props: {
       ) : null}
 
       {props.step === "action" ? (
-        <section className="rounded-[20px] bg-white p-5 shadow-sm">
+        <section className="rounded-[20px] bg-white p-5 shadow-[0_16px_40px_rgba(17,24,39,0.10)]">
           <div className="mb-5">
             <p className="mb-1 text-xs uppercase tracking-[0.08em] text-slate-500">Steg 2 av 2</p>
             <h2 className="text-2xl font-bold">Velg handling</h2>
@@ -410,12 +389,7 @@ export function RydderenRegisterFlow(props: {
               </span>
             </div>
           ) : null}
-          {props.saving ? (
-            <div className="mb-4 rounded-[18px] border border-blue-200 bg-blue-50 px-4 py-3 text-sm font-medium text-blue-900">
-              Lagrer objekt og går videre til neste bilde...
-            </div>
-          ) : null}
-          <div ref={actionButtonsRef} className="grid scroll-mb-28 gap-3 md:grid-cols-3">
+          <div className="grid gap-3 md:grid-cols-3">
             {CLEANUP_ACTIONS.map((action) => (
               <button
                 key={action.value}
@@ -423,11 +397,11 @@ export function RydderenRegisterFlow(props: {
                 disabled={props.saving}
                 className={cn(
                   "min-h-16 rounded-[18px] px-4 py-4 text-base font-bold text-white active:scale-[0.99]",
-                  action.value === "kast" ? "bg-red-700" : "bg-slate-900"
+                  action.value === "kast" ? "bg-slate-900" : "bg-slate-900"
                 )}
                 onClick={() => props.onAction(action.value)}
               >
-                {props.saving ? "Lagrer..." : action.label}
+                {action.label}
               </button>
             ))}
           </div>
@@ -502,7 +476,7 @@ export function RydderenValuationCard(props: {
   }, [props.item.id]);
 
   return (
-    <Card className="rounded-[20px] shadow-sm">
+    <Card className="rounded-[20px] border bg-slate-50 shadow-none">
       <CardHeader className="space-y-2">
         <div className="space-y-1">
           <p className="text-xs uppercase tracking-[0.08em] text-slate-500">Verdisetting</p>
@@ -585,53 +559,32 @@ export function RydderenValuationQueue(props: {
   onNext: (payload: { value: number | null; comment: string; condition: string; note: string }) => void;
   onExitHref: string;
 }) {
-  return (
-    <div className="grid gap-4 lg:grid-cols-[minmax(0,280px)_minmax(0,1fr)]">
-      <div className="space-y-3">
-        {props.items.map((item) => (
-          <div
-            key={item.id}
-            className={`rounded-[14px] border bg-white p-3 text-sm ${props.currentItem?.id === item.id ? "border-blue-700 bg-blue-50" : ""}`}
-          >
-            <div className="font-semibold">{formatCleanupObjectLabel(item.itemNumber)}</div>
-            <div className="text-muted-foreground">
-              {item.category} • {item.action}
-            </div>
-            <div className="text-muted-foreground">{item.value === null ? "Uten verdi" : formatCurrency(item.value)}</div>
-          </div>
-        ))}
-      </div>
-      <div>
-        {props.currentItem ? (
-          <RydderenValuationCard item={props.currentItem} saving={props.saving} onNext={props.onNext} onExitHref={props.onExitHref} />
-        ) : (
-          <Card className="rounded-[20px]">
-            <CardContent className="p-6 text-sm text-muted-foreground">Ingen objekter uten verdi i valgt prosjekt.</CardContent>
-          </Card>
-        )}
-      </div>
-    </div>
-  );
+  if (!props.currentItem) {
+    return (
+      <Card className="rounded-[20px] border bg-slate-50 shadow-none">
+        <CardContent className="p-6 text-sm text-muted-foreground">Ingen objekter uten verdi i valgt prosjekt.</CardContent>
+      </Card>
+    );
+  }
+
+  return <RydderenValuationCard item={props.currentItem} saving={props.saving} onNext={props.onNext} onExitHref={props.onExitHref} />;
 }
 
 export function RydderenStatsCards(props: { report: CleanupReportSummary }) {
   const stats = [
-    { label: "Objekter", value: props.report.totalItems.toString() },
-    { label: "Uten verdi", value: props.report.unvaluedItems.toString() },
-    { label: "Total verdi", value: formatCurrency(props.report.totalValue) },
-    { label: "Kostnader", value: formatCurrency(props.report.projectCosts) },
-    { label: "Netto", value: formatCurrency(props.report.netValue) },
+    { label: "Kast", value: props.report.castCount.toString() },
+    { label: "Selg", value: props.report.sellCount.toString() },
+    { label: "Behold", value: props.report.keepCount.toString() },
+    { label: "Totalt", value: props.report.totalItems.toString() },
   ];
 
   return (
-    <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-5">
+    <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
       {stats.map((stat) => (
-        <Card key={stat.label}>
-          <CardHeader className="pb-2">
-            <CardDescription>{stat.label}</CardDescription>
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{stat.value}</div>
+        <Card key={stat.label} className="rounded-2xl border bg-slate-50 shadow-none">
+          <CardContent className="p-4">
+            <div className="text-sm text-muted-foreground">{stat.label}</div>
+            <div className="mt-1 text-3xl font-bold">{stat.value}</div>
           </CardContent>
         </Card>
       ))}
@@ -654,7 +607,7 @@ export function RydderenItemCard({ item }: { item: CleanupItem }) {
         <div className="space-y-1">
           <div className="flex items-center justify-between gap-2">
             <div className="font-semibold">{formatCleanupObjectLabel(item.itemNumber)}</div>
-            <Badge variant="outline">{item.action}</Badge>
+            <Badge variant="outline">{formatCleanupActionLabel(item.action)}</Badge>
           </div>
           <div className="text-sm text-muted-foreground">{item.category}</div>
           <div className="text-sm text-muted-foreground">Dato: {formatDate(item.createdAt)}</div>
@@ -676,64 +629,114 @@ export function RydderenItemsList(props: { items: CleanupItem[] }) {
   );
 }
 
+export function RydderenProjectManager(props: {
+  projects: CleanupProject[];
+  activeProjectId: string;
+  creating?: boolean;
+  deletingId?: string | null;
+  onCreate: (name: string) => void;
+  onDelete?: (projectId: string) => void;
+}) {
+  const [name, setName] = useState("");
+
+  return (
+    <div className="grid gap-3">
+      <div className="grid gap-3 md:grid-cols-[1fr_auto]">
+        <Input
+          className="min-h-14 rounded-2xl"
+          type="text"
+          autoComplete="off"
+          placeholder="Nytt prosjekt"
+          value={name}
+          onChange={(event) => setName(event.target.value)}
+        />
+        <Button
+          type="button"
+          variant="outline"
+          className="min-h-14 rounded-[18px] px-6 text-base font-bold"
+          disabled={props.creating || !name.trim()}
+          onClick={() => {
+            props.onCreate(name);
+            setName("");
+          }}
+        >
+          Legg til
+        </Button>
+      </div>
+      <div className="grid gap-3">
+        {props.projects.map((project) => (
+          <div key={project.id} className="flex items-center justify-between gap-3 rounded-[14px] border bg-white px-4 py-3">
+            <div className="min-w-0">
+              <div className="font-semibold">{project.name}</div>
+              <div className="text-sm text-muted-foreground">{project.id === props.activeProjectId ? "Aktivt prosjekt" : "Prosjekt"}</div>
+            </div>
+            {props.onDelete ? (
+              <Button
+                type="button"
+                variant="ghost"
+                className="min-h-11 rounded-[14px] bg-red-100 px-4 font-bold text-red-700 hover:bg-red-200 hover:text-red-800"
+                disabled={props.deletingId === project.id}
+                onClick={() => props.onDelete?.(project.id)}
+              >
+                Slett
+              </Button>
+            ) : null}
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
 export function RydderenCostList(props: { costs: CleanupCost[] }) {
   return (
-    <Card>
-      <CardHeader>
-        <CardTitle>Kostnader</CardTitle>
-      </CardHeader>
-      <CardContent className="space-y-3">
-        {props.costs.length ? (
-          props.costs.map((cost) => (
-            <div key={cost.id} className="flex items-center justify-between rounded-xl border p-3 text-sm">
-              <div>
-                <div className="font-medium">{cost.costType}</div>
-                <div className="text-muted-foreground">{cost.description || formatDate(cost.incurredAt)}</div>
+    <div className="grid gap-3">
+      {props.costs.length ? (
+        props.costs.map((cost) => (
+          <div key={cost.id} className="flex items-center justify-between gap-3 rounded-[14px] border bg-white px-4 py-3 text-sm">
+            <div>
+              <div className="font-semibold">
+                {CLEANUP_COST_TYPES.find((type) => type.value === cost.costType)?.label || cost.costType}
               </div>
-              <div className="font-semibold">{formatCurrency(cost.amount)}</div>
+              <div className="text-muted-foreground">{formatDate(cost.createdAt)}</div>
             </div>
-          ))
-        ) : (
-          <div className="text-sm text-muted-foreground">Ingen kostnader registrert.</div>
-        )}
-      </CardContent>
-    </Card>
+            <div className="font-semibold">{formatCurrency(cost.amount)}</div>
+          </div>
+        ))
+      ) : null}
+    </div>
   );
 }
 
 export function RydderenCostForm(props: { saving?: boolean; onSubmit: (payload: { costType: string; amount: number; description: string }) => void }) {
   const [costType, setCostType] = useState("container");
   const [amount, setAmount] = useState("");
-  const [description, setDescription] = useState("");
 
   return (
-    <Card>
-      <CardHeader>
-        <CardTitle>Legg til kostnad</CardTitle>
-      </CardHeader>
-      <CardContent className="grid gap-3">
-        <select className="rounded-lg border bg-white px-3 py-2 text-sm" value={costType} onChange={(event) => setCostType(event.target.value)}>
-          {CLEANUP_COST_TYPES.map((type) => (
-            <option key={type.value} value={type.value}>
-              {type.label}
-            </option>
-          ))}
-        </select>
-        <Input type="number" inputMode="decimal" placeholder="Beløp i NOK" value={amount} onChange={(event) => setAmount(event.target.value)} />
-        <Input placeholder="Beskrivelse" value={description} onChange={(event) => setDescription(event.target.value)} />
+    <div className="grid gap-3">
+      <select className="min-h-14 rounded-2xl border bg-white px-4 py-3 text-base" value={costType} onChange={(event) => setCostType(event.target.value)}>
+        {CLEANUP_COST_TYPES.map((type) => (
+          <option key={type.value} value={type.value}>
+            {type.label}
+          </option>
+        ))}
+      </select>
+      <div className="grid gap-3 md:grid-cols-[1fr_auto]">
+        <Input type="number" inputMode="numeric" min="0" step="1" placeholder="Beløp" value={amount} onChange={(event) => setAmount(event.target.value)} className="min-h-14 rounded-2xl" />
         <Button
           type="button"
+          variant="outline"
+          className="min-h-14 rounded-[18px] px-6 text-base font-bold"
           disabled={props.saving || !amount}
           onClick={() => {
-            props.onSubmit({ costType, amount: Number(amount), description });
+            props.onSubmit({ costType, amount: Number(amount), description: "" });
             setAmount("");
-            setDescription("");
           }}
         >
-          {props.saving ? "Lagrer..." : "Legg til kostnad"}
+          Legg til
         </Button>
-      </CardContent>
-    </Card>
+      </div>
+    </div>
   );
 }
 

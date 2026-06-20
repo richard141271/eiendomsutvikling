@@ -49,6 +49,12 @@ export async function updateCleanupProjectRecord(cleanupProjectId: string, tenan
   });
 }
 
+export async function deleteCleanupProjectRecord(cleanupProjectId: string, tenantId: string) {
+  return (prisma as any).cleanupProject.deleteMany({
+    where: { id: cleanupProjectId, tenantId },
+  });
+}
+
 export async function findCleanupProjectBySlug(tenantId: string, slug: string) {
   return (prisma as any).cleanupProject.findFirst({
     where: { tenantId, slug },
@@ -78,7 +84,7 @@ export async function listCleanupItemsForTenant(params: {
         select: { id: true, name: true },
       },
     },
-    orderBy: { itemNumber: "asc" },
+    orderBy: { createdAt: "desc" },
   });
 }
 

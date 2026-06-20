@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { getCleanupProject, updateCleanupProject } from "@/src/modules/rydderen/services";
+import { deleteCleanupProject, getCleanupProject, updateCleanupProject } from "@/src/modules/rydderen/services";
 
 export async function GET(_: Request, { params }: { params: { cleanupProjectId: string } }) {
   try {
@@ -21,6 +21,18 @@ export async function PATCH(request: Request, { params }: { params: { cleanupPro
   } catch (error) {
     return NextResponse.json(
       { error: error instanceof Error ? error.message : "Kunne ikke oppdatere ryddeprosjekt" },
+      { status: 400 }
+    );
+  }
+}
+
+export async function DELETE(_: Request, { params }: { params: { cleanupProjectId: string } }) {
+  try {
+    const result = await deleteCleanupProject(params.cleanupProjectId);
+    return NextResponse.json(result);
+  } catch (error) {
+    return NextResponse.json(
+      { error: error instanceof Error ? error.message : "Kunne ikke slette ryddeprosjekt" },
       { status: 400 }
     );
   }

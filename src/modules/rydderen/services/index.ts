@@ -7,6 +7,7 @@ import {
   createCleanupProjectLinkRecord,
   createCleanupProjectRecord,
   createCleanupSignedUrl,
+  deleteCleanupProjectRecord,
   ensureCleanupStorageBucket,
   findCleanupProjectBySlug,
   getCleanupItemByIdForTenant,
@@ -262,6 +263,17 @@ export async function updateCleanupProject(cleanupProjectId: string, input: Clea
 
   await updateCleanupProjectRecord(cleanupProjectId, actor.tenantId, data);
   return getCleanupProject(cleanupProjectId);
+}
+
+export async function deleteCleanupProject(cleanupProjectId: string) {
+  const actor = await requireCleanupActor();
+  const project = await getCleanupProjectByIdForTenant(cleanupProjectId, actor.tenantId);
+  if (!project) {
+    throw new Error("Cleanup project not found");
+  }
+
+  await deleteCleanupProjectRecord(cleanupProjectId, actor.tenantId);
+  return { success: true };
 }
 
 export async function listCleanupItems(cleanupProjectId: string, filters?: { action?: string | null }) {

@@ -14,6 +14,7 @@ import {
   RydderenItemsList,
   RydderenPrintLayout,
   RydderenProjectCreateDialog,
+  RydderenProjectManager,
   RydderenReportView,
   RydderenRegisterFlow,
   RydderenStatsCards,
@@ -191,7 +192,10 @@ export function RydderenProjectListPage(props: {
 
 export function RydderenProjectDetailsPage(props: { cleanupProjectId: string; basePath: string }) {
   const { project, loading: projectLoading, error: projectError } = useCleanupProject(props.cleanupProjectId);
-  const { projects } = useCleanupProjects();
+  const router = useRouter();
+  const [creatingProject, setCreatingProject] = useState(false);
+  const [deletingProjectId, setDeletingProjectId] = useState<string | null>(null);
+  const { projects, createProject, deleteProject } = useCleanupProjects();
   const { items, loading: itemsLoading } = useCleanupItems(props.cleanupProjectId);
   const { costs, saving: costSaving, addCost } = useCleanupCosts(props.cleanupProjectId);
   const { report, loading: reportLoading } = useCleanupReport(props.cleanupProjectId);
@@ -231,12 +235,50 @@ export function RydderenProjectDetailsPage(props: { cleanupProjectId: string; ba
         </div>
 
         <div className="mb-4">
-          <Button variant="outline" onClick={() => window.print()}>
+          <Button variant="outline" className="min-h-12 rounded-[18px] px-5 text-base font-bold" onClick={() => window.print()}>
             Skriv ut rapport
           </Button>
         </div>
 
         <div className="mb-4 grid gap-4 md:grid-cols-2">
+          <Card className="rounded-[18px] border bg-slate-50">
+            <CardHeader>
+              <CardTitle>Prosjekter</CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <RydderenProjectManager
+                projects={projects.length ? projects : [project]}
+                activeProjectId={project.id}
+                creating={creatingProject}
+                deletingId={deletingProjectId}
+                onCreate={async (name) => {
+                  try {
+                    setCreatingProject(true);
+                    const created = await createProject({ name, moduleType: "rydderen", contextType: "standalone" });
+                    router.push(`${props.basePath}/projects/${created.id}`);
+                  } finally {
+                    setCreatingProject(false);
+                  }
+                }}
+                onDelete={async (projectId) => {
+                  const target = projects.find((entry) => entry.id !== projectId);
+                  if (!window.confirm("Slette prosjektet? Dette sletter også objekter og kostnader.")) {
+                    return;
+                  }
+
+                  try {
+                    setDeletingProjectId(projectId);
+                    await deleteProject(projectId);
+                    if (projectId === project.id) {
+                      router.push(target ? `${props.basePath}/projects/${target.id}` : `${props.basePath}/projects`);
+                    }
+                  } finally {
+                    setDeletingProjectId(null);
+                  }
+                }}
+              />
+            </CardContent>
+          </Card>
           <Card className="rounded-[18px] border bg-slate-50">
             <CardHeader>
               <CardTitle>Prosjektkostnader</CardTitle>
@@ -251,27 +293,30 @@ export function RydderenProjectDetailsPage(props: { cleanupProjectId: string; ba
               <RydderenCostList costs={costs} />
             </CardContent>
           </Card>
-          {report ? (
-            <Card className="rounded-[18px] border bg-slate-50">
-              <CardHeader>
-                <CardTitle>Lageroppryddingsrapport</CardTitle>
-                <CardDescription>Dato: {new Date(report.generatedAt).toLocaleDateString("no-NO")}</CardDescription>
-              </CardHeader>
-              <CardContent className="space-y-1 text-sm">
-                <p>Prosjekt: {report.project.name}</p>
-                <p>Kast: {report.castCount} objekter</p>
-                <p>Selg: {report.sellCount} objekter</p>
-                <p>Behold: {report.keepCount} objekter</p>
-                <p>Totalt: {report.totalItems} objekter</p>
-                <p>Totalt registrert verdi: {formatCurrency(report.totalValue)}</p>
-                <p>Totale prosjektkostnader: {formatCurrency(report.projectCosts)}</p>
-                <p>Netto verdi: {formatCurrency(report.netValue)}</p>
-              </CardContent>
-            </Card>
-          ) : null}
         </div>
 
-        {itemsLoading ? <div className="text-sm text-muted-foreground">Laster objekter...</div> : <RydderenItemsList items={filteredItems} />}
+        {report ? (
+          <Card className="mb-4 rounded-[18px] border bg-slate-50">
+            <CardHeader>
+              <CardTitle>Lageroppryddingsrapport</CardTitle>
+              <CardDescription>Dato: {new Date(report.generatedAt).toLocaleDateString("no-NO")}</CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-1 text-sm">
+              <p>Prosjekt: {report.project.name}</p>
+              <p>Kast: {report.castCount} objekter</p>
+              <p>Selg: {report.sellCount} objekter</p>
+              <p>Behold: {report.keepCount} objekter</p>
+              <p>Totalt: {report.totalItems} objekter</p>
+              <p>Totalt registrert verdi: {formatCurrency(report.totalValue)}</p>
+              <p>Totale prosjektkostnader: {formatCurrency(report.projectCosts)}</p>
+              <p>Netto verdi: {formatCurrency(report.netValue)}</p>
+            </CardContent>
+          </Card>
+        ) : null}
+
+        <div className="mt-4">
+          {itemsLoading ? <div className="text-sm text-muted-foreground">Laster objekter...</div> : <RydderenItemsList items={filteredItems} />}
+        </div>
       </section>
     </RydderenAppShell>
   );

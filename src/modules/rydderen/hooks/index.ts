@@ -45,7 +45,16 @@ export function useCleanupProjects(filters?: { contextType?: string | null; cont
     [refresh]
   );
 
-  return { projects, loading, error, refresh, createProject };
+  const deleteProject = useCallback(
+    async (cleanupProjectId: string) => {
+      await cleanupApiClient.deleteProject(cleanupProjectId);
+      await refresh();
+      return true;
+    },
+    [refresh]
+  );
+
+  return { projects, loading, error, refresh, createProject, deleteProject };
 }
 
 export function useCleanupProject(cleanupProjectId: string) {

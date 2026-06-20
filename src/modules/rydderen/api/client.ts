@@ -52,6 +52,11 @@ export const cleanupApiClient = {
       body: JSON.stringify(body),
     });
   },
+  deleteProject(cleanupProjectId: string) {
+    return request<{ success: boolean }>(`/api/rydderen/projects/${cleanupProjectId}`, {
+      method: "DELETE",
+    });
+  },
   listItems(cleanupProjectId: string, query?: { action?: string | null }) {
     const params = new URLSearchParams();
     if (query?.action) params.set("action", query.action);

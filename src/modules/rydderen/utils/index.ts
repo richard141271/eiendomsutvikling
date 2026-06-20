@@ -102,3 +102,10 @@ export function formatCleanupObjectLabel(itemNumber: number | null | undefined) 
   if (!itemNumber && itemNumber !== 0) return "Objekt";
   return `Objekt #${String(itemNumber).padStart(3, "0")}`;
 }
+
+export function formatCleanupActionLabel(action: string | null | undefined) {
+  if (action === "kast") return "Kast";
+  if (action === "selg") return "Selg";
+  if (action === "behold") return "Behold";
+  return action || "";
+}
