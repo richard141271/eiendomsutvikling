@@ -389,6 +389,11 @@ export function RydderenRegisterFlow(props: {
               </span>
             </div>
           ) : null}
+          {props.saving ? (
+            <div className="mb-4 rounded-[18px] border border-blue-200 bg-blue-50 px-4 py-3 text-sm font-medium text-blue-900">
+              Lagrer objekt og går videre til neste bilde...
+            </div>
+          ) : null}
           <div className="grid gap-3 md:grid-cols-3">
             {CLEANUP_ACTIONS.map((action) => (
               <button
@@ -401,7 +406,7 @@ export function RydderenRegisterFlow(props: {
                 )}
                 onClick={() => props.onAction(action.value)}
               >
-                {action.label}
+                {props.saving ? "Lagrer..." : action.label}
               </button>
             ))}
           </div>

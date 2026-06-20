@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { cleanupApiClient } from "@/src/modules/rydderen/api/client";
 import type {
   CleanupCost,
@@ -169,6 +169,7 @@ export function useCleanupRegisterFlow(cleanupProjectId: string) {
   const [category, setCategory] = useState<string | null>(null);
   const [lastSavedItem, setLastSavedItem] = useState<CleanupItem | null>(null);
   const [cameraReopenCount, setCameraReopenCount] = useState(0);
+  const savingActionRef = useRef(false);
 
   useEffect(() => {
     if (!selectedFile) {
@@ -197,15 +198,23 @@ export function useCleanupRegisterFlow(cleanupProjectId: string) {
 
   const saveAction = useCallback(
     async (action: "kast" | "selg" | "behold") => {
+      if (savingActionRef.current) {
+        return null;
+      }
       if (!selectedFile || !category) {
         throw new Error("Bilde og kategori må velges");
       }
-      const saved = await uploadItem({ file: selectedFile, category, action });
-      setLastSavedItem(saved);
-      setSelectedFile(null);
-      setCategory(null);
-      setCameraReopenCount((current) => current + 1);
-      return saved;
+      savingActionRef.current = true;
+      try {
+        const saved = await uploadItem({ file: selectedFile, category, action });
+        setLastSavedItem(saved);
+        setSelectedFile(null);
+        setCategory(null);
+        setCameraReopenCount((current) => current + 1);
+        return saved;
+      } finally {
+        savingActionRef.current = false;
+      }
     },
     [category, selectedFile, uploadItem]
   );
@@ -236,21 +245,13 @@ export function useCleanupValuationQueue(cleanupProjectId: string) {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [activeIndex, setActiveIndex] = useState(0);
 
   const refresh = useCallback(async () => {
     try {
       setLoading(true);
       setError(null);
       const nextItems = await cleanupApiClient.listItems(cleanupProjectId);
-      const queue = [...nextItems].sort((a, b) => {
-        const aRank = a.value === null ? 0 : 1;
-        const bRank = b.value === null ? 0 : 1;
-        if (aRank !== bRank) return aRank - bRank;
-        return a.itemNumber - b.itemNumber;
-      });
-      setItems(queue);
-      setActiveIndex(0);
+      setItems(nextItems);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Kunne ikke hente verdisettingskø");
     } finally {
@@ -262,7 +263,8 @@ export function useCleanupValuationQueue(cleanupProjectId: string) {
     void refresh();
   }, [refresh]);
 
-  const currentItem = useMemo(() => items[activeIndex] || null, [activeIndex, items]);
+  const queueItems = useMemo(() => items.filter((item) => item.value === null || item.value === undefined), [items]);
+  const currentItem = useMemo(() => queueItems[0] || null, [queueItems]);
 
   const saveCurrentAndAdvance = useCallback(
     async (payload: { value: number | null; comment?: string | null; condition?: string | null; note?: string | null }) => {
@@ -277,7 +279,6 @@ export function useCleanupValuationQueue(cleanupProjectId: string) {
           valuedAt: payload.value === null ? null : new Date().toISOString(),
         });
         setItems((current) => current.map((item) => (item.id === updated.id ? updated : item)));
-        setActiveIndex((current) => Math.min(current + 1, Math.max(items.length - 1, 0)));
         return updated;
       } catch (err) {
         setError(err instanceof Error ? err.message : "Kunne ikke lagre verdisetting");
@@ -286,10 +287,10 @@ export function useCleanupValuationQueue(cleanupProjectId: string) {
         setSaving(false);
       }
     },
-    [cleanupProjectId, currentItem, items.length]
+    [cleanupProjectId, currentItem]
   );
 
-  return { items, currentItem, activeIndex, loading, saving, error, refresh, saveCurrentAndAdvance };
+  return { items: queueItems, currentItem, loading, saving, error, refresh, saveCurrentAndAdvance };
 }
 
 export function useCleanupReport(cleanupProjectId: string) {
