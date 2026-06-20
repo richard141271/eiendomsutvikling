@@ -173,7 +173,10 @@ export function RydderenAppShell(props: {
   children: React.ReactNode;
 }) {
   return (
-    <div className="mx-auto flex min-h-[calc(100vh-8rem)] max-w-[820px] flex-col gap-4 px-4 pb-28 pt-4">
+    <div
+      className="mx-auto flex min-h-[calc(100vh-8rem)] w-full max-w-[820px] flex-col gap-3 overflow-x-hidden px-3 pb-[calc(9rem+env(safe-area-inset-bottom))] pt-3 sm:px-4 sm:pb-[calc(8rem+env(safe-area-inset-bottom))] sm:pt-4"
+      style={{ touchAction: "pan-y", overscrollBehaviorX: "none" }}
+    >
       <header className="flex items-start justify-between gap-4">
         <div>
           <p className="mb-1 text-xs uppercase tracking-[0.08em] text-slate-500">Prosjektnavn</p>
@@ -342,11 +345,17 @@ export function RydderenRegisterFlow(props: {
       ) : null}
 
       {props.step === "category" ? (
-        <section className="rounded-[20px] bg-white p-5 shadow-[0_16px_40px_rgba(17,24,39,0.10)]">
+        <section className="overflow-hidden rounded-[20px] bg-white p-5 shadow-[0_16px_40px_rgba(17,24,39,0.10)]">
           <div className="mb-5">
             <p className="mb-1 text-xs uppercase tracking-[0.08em] text-slate-500">Steg 1 av 2</p>
             <h2 className="text-2xl font-bold">Velg kategori</h2>
           </div>
+          {props.previewUrl ? (
+            <div className="mb-4 overflow-hidden rounded-[18px] border border-slate-300 bg-slate-50">
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img src={props.previewUrl} alt="Forhåndsvisning av valgt objekt" className="h-40 w-full object-cover" />
+            </div>
+          ) : null}
           <div className="grid grid-cols-2 gap-3">
             {DEFAULT_RYDDEREN_CATEGORIES.map((category) => (
               <button
@@ -359,7 +368,7 @@ export function RydderenRegisterFlow(props: {
               </button>
             ))}
           </div>
-          <div className="mt-4 grid gap-3 md:grid-cols-2">
+          <div className="mt-4 grid gap-3 pb-2 md:grid-cols-2">
             <button
               type="button"
               className="min-h-16 rounded-[18px] bg-slate-200 px-4 py-3 text-base font-bold text-slate-900"
@@ -377,7 +386,7 @@ export function RydderenRegisterFlow(props: {
       ) : null}
 
       {props.step === "action" ? (
-        <section className="rounded-[20px] bg-white p-5 shadow-[0_16px_40px_rgba(17,24,39,0.10)]">
+        <section className="overflow-hidden rounded-[20px] bg-white p-5 shadow-[0_16px_40px_rgba(17,24,39,0.10)]">
           <div className="mb-5">
             <p className="mb-1 text-xs uppercase tracking-[0.08em] text-slate-500">Steg 2 av 2</p>
             <h2 className="text-2xl font-bold">Velg handling</h2>
@@ -410,7 +419,7 @@ export function RydderenRegisterFlow(props: {
               </button>
             ))}
           </div>
-          <div className="mt-4 grid gap-3 md:grid-cols-2">
+          <div className="mt-4 grid gap-3 pb-2 md:grid-cols-2">
             <button
               type="button"
               className="min-h-16 rounded-[18px] bg-slate-200 px-4 py-3 text-base font-bold text-slate-900"

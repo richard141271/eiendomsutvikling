@@ -17,7 +17,6 @@ import {
 } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
-import { login } from "@/app/login/actions"
 import { createClient } from "@/lib/supabase"
 import { toast } from "sonner"
 import { Eye, EyeOff } from "lucide-react"
@@ -50,21 +49,27 @@ export function LoginForm() {
     setError(null)
 
     try {
-      const formData = new FormData()
-      formData.append('email', values.email)
-      formData.append('password', values.password)
-      
-      const result = await login(formData)
-      
-      if (result?.error) {
-        setError(result.error)
+      const passwordToUse = values.password.length === 4 ? values.password + "00" : values.password
+      const supabase = createClient()
+      const { error } = await supabase.auth.signInWithPassword({
+        email: values.email,
+        password: passwordToUse,
+      })
+
+      if (error) {
+        if (error.message === "Invalid login credentials") {
+          setError("Feil e-post eller passord")
+        } else if (error.message.includes("Email not confirmed")) {
+          setError("Du må bekrefte e-postadressen din før du logger inn.")
+        } else {
+          setError(`Feil ved innlogging: ${error.message}`)
+        }
         setIsLoading(false)
         return
       }
-      
-      // If successful, the server action redirects, so we don't need to do anything here.
-      // However, we might want to handle the loading state if the redirect takes time.
-      
+
+      router.push("/dashboard")
+      router.refresh()
     } catch (err) {
       setError("En uventet feil oppstod")
       setIsLoading(false)
