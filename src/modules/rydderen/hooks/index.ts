@@ -17,18 +17,20 @@ export function useCleanupProjects(filters?: { contextType?: string | null; cont
   const [projects, setProjects] = useState<CleanupProject[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const contextType = filters?.contextType ?? null;
+  const contextId = filters?.contextId ?? null;
 
   const refresh = useCallback(async () => {
     try {
       setLoading(true);
       setError(null);
-      setProjects(await cleanupApiClient.listProjects(filters));
+      setProjects(await cleanupApiClient.listProjects({ contextType, contextId }));
     } catch (err) {
       setError(err instanceof Error ? err.message : "Kunne ikke hente ryddeprosjekter");
     } finally {
       setLoading(false);
     }
-  }, [filters]);
+  }, [contextId, contextType]);
 
   useEffect(() => {
     void refresh();
@@ -83,18 +85,19 @@ export function useCleanupItems(cleanupProjectId: string, filters?: { action?: s
   const [items, setItems] = useState<CleanupItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const action = filters?.action ?? null;
 
   const refresh = useCallback(async () => {
     try {
       setLoading(true);
       setError(null);
-      setItems(await cleanupApiClient.listItems(cleanupProjectId, filters));
+      setItems(await cleanupApiClient.listItems(cleanupProjectId, { action }));
     } catch (err) {
       setError(err instanceof Error ? err.message : "Kunne ikke hente objekter");
     } finally {
       setLoading(false);
     }
-  }, [cleanupProjectId, filters]);
+  }, [action, cleanupProjectId]);
 
   useEffect(() => {
     void refresh();

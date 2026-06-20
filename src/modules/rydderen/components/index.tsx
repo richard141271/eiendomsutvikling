@@ -9,6 +9,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
+import { cn } from "@/lib/utils";
 import type {
   CleanupContextOption,
   CleanupCost,
@@ -46,7 +47,7 @@ export function RydderenHeader(props: {
 
   return (
     <div className="space-y-4">
-      <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
+      <div className="flex flex-col gap-3">
         <div className="space-y-1">
           <div className="flex items-center gap-2">
             <FolderKanban className="h-5 w-5 text-slate-500" />
@@ -55,31 +56,24 @@ export function RydderenHeader(props: {
           {props.description ? <p className="text-sm text-muted-foreground">{props.description}</p> : null}
           {props.project ? <RydderenProjectContextBadge project={props.project} /> : null}
         </div>
-        {props.project ? (
-          <div className="flex gap-2">
-            <Link href={`${props.basePath}/projects/${props.project.id}/register`}>
-              <Button>Registrer</Button>
-            </Link>
-            <Link href={`${props.basePath}/projects/${props.project.id}/valuation`}>
-              <Button variant="outline">Verdisetting</Button>
-            </Link>
-          </div>
-        ) : null}
       </div>
 
       {tabs.length ? (
-        <div className="grid grid-cols-4 gap-2 rounded-xl bg-slate-100 p-1">
+        <div className="-mx-4 border-y bg-white/95 px-4 py-2 backdrop-blur supports-[backdrop-filter]:bg-white/80 md:mx-0 md:rounded-2xl md:border md:bg-slate-50 md:px-2">
+          <div className="flex gap-2 overflow-x-auto">
           {tabs.map((tab) => (
             <Link
               key={tab.key}
               href={tab.href}
-              className={`rounded-lg px-3 py-2 text-center text-sm font-medium ${
-                props.active === tab.key ? "bg-white shadow" : "text-slate-600"
-              }`}
+              className={cn(
+                "min-w-fit rounded-xl px-4 py-2 text-sm font-medium transition",
+                props.active === tab.key ? "bg-slate-900 text-white shadow" : "bg-white text-slate-600 hover:bg-slate-100"
+              )}
             >
               {tab.label}
             </Link>
           ))}
+          </div>
         </div>
       ) : null}
     </div>
@@ -211,7 +205,18 @@ export function RydderenRegisterFlow(props: {
 }) {
   return (
     <div className="space-y-4">
-      <div className="flex justify-end">
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-2 text-sm text-muted-foreground">
+          <span className={cn("rounded-full px-3 py-1", props.step === "camera" ? "bg-slate-900 text-white" : "bg-slate-100")}>
+            1. Bilde
+          </span>
+          <span className={cn("rounded-full px-3 py-1", props.step === "category" ? "bg-slate-900 text-white" : "bg-slate-100")}>
+            2. Kategori
+          </span>
+          <span className={cn("rounded-full px-3 py-1", props.step === "action" ? "bg-slate-900 text-white" : "bg-slate-100")}>
+            3. Handling
+          </span>
+        </div>
         <Link href={props.onExitHref}>
           <Button variant="ghost">Avslutt</Button>
         </Link>
@@ -222,9 +227,45 @@ export function RydderenRegisterFlow(props: {
         </div>
       ) : null}
       {props.error ? <div className="rounded-xl bg-red-50 p-3 text-sm text-red-700">{props.error}</div> : null}
-      <RydderenCameraCapture previewUrl={props.previewUrl} onCapture={props.onCapture} />
-      {props.step !== "camera" ? <RydderenCategoryStep selected={props.category} onSelect={props.onCategory} /> : null}
-      {props.step === "action" ? <RydderenActionStep onSelect={props.onAction} saving={props.saving} /> : null}
+      {props.step === "camera" ? <RydderenCameraCapture previewUrl={props.previewUrl} onCapture={props.onCapture} /> : null}
+
+      {props.step !== "camera" ? (
+        <Card className="overflow-hidden">
+          <CardContent className="space-y-4 p-4">
+            <div className="overflow-hidden rounded-2xl bg-slate-100">
+              {props.previewUrl ? (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img src={props.previewUrl} alt="Forhåndsvisning" className="aspect-[4/5] w-full object-cover" />
+              ) : (
+                <div className="flex aspect-[4/5] items-center justify-center text-sm text-muted-foreground">Mangler bilde</div>
+              )}
+            </div>
+            <label className="block">
+              <span className="sr-only">Ta nytt bilde</span>
+              <input
+                className="hidden"
+                type="file"
+                accept="image/*"
+                capture="environment"
+                onChange={(event) => props.onCapture(event.target.files?.[0] || null)}
+              />
+              <span className="inline-flex w-full cursor-pointer items-center justify-center rounded-xl border px-4 py-3 text-sm font-medium">
+                Ta nytt bilde
+              </span>
+            </label>
+          </CardContent>
+        </Card>
+      ) : null}
+
+      {props.step === "category" ? <RydderenCategoryStep selected={props.category} onSelect={props.onCategory} /> : null}
+      {props.step === "action" ? (
+        <div className="space-y-3">
+          {props.category ? (
+            <div className="rounded-xl bg-slate-100 px-4 py-3 text-sm font-medium">Kategori: {props.category}</div>
+          ) : null}
+          <RydderenActionStep onSelect={props.onAction} saving={props.saving} />
+        </div>
+      ) : null}
     </div>
   );
 }
