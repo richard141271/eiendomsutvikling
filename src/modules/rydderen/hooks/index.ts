@@ -159,6 +159,7 @@ export function useCleanupRegisterFlow(cleanupProjectId: string) {
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const [category, setCategory] = useState<string | null>(null);
   const [lastSavedItem, setLastSavedItem] = useState<CleanupItem | null>(null);
+  const [cameraReopenCount, setCameraReopenCount] = useState(0);
 
   useEffect(() => {
     if (!selectedFile) {
@@ -194,6 +195,7 @@ export function useCleanupRegisterFlow(cleanupProjectId: string) {
       setLastSavedItem(saved);
       setSelectedFile(null);
       setCategory(null);
+      setCameraReopenCount((current) => current + 1);
       return saved;
     },
     [category, selectedFile, uploadItem]
@@ -204,7 +206,20 @@ export function useCleanupRegisterFlow(cleanupProjectId: string) {
     setCategory(null);
   }, []);
 
-  return { selectedFile, previewUrl, category, step, lastSavedItem, uploading, error, chooseFile, chooseCategory, saveAction, reset };
+  return {
+    selectedFile,
+    previewUrl,
+    category,
+    step,
+    lastSavedItem,
+    cameraReopenCount,
+    uploading,
+    error,
+    chooseFile,
+    chooseCategory,
+    saveAction,
+    reset,
+  };
 }
 
 export function useCleanupValuationQueue(cleanupProjectId: string) {

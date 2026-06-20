@@ -3,18 +3,19 @@
 import Link from "next/link";
 import { useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
-import { AlertTriangle, ArrowRight, Camera, Plus } from "lucide-react";
+import { AlertTriangle, ArrowRight, Plus } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import {
+  RydderenAppShell,
   RydderenCostForm,
   RydderenCostList,
   RydderenHeader,
   RydderenItemsList,
   RydderenPrintLayout,
   RydderenProjectCreateDialog,
-  RydderenRegisterFlow,
   RydderenReportView,
+  RydderenRegisterFlow,
   RydderenStatsCards,
   RydderenValuationQueue,
 } from "@/src/modules/rydderen/components";
@@ -190,6 +191,7 @@ export function RydderenProjectListPage(props: {
 
 export function RydderenProjectDetailsPage(props: { cleanupProjectId: string; basePath: string }) {
   const { project, loading: projectLoading, error: projectError } = useCleanupProject(props.cleanupProjectId);
+  const { projects } = useCleanupProjects();
   const { items, loading: itemsLoading } = useCleanupItems(props.cleanupProjectId);
   const { costs, saving: costSaving, addCost } = useCleanupCosts(props.cleanupProjectId);
   const { report, loading: reportLoading } = useCleanupReport(props.cleanupProjectId);
@@ -204,84 +206,80 @@ export function RydderenProjectDetailsPage(props: { cleanupProjectId: string; ba
   }
 
   return (
-    <div className="mx-auto flex w-full max-w-5xl flex-col gap-6">
-      <RydderenHeader title={project.name} description={project.description} project={project} basePath={props.basePath} active="overview" />
+    <RydderenAppShell project={project} projects={projects.length ? projects : [project]} cleanupProjectId={project.id} basePath={props.basePath} active="overview">
+      <section className="rounded-[20px] bg-white p-5 shadow-sm">
+        <div className="mb-5">
+          <p className="mb-1 text-xs uppercase tracking-[0.08em] text-slate-500">Oversikt</p>
+          <h2 className="text-2xl font-bold">Registrerte objekter</h2>
+        </div>
 
-      {report && !reportLoading ? <RydderenStatsCards report={report} /> : null}
+        {report && !reportLoading ? <RydderenStatsCards report={report} /> : null}
 
-      <div className="grid gap-4 md:grid-cols-3">
-        <Link href={`${props.basePath}/projects/${project.id}/register`}>
-          <Card className="rounded-3xl border-2 border-slate-900 bg-slate-900 text-white">
-            <CardContent className="flex items-center justify-between p-5">
-              <div>
-                <div className="text-lg font-semibold">Registrer</div>
-                <div className="text-sm text-slate-200">Kamera, kategori, handling</div>
-              </div>
-              <Camera className="h-5 w-5" />
-            </CardContent>
-          </Card>
-        </Link>
-        <Link href={`${props.basePath}/projects/${project.id}/valuation`}>
-          <Card className="rounded-3xl">
-            <CardContent className="p-5">
-              <div className="text-lg font-semibold">Verdisetting</div>
-              <div className="text-sm text-muted-foreground">Sett verdi uten lagre-knapp.</div>
-            </CardContent>
-          </Card>
-        </Link>
-        <Link href={`${props.basePath}/projects/${project.id}/report`}>
-          <Card className="rounded-3xl">
-            <CardContent className="p-5">
-              <div className="text-lg font-semibold">Rapport</div>
-              <div className="text-sm text-muted-foreground">Oversikt, summer og print/PDF.</div>
-            </CardContent>
-          </Card>
-        </Link>
-      </div>
+        <div className="mb-4 mt-4 flex flex-wrap gap-2">
+          <Button variant={actionFilter === "alle" ? "default" : "outline"} onClick={() => setActionFilter("alle")}>
+            Alle
+          </Button>
+          <Button variant={actionFilter === "kast" ? "default" : "outline"} onClick={() => setActionFilter("kast")}>
+            Kast
+          </Button>
+          <Button variant={actionFilter === "selg" ? "default" : "outline"} onClick={() => setActionFilter("selg")}>
+            Selg
+          </Button>
+          <Button variant={actionFilter === "behold" ? "default" : "outline"} onClick={() => setActionFilter("behold")}>
+            Behold
+          </Button>
+        </div>
 
-      <div className="grid gap-4 md:grid-cols-[minmax(0,1.4fr)_minmax(0,1fr)]">
-        <div className="space-y-4">
-          <Card className="rounded-3xl">
+        <div className="mb-4">
+          <Button variant="outline" onClick={() => window.print()}>
+            Skriv ut rapport
+          </Button>
+        </div>
+
+        <div className="mb-4 grid gap-4 md:grid-cols-2">
+          <Card className="rounded-[18px] border bg-slate-50">
             <CardHeader>
-              <CardTitle>Objekter</CardTitle>
-              <CardDescription>Mobil-først oversikt med filter på handling.</CardDescription>
+              <CardTitle>Prosjektkostnader</CardTitle>
             </CardHeader>
             <CardContent className="space-y-4">
-              <div className="flex flex-wrap gap-2">
-                <Button variant={actionFilter === "alle" ? "default" : "outline"} onClick={() => setActionFilter("alle")}>
-                  Alle
-                </Button>
-                <Button variant={actionFilter === "kast" ? "default" : "outline"} onClick={() => setActionFilter("kast")}>
-                  Kast
-                </Button>
-                <Button variant={actionFilter === "selg" ? "default" : "outline"} onClick={() => setActionFilter("selg")}>
-                  Selg
-                </Button>
-                <Button variant={actionFilter === "behold" ? "default" : "outline"} onClick={() => setActionFilter("behold")}>
-                  Behold
-                </Button>
-              </div>
-              {itemsLoading ? <div className="text-sm text-muted-foreground">Laster objekter...</div> : <RydderenItemsList items={filteredItems} />}
+              <RydderenCostForm
+                saving={costSaving}
+                onSubmit={({ costType, amount, description }) => {
+                  void addCost({ costType, amount, description });
+                }}
+              />
+              <RydderenCostList costs={costs} />
             </CardContent>
           </Card>
+          {report ? (
+            <Card className="rounded-[18px] border bg-slate-50">
+              <CardHeader>
+                <CardTitle>Lageroppryddingsrapport</CardTitle>
+                <CardDescription>Dato: {new Date(report.generatedAt).toLocaleDateString("no-NO")}</CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-1 text-sm">
+                <p>Prosjekt: {report.project.name}</p>
+                <p>Kast: {report.castCount} objekter</p>
+                <p>Selg: {report.sellCount} objekter</p>
+                <p>Behold: {report.keepCount} objekter</p>
+                <p>Totalt: {report.totalItems} objekter</p>
+                <p>Totalt registrert verdi: {formatCurrency(report.totalValue)}</p>
+                <p>Totale prosjektkostnader: {formatCurrency(report.projectCosts)}</p>
+                <p>Netto verdi: {formatCurrency(report.netValue)}</p>
+              </CardContent>
+            </Card>
+          ) : null}
         </div>
 
-        <div className="space-y-4">
-          <RydderenCostForm
-            saving={costSaving}
-            onSubmit={({ costType, amount, description }) => {
-              void addCost({ costType, amount, description });
-            }}
-          />
-          <RydderenCostList costs={costs} />
-        </div>
-      </div>
-    </div>
+        {itemsLoading ? <div className="text-sm text-muted-foreground">Laster objekter...</div> : <RydderenItemsList items={filteredItems} />}
+      </section>
+    </RydderenAppShell>
   );
 }
 
 export function RydderenRegisterPage(props: { cleanupProjectId: string; basePath: string }) {
   const { project, loading, error } = useCleanupProject(props.cleanupProjectId);
+  const { projects } = useCleanupProjects();
   const flow = useCleanupRegisterFlow(props.cleanupProjectId);
 
   if (loading || !project) {
@@ -293,28 +291,34 @@ export function RydderenRegisterPage(props: { cleanupProjectId: string; basePath
   }
 
   return (
-    <div className="mx-auto flex w-full max-w-3xl flex-col gap-6">
-      <RydderenHeader title={`${project.name} • Registrer`} description="Kamera først, få trykk og direkte videre til neste objekt." project={project} basePath={props.basePath} active="register" />
+    <RydderenAppShell project={project} projects={projects.length ? projects : [project]} cleanupProjectId={project.id} basePath={props.basePath} active="register">
       <RydderenRegisterFlow
         previewUrl={flow.previewUrl}
         category={flow.category}
         step={flow.step}
         saving={flow.uploading}
         error={flow.error}
-        lastSavedItem={flow.lastSavedItem}
+        autoOpenCameraCount={flow.cameraReopenCount}
         onCapture={flow.chooseFile}
-        onCategory={flow.chooseCategory}
+        onCategory={(category) => {
+          if (!category) {
+            flow.chooseCategory("");
+            return;
+          }
+          flow.chooseCategory(category);
+        }}
         onAction={(action) => {
           void flow.saveAction(action);
         }}
         onExitHref={`${props.basePath}/projects/${project.id}`}
       />
-    </div>
+    </RydderenAppShell>
   );
 }
 
 export function RydderenValuationPage(props: { cleanupProjectId: string; basePath: string }) {
   const { project, loading, error } = useCleanupProject(props.cleanupProjectId);
+  const { projects } = useCleanupProjects();
   const queue = useCleanupValuationQueue(props.cleanupProjectId);
 
   if (loading || !project) {
@@ -326,8 +330,7 @@ export function RydderenValuationPage(props: { cleanupProjectId: string; basePat
   }
 
   return (
-    <div className="mx-auto flex w-full max-w-5xl flex-col gap-6">
-      <RydderenHeader title={`${project.name} • Verdisetting`} description="Sett verdi med tastaturfokus og autosave ved Neste." project={project} basePath={props.basePath} active="valuation" />
+    <RydderenAppShell project={project} projects={projects.length ? projects : [project]} cleanupProjectId={project.id} basePath={props.basePath} active="valuation">
       {queue.error ? <div className="rounded-xl bg-red-50 p-3 text-sm text-red-700">{queue.error}</div> : null}
       <RydderenValuationQueue
         items={queue.items}
@@ -338,7 +341,7 @@ export function RydderenValuationPage(props: { cleanupProjectId: string; basePat
         }}
         onExitHref={`${props.basePath}/projects/${project.id}`}
       />
-    </div>
+    </RydderenAppShell>
   );
 }
 

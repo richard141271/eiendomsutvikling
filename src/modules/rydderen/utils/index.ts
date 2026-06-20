@@ -25,15 +25,12 @@ export const CLEANUP_CONTEXT_TYPES = [
 ] as const;
 
 export const DEFAULT_RYDDEREN_CATEGORIES = [
-  "Møbler",
-  "Hvitevarer",
-  "Elektronikk",
-  "Kjøkkenutstyr",
-  "Dekor",
-  "Tekstiler",
+  "Materialer",
   "Verktøy",
-  "Bøker",
-  "Lager",
+  "Maskiner",
+  "Inventar",
+  "Kontorutstyr",
+  "Deler",
   "Diverse",
 ];
 
@@ -99,4 +96,9 @@ export function formatCurrency(value: number) {
 export function formatDate(value: string | null | undefined) {
   if (!value) return "-";
   return new Date(value).toLocaleDateString("no-NO");
+}
+
+export function formatCleanupObjectLabel(itemNumber: number | null | undefined) {
+  if (!itemNumber && itemNumber !== 0) return "Objekt";
+  return `Objekt #${String(itemNumber).padStart(3, "0")}`;
 }
