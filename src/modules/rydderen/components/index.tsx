@@ -300,6 +300,10 @@ export function RydderenRegisterFlow(props: {
     return () => window.clearTimeout(timeout);
   }, [props.autoOpenCameraCount, props.step]);
 
+  useEffect(() => {
+    window.scrollTo({ top: 0, behavior: "auto" });
+  }, [props.step]);
+
   return (
     <div className="space-y-4">
       {props.error ? <div className="rounded-xl bg-red-50 p-3 text-sm text-red-700">{props.error}</div> : null}
@@ -339,12 +343,9 @@ export function RydderenRegisterFlow(props: {
             <p className="mb-1 text-xs uppercase tracking-[0.08em] text-slate-500">Steg 1 av 2</p>
             <h2 className="text-2xl font-bold">Velg kategori</h2>
           </div>
-          {props.previewUrl ? (
-            <div className="mb-4 overflow-hidden rounded-[18px] border border-slate-300 bg-slate-50 p-4">
-              {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img src={props.previewUrl} alt="Forhåndsvisning av valgt objekt" className="w-full rounded-[14px] object-cover" />
-            </div>
-          ) : null}
+          <div className="mb-4 rounded-[18px] border border-slate-300 bg-slate-50 px-4 py-3 text-sm font-medium text-slate-600">
+            Bilde valgt. Velg kategori.
+          </div>
           <div className="grid grid-cols-2 gap-3">
             {DEFAULT_RYDDEREN_CATEGORIES.map((category) => (
               <button
