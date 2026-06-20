@@ -289,6 +289,8 @@ export function RydderenRegisterFlow(props: {
   autoOpenCameraCount?: number;
 }) {
   const cameraInputRef = useRef<HTMLInputElement | null>(null);
+  const categoryFooterRef = useRef<HTMLDivElement | null>(null);
+  const actionButtonsRef = useRef<HTMLDivElement | null>(null);
 
   useEffect(() => {
     if (!props.autoOpenCameraCount || props.step !== "camera") {
@@ -301,7 +303,24 @@ export function RydderenRegisterFlow(props: {
   }, [props.autoOpenCameraCount, props.step]);
 
   useEffect(() => {
-    window.scrollTo({ top: 0, behavior: "auto" });
+    const scrollToTarget = () => {
+      if (props.step === "camera") {
+        window.scrollTo({ top: 0, behavior: "auto" });
+        return;
+      }
+
+      if (props.step === "category") {
+        categoryFooterRef.current?.scrollIntoView({ block: "end", behavior: "auto" });
+        return;
+      }
+
+      if (props.step === "action") {
+        actionButtonsRef.current?.scrollIntoView({ block: "end", behavior: "auto" });
+      }
+    };
+
+    const frame = window.requestAnimationFrame(scrollToTarget);
+    return () => window.cancelAnimationFrame(frame);
   }, [props.step]);
 
   return (
@@ -343,9 +362,12 @@ export function RydderenRegisterFlow(props: {
             <p className="mb-1 text-xs uppercase tracking-[0.08em] text-slate-500">Steg 1 av 2</p>
             <h2 className="text-2xl font-bold">Velg kategori</h2>
           </div>
-          <div className="mb-4 rounded-[18px] border border-slate-300 bg-slate-50 px-4 py-3 text-sm font-medium text-slate-600">
-            Bilde valgt. Velg kategori.
-          </div>
+          {props.previewUrl ? (
+            <div className="mb-4 overflow-hidden rounded-[18px] border border-slate-300 bg-slate-50 p-4">
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img src={props.previewUrl} alt="Forhåndsvisning av valgt objekt" className="w-full rounded-[14px] object-cover" />
+            </div>
+          ) : null}
           <div className="grid grid-cols-2 gap-3">
             {DEFAULT_RYDDEREN_CATEGORIES.map((category) => (
               <button
@@ -358,7 +380,7 @@ export function RydderenRegisterFlow(props: {
               </button>
             ))}
           </div>
-          <div className="mt-4 grid gap-3 md:grid-cols-2">
+          <div ref={categoryFooterRef} className="mt-4 grid scroll-mb-28 gap-3 md:grid-cols-2">
             <button
               type="button"
               className="min-h-16 rounded-[18px] bg-slate-200 px-4 py-3 text-base font-bold text-slate-900"
@@ -388,7 +410,12 @@ export function RydderenRegisterFlow(props: {
               </span>
             </div>
           ) : null}
-          <div className="grid gap-3 md:grid-cols-3">
+          {props.saving ? (
+            <div className="mb-4 rounded-[18px] border border-blue-200 bg-blue-50 px-4 py-3 text-sm font-medium text-blue-900">
+              Lagrer objekt og går videre til neste bilde...
+            </div>
+          ) : null}
+          <div ref={actionButtonsRef} className="grid scroll-mb-28 gap-3 md:grid-cols-3">
             {CLEANUP_ACTIONS.map((action) => (
               <button
                 key={action.value}
@@ -400,7 +427,7 @@ export function RydderenRegisterFlow(props: {
                 )}
                 onClick={() => props.onAction(action.value)}
               >
-                {action.label}
+                {props.saving ? "Lagrer..." : action.label}
               </button>
             ))}
           </div>
