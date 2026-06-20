@@ -46,6 +46,12 @@ function updateProjectInListCaches(project: CleanupProject) {
   });
 }
 
+async function hashFile(file: File) {
+  const buffer = await file.arrayBuffer();
+  const digest = await crypto.subtle.digest("SHA-256", buffer);
+  return Array.from(new Uint8Array(digest), (byte) => byte.toString(16).padStart(2, "0")).join("");
+}
+
 export function useCleanupProjects(filters?: { contextType?: string | null; contextId?: string | null }) {
   const cacheKey = getProjectListCacheKey(filters);
   const cachedProjects = cleanupProjectListCache.get(cacheKey) ?? [];
@@ -197,6 +203,7 @@ export function useCleanupUpload(cleanupProjectId: string) {
   const uploadItem = useCallback(
     async (payload: {
       file: File;
+      imageHash?: string | null;
       category: string;
       action: "kast" | "selg" | "behold";
       comment?: string | null;
@@ -205,6 +212,7 @@ export function useCleanupUpload(cleanupProjectId: string) {
     }) => {
       const formData = new FormData();
       formData.set("file", payload.file);
+      if (payload.imageHash) formData.set("imageHash", payload.imageHash);
       formData.set("category", payload.category);
       formData.set("action", payload.action);
       if (payload.comment) formData.set("comment", payload.comment);
@@ -228,17 +236,22 @@ export function useCleanupUpload(cleanupProjectId: string) {
   return { uploadItem, uploading, error };
 }
 
-export function useCleanupRegisterFlow(cleanupProjectId: string) {
+export function useCleanupRegisterFlow(cleanupProjectId: string, existingItems: CleanupItem[] = []) {
   const { uploadItem, uploading, error } = useCleanupUpload(cleanupProjectId);
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
+  const [selectedFileHash, setSelectedFileHash] = useState<string | null>(null);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const [category, setCategory] = useState<string | null>(null);
   const [lastSavedItem, setLastSavedItem] = useState<CleanupItem | null>(null);
   const [cameraReopenCount, setCameraReopenCount] = useState(0);
+  const [localError, setLocalError] = useState<string | null>(null);
+  const [actionLocked, setActionLocked] = useState(false);
   const currentDraftSubmittedRef = useRef(false);
+  const fileSelectionVersionRef = useRef(0);
   const uploadQueueRef = useRef<
     Array<{
       file: File;
+      imageHash: string;
       category: string;
       action: "kast" | "selg" | "behold";
       queuedAt: number;
@@ -262,13 +275,42 @@ export function useCleanupRegisterFlow(cleanupProjectId: string) {
     return "action" as const;
   }, [category, selectedFile]);
 
-  const chooseFile = useCallback((file: File | null) => {
+  const chooseFile = useCallback(async (file: File | null) => {
+    const selectionVersion = fileSelectionVersionRef.current + 1;
+    fileSelectionVersionRef.current = selectionVersion;
     currentDraftSubmittedRef.current = false;
-    setSelectedFile(file);
+    setActionLocked(false);
     setCategory(null);
-  }, []);
+    setLocalError(null);
+
+    if (!file) {
+      setSelectedFile(null);
+      setSelectedFileHash(null);
+      return;
+    }
+
+    const imageHash = await hashFile(file);
+    if (fileSelectionVersionRef.current !== selectionVersion) {
+      return;
+    }
+
+    const existsInLoadedItems = existingItems.some((item) => item.imageHash && item.imageHash === imageHash);
+    const existsInQueue = uploadQueueRef.current.some((item) => item.imageHash === imageHash);
+    const matchesLastSaved = lastSavedItem?.imageHash && lastSavedItem.imageHash === imageHash;
+
+    if (existsInLoadedItems || existsInQueue || matchesLastSaved) {
+      setSelectedFile(null);
+      setSelectedFileHash(null);
+      setLocalError("Dette bildet er allerede registrert i prosjektet.");
+      return;
+    }
+
+    setSelectedFile(file);
+    setSelectedFileHash(imageHash);
+  }, [existingItems, lastSavedItem?.imageHash]);
 
   const chooseCategory = useCallback((value: string) => {
+    setLocalError(null);
     setCategory(value);
   }, []);
 
@@ -289,6 +331,7 @@ export function useCleanupRegisterFlow(cleanupProjectId: string) {
         try {
           const saved = await uploadItem({
             file: nextUpload.file,
+            imageHash: nextUpload.imageHash,
             category: nextUpload.category,
             action: nextUpload.action,
           });
@@ -314,31 +357,42 @@ export function useCleanupRegisterFlow(cleanupProjectId: string) {
       if (!selectedFile || !category) {
         throw new Error("Bilde og kategori må velges");
       }
+      if (!selectedFileHash) {
+        throw new Error("Kunne ikke lese bildet. Prøv å ta bildet på nytt.");
+      }
       currentDraftSubmittedRef.current = true;
+      setActionLocked(true);
 
       const queuedAt = typeof performance !== "undefined" ? performance.now() : Date.now();
       const queuedFile = selectedFile;
+      const queuedImageHash = selectedFileHash;
       const queuedCategory = category;
 
       uploadQueueRef.current.push({
         file: queuedFile,
+        imageHash: queuedImageHash,
         category: queuedCategory,
         action,
         queuedAt,
       });
 
       setSelectedFile(null);
+      setSelectedFileHash(null);
       setCategory(null);
       setCameraReopenCount((current) => current + 1);
 
       void processUploadQueue();
       return null;
     },
-    [category, processUploadQueue, selectedFile]
+    [category, processUploadQueue, selectedFile, selectedFileHash]
   );
 
   const reset = useCallback(() => {
+    currentDraftSubmittedRef.current = false;
+    setActionLocked(false);
+    setLocalError(null);
     setSelectedFile(null);
+    setSelectedFileHash(null);
     setCategory(null);
   }, []);
 
@@ -349,8 +403,9 @@ export function useCleanupRegisterFlow(cleanupProjectId: string) {
     step,
     lastSavedItem,
     cameraReopenCount,
+    actionLocked,
     uploading,
-    error,
+    error: localError || error,
     chooseFile,
     chooseCategory,
     saveAction,
@@ -365,6 +420,7 @@ export function useCleanupValuationQueue(cleanupProjectId: string) {
   const [loading, setLoading] = useState(cachedItems.length === 0);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const savingRef = useRef(false);
 
   const refresh = useCallback(async (options?: { showLoading?: boolean }) => {
     try {
@@ -391,8 +447,9 @@ export function useCleanupValuationQueue(cleanupProjectId: string) {
 
   const saveCurrentAndAdvance = useCallback(
     async (payload: { value: number | null; comment?: string | null; condition?: string | null; note?: string | null }) => {
-      if (!currentItem) return null;
+      if (!currentItem || savingRef.current) return null;
       try {
+        savingRef.current = true;
         setSaving(true);
         const updated = await cleanupApiClient.updateItem(cleanupProjectId, currentItem.id, {
           value: payload.value,
@@ -411,6 +468,7 @@ export function useCleanupValuationQueue(cleanupProjectId: string) {
         setError(err instanceof Error ? err.message : "Kunne ikke lagre verdisetting");
         throw err;
       } finally {
+        savingRef.current = false;
         setSaving(false);
       }
     },

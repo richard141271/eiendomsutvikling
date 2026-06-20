@@ -10,6 +10,7 @@ import {
   deleteCleanupProjectRecord,
   ensureCleanupStorageBucket,
   findCleanupProjectBySlug,
+  findCleanupItemByImageHashForTenant,
   getCleanupItemByIdForTenant,
   getCleanupProjectByIdForTenant,
   getNextCleanupItemNumber,
@@ -105,6 +106,7 @@ async function serializeItem(item: any): Promise<CleanupItem> {
     tenantId: item.tenantId,
     cleanupProjectId: item.cleanupProjectId,
     itemNumber: item.itemNumber,
+    imageHash: item.imageHash ?? null,
     category: item.category,
     action: item.action,
     value: item.value === null || item.value === undefined ? null : toNumber(item.value),
@@ -290,26 +292,46 @@ export async function listCleanupItems(cleanupProjectId: string, filters?: { act
 export async function createCleanupItem(cleanupProjectId: string, input: CleanupItemCreateInput) {
   const actor = await requireCleanupActor();
   await getCleanupProject(cleanupProjectId);
+  if (input.imageHash) {
+    const duplicate = await findCleanupItemByImageHashForTenant({
+      cleanupProjectId,
+      tenantId: actor.tenantId,
+      imageHash: input.imageHash,
+    });
+
+    if (duplicate) {
+      throw new Error("Dette bildet er allerede registrert i prosjektet.");
+    }
+  }
   const itemNumber = input.itemNumber || (await getNextCleanupItemNumber(cleanupProjectId));
 
-  const item = await createCleanupItemRecord({
-    tenantId: actor.tenantId,
-    cleanupProjectId,
-    itemNumber,
-    category: input.category,
-    action: input.action,
-    value: input.value ?? null,
-    comment: input.comment ?? null,
-    condition: input.condition ?? null,
-    note: input.note ?? null,
-    imagePath: input.imagePath ?? null,
-    imageThumbnailPath: input.imageThumbnailPath ?? null,
-    capturedAt: input.capturedAt ? new Date(input.capturedAt) : new Date(),
-    valuedAt: input.valuedAt ? new Date(input.valuedAt) : null,
-    createdBy: actor.authUserId,
-    updatedBy: actor.authUserId,
-    metadata: input.metadata || {},
-  });
+  let item;
+  try {
+    item = await createCleanupItemRecord({
+      tenantId: actor.tenantId,
+      cleanupProjectId,
+      itemNumber,
+      imageHash: input.imageHash ?? null,
+      category: input.category,
+      action: input.action,
+      value: input.value ?? null,
+      comment: input.comment ?? null,
+      condition: input.condition ?? null,
+      note: input.note ?? null,
+      imagePath: input.imagePath ?? null,
+      imageThumbnailPath: input.imageThumbnailPath ?? null,
+      capturedAt: input.capturedAt ? new Date(input.capturedAt) : new Date(),
+      valuedAt: input.valuedAt ? new Date(input.valuedAt) : null,
+      createdBy: actor.authUserId,
+      updatedBy: actor.authUserId,
+      metadata: input.metadata || {},
+    });
+  } catch (error) {
+    if (error instanceof Error && error.message.includes("cleanup_items_cleanup_project_id_image_hash_key")) {
+      throw new Error("Dette bildet er allerede registrert i prosjektet.");
+    }
+    throw error;
+  }
 
   const record = await getCleanupItemByIdForTenant(cleanupProjectId, item.id, actor.tenantId);
   return serializeItem(record);
@@ -321,6 +343,7 @@ export async function createCapturedCleanupItem(
     category: string;
     action: "kast" | "selg" | "behold";
     file: File;
+    imageHash?: string | null;
     comment?: string | null;
     condition?: string | null;
     note?: string | null;
@@ -329,19 +352,40 @@ export async function createCapturedCleanupItem(
   const actor = await requireCleanupActor();
   await getCleanupProject(cleanupProjectId);
 
-  const item = await createCleanupItemRecord({
-    tenantId: actor.tenantId,
-    cleanupProjectId,
-    itemNumber: await getNextCleanupItemNumber(cleanupProjectId),
-    category: input.category,
-    action: input.action,
-    comment: input.comment ?? null,
-    condition: input.condition ?? null,
-    note: input.note ?? null,
-    createdBy: actor.authUserId,
-    updatedBy: actor.authUserId,
-    metadata: { captureSource: "mobile-flow" },
-  });
+  if (input.imageHash) {
+    const duplicate = await findCleanupItemByImageHashForTenant({
+      cleanupProjectId,
+      tenantId: actor.tenantId,
+      imageHash: input.imageHash,
+    });
+
+    if (duplicate) {
+      throw new Error("Dette bildet er allerede registrert i prosjektet.");
+    }
+  }
+
+  let item;
+  try {
+    item = await createCleanupItemRecord({
+      tenantId: actor.tenantId,
+      cleanupProjectId,
+      itemNumber: await getNextCleanupItemNumber(cleanupProjectId),
+      imageHash: input.imageHash ?? null,
+      category: input.category,
+      action: input.action,
+      comment: input.comment ?? null,
+      condition: input.condition ?? null,
+      note: input.note ?? null,
+      createdBy: actor.authUserId,
+      updatedBy: actor.authUserId,
+      metadata: { captureSource: "mobile-flow" },
+    });
+  } catch (error) {
+    if (error instanceof Error && error.message.includes("cleanup_items_cleanup_project_id_image_hash_key")) {
+      throw new Error("Dette bildet er allerede registrert i prosjektet.");
+    }
+    throw error;
+  }
 
   const arrayBuffer = await input.file.arrayBuffer();
   const { originalPath, thumbPath } = await uploadCleanupItemImages({
@@ -370,6 +414,7 @@ export async function updateCleanupItem(cleanupProjectId: string, itemId: string
 
   if (input.category !== undefined) data.category = input.category;
   if (input.action !== undefined) data.action = input.action;
+  if (input.imageHash !== undefined) data.imageHash = input.imageHash;
   if (input.value !== undefined) data.value = input.value;
   if (input.comment !== undefined) data.comment = input.comment;
   if (input.condition !== undefined) data.condition = input.condition;

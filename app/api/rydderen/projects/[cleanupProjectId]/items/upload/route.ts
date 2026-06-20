@@ -11,6 +11,7 @@ export async function POST(request: Request, { params }: { params: { cleanupProj
     const file = formData.get("file");
     const category = String(formData.get("category") || "");
     const action = String(formData.get("action") || "") as "kast" | "selg" | "behold";
+    const imageHash = String(formData.get("imageHash") || "");
     const comment = String(formData.get("comment") || "");
     const condition = String(formData.get("condition") || "");
     const note = String(formData.get("note") || "");
@@ -27,6 +28,7 @@ export async function POST(request: Request, { params }: { params: { cleanupProj
       file,
       category,
       action,
+      imageHash: imageHash || null,
       comment: comment || null,
       condition: condition || null,
       note: note || null,

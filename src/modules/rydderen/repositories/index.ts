@@ -107,6 +107,24 @@ export async function getNextCleanupItemNumber(cleanupProjectId: string) {
   return (result?._max?.itemNumber || 0) + 1;
 }
 
+export async function findCleanupItemByImageHashForTenant(params: {
+  cleanupProjectId: string;
+  tenantId: string;
+  imageHash: string;
+}) {
+  return (prisma as any).cleanupItem.findFirst({
+    where: {
+      cleanupProjectId: params.cleanupProjectId,
+      tenantId: params.tenantId,
+      imageHash: params.imageHash,
+    },
+    select: {
+      id: true,
+      itemNumber: true,
+    },
+  });
+}
+
 export async function createCleanupItemRecord(data: Record<string, unknown>) {
   return (prisma as any).cleanupItem.create({ data });
 }

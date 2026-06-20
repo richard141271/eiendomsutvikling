@@ -53,6 +53,7 @@ export interface CleanupItem {
   tenantId: string;
   cleanupProjectId: string;
   itemNumber: number;
+  imageHash: string | null;
   category: string;
   action: CleanupAction;
   value: number | null;
@@ -129,6 +130,7 @@ export interface CleanupItemCreateInput {
   category: string;
   action: CleanupAction;
   itemNumber?: number;
+  imageHash?: string | null;
   value?: number | null;
   comment?: string | null;
   condition?: string | null;
@@ -143,6 +145,7 @@ export interface CleanupItemCreateInput {
 export interface CleanupItemUpdateInput {
   category?: string;
   action?: CleanupAction;
+  imageHash?: string | null;
   value?: number | null;
   comment?: string | null;
   condition?: string | null;

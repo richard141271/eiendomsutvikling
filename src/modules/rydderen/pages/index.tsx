@@ -397,7 +397,8 @@ export function RydderenProjectDetailsPage(props: { cleanupProjectId: string; ba
 export function RydderenRegisterPage(props: { cleanupProjectId: string; basePath: string }) {
   const { project, loading, error } = useCleanupProject(props.cleanupProjectId);
   const { projects } = useCleanupProjects();
-  const flow = useCleanupRegisterFlow(props.cleanupProjectId);
+  const { items } = useCleanupItems(props.cleanupProjectId);
+  const flow = useCleanupRegisterFlow(props.cleanupProjectId, items);
   const activeProject = project ?? createLoadingProject(props.cleanupProjectId);
   const visibleProjects = projects.length ? projects : [activeProject];
 
@@ -412,7 +413,7 @@ export function RydderenRegisterPage(props: { cleanupProjectId: string; basePath
         previewUrl={flow.previewUrl}
         category={flow.category}
         step={flow.step}
-        saving={false}
+        saving={flow.actionLocked}
         error={flow.error}
         autoOpenCameraCount={flow.cameraReopenCount}
         onCapture={flow.chooseFile}
