@@ -586,29 +586,38 @@ export function RydderenProjectLinkSelector(props: {
   onContextTypeChange: (value: CleanupProjectContextType) => void;
   onContextIdChange: (value: string) => void;
 }) {
+  const availableContextTypes = CLEANUP_CONTEXT_TYPES.filter((type) => type.value !== "case");
+  const contextLabel = props.contextType === "property" ? "eiendom" : "prosjekt";
+
   return (
     <div className="grid gap-3">
+      <div className="space-y-1">
+        <Label>Kobling</Label>
+        <p className="text-sm text-muted-foreground">Valgfritt. La prosjektet være frittstående hvis det ikke skal knyttes til noe.</p>
+      </div>
       <select
         className="rounded-lg border bg-white px-3 py-2 text-sm"
         value={props.contextType}
         onChange={(event) => props.onContextTypeChange(event.target.value as CleanupProjectContextType)}
       >
-        {CLEANUP_CONTEXT_TYPES.map((type) => (
+        {availableContextTypes.map((type) => (
           <option key={type.value} value={type.value}>
-            {type.label}
+            {type.value === "standalone" ? "Ingen kobling" : `Knytt til ${type.label.toLowerCase()}`}
           </option>
         ))}
       </select>
       {props.contextType !== "standalone" ? (
         <select className="rounded-lg border bg-white px-3 py-2 text-sm" value={props.contextId} onChange={(event) => props.onContextIdChange(event.target.value)}>
-          <option value="">Velg kobling</option>
+          <option value="">{`Velg ${contextLabel}`}</option>
           {props.options.map((option) => (
             <option key={option.id} value={option.id}>
               {option.label}
             </option>
           ))}
         </select>
-      ) : null}
+      ) : (
+        <div className="rounded-xl bg-slate-50 px-3 py-2 text-sm text-muted-foreground">Prosjektet opprettes som frittstående.</div>
+      )}
     </div>
   );
 }
@@ -628,11 +637,15 @@ export function RydderenProjectCreateDialog(props: {
   const [description, setDescription] = useState("");
   const [contextType, setContextType] = useState<CleanupProjectContextType>(props.initialContextType || "standalone");
   const [contextId, setContextId] = useState(props.initialContextId || "");
+  const [localError, setLocalError] = useState<string | null>(null);
 
   useEffect(() => {
     if (props.open) {
+      setName("");
+      setDescription("");
       setContextType(props.initialContextType || "standalone");
       setContextId(props.initialContextId || "");
+      setLocalError(null);
     }
   }, [props.initialContextId, props.initialContextType, props.open]);
 
@@ -656,20 +669,29 @@ export function RydderenProjectCreateDialog(props: {
             contextType={contextType}
             contextId={contextId}
             options={options}
-            onContextTypeChange={setContextType}
+            onContextTypeChange={(value) => {
+              setContextType(value);
+              setContextId(value === "standalone" ? "" : props.initialContextType === value ? props.initialContextId || "" : "");
+              setLocalError(null);
+            }}
             onContextIdChange={setContextId}
           />
-          {props.error ? <div className="rounded-xl bg-red-50 p-3 text-sm text-red-700">{props.error}</div> : null}
+          {localError || props.error ? <div className="rounded-xl bg-red-50 p-3 text-sm text-red-700">{localError || props.error}</div> : null}
           <Button
             disabled={props.creating || !name}
-            onClick={() =>
-              props.onCreate({
+            onClick={() => {
+              if (contextType !== "standalone" && !contextId) {
+                setLocalError("Velg en faktisk kobling, eller sett denne til Ingen kobling.");
+                return;
+              }
+              setLocalError(null);
+              void props.onCreate({
                 name,
                 description,
                 contextType,
                 contextId: contextType === "standalone" ? null : contextId || null,
-              })
-            }
+              });
+            }}
           >
             {props.creating ? "Oppretter..." : "Opprett prosjekt"}
           </Button>
