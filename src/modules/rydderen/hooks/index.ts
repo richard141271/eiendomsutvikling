@@ -13,6 +13,28 @@ import type {
   CleanupReportSummary,
 } from "@/src/modules/rydderen/types";
 
+// #region debug-point B:hook-logger
+const DEBUG_SERVER_URL = "http://192.168.0.35:7777/event";
+const DEBUG_SESSION_ID = "slow-app-performance";
+function reportDebugEvent(hypothesisId: string, location: string, msg: string, data: Record<string, unknown>) {
+  if (typeof window === "undefined") return;
+  fetch(DEBUG_SERVER_URL, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      sessionId: DEBUG_SESSION_ID,
+      runId: "pre-fix",
+      hypothesisId,
+      location,
+      msg,
+      data,
+      ts: Date.now(),
+    }),
+    keepalive: true,
+  }).catch(() => {});
+}
+// #endregion
+
 export function useCleanupProjects(filters?: { contextType?: string | null; contextId?: string | null }) {
   const [projects, setProjects] = useState<CleanupProject[]>([]);
   const [loading, setLoading] = useState(true);
@@ -199,6 +221,14 @@ export function useCleanupRegisterFlow(cleanupProjectId: string) {
   const saveAction = useCallback(
     async (action: "kast" | "selg" | "behold") => {
       if (savingActionRef.current) {
+        // #region debug-point B:register-duplicate-guard
+        reportDebugEvent("B", "hooks/index.ts:saveAction:guard", "[DEBUG] register action ignored while upload in progress", {
+          cleanupProjectId,
+          action,
+          hasSelectedFile: Boolean(selectedFile),
+          category,
+        });
+        // #endregion
         return null;
       }
       if (!selectedFile || !category) {
@@ -206,17 +236,47 @@ export function useCleanupRegisterFlow(cleanupProjectId: string) {
       }
       savingActionRef.current = true;
       try {
+        // #region debug-point B:register-save-start
+        const startedAt = typeof performance !== "undefined" ? performance.now() : Date.now();
+        reportDebugEvent("B", "hooks/index.ts:saveAction:start", "[DEBUG] register save action start", {
+          cleanupProjectId,
+          action,
+          category,
+          fileName: selectedFile.name,
+          fileSize: selectedFile.size,
+        });
+        // #endregion
         const saved = await uploadItem({ file: selectedFile, category, action });
+        // #region debug-point B:register-save-success
+        reportDebugEvent("B", "hooks/index.ts:saveAction:success", "[DEBUG] register save action success", {
+          cleanupProjectId,
+          action,
+          category,
+          savedItemId: saved.id,
+          savedItemNumber: saved.itemNumber,
+          durationMs: Math.round((typeof performance !== "undefined" ? performance.now() : Date.now()) - startedAt),
+        });
+        // #endregion
         setLastSavedItem(saved);
         setSelectedFile(null);
         setCategory(null);
         setCameraReopenCount((current) => current + 1);
         return saved;
+      } catch (err) {
+        // #region debug-point B:register-save-error
+        reportDebugEvent("B", "hooks/index.ts:saveAction:error", "[DEBUG] register save action error", {
+          cleanupProjectId,
+          action,
+          category,
+          error: err instanceof Error ? err.message : "unknown",
+        });
+        // #endregion
+        throw err;
       } finally {
         savingActionRef.current = false;
       }
     },
-    [category, selectedFile, uploadItem]
+    [category, cleanupProjectId, selectedFile, uploadItem]
   );
 
   const reset = useCallback(() => {
@@ -250,9 +310,29 @@ export function useCleanupValuationQueue(cleanupProjectId: string) {
     try {
       setLoading(true);
       setError(null);
+      // #region debug-point D:valuation-refresh-start
+      const startedAt = typeof performance !== "undefined" ? performance.now() : Date.now();
+      reportDebugEvent("D", "hooks/index.ts:valuation:refresh:start", "[DEBUG] valuation queue refresh start", {
+        cleanupProjectId,
+      });
+      // #endregion
       const nextItems = await cleanupApiClient.listItems(cleanupProjectId);
+      // #region debug-point D:valuation-refresh-success
+      reportDebugEvent("D", "hooks/index.ts:valuation:refresh:success", "[DEBUG] valuation queue refresh success", {
+        cleanupProjectId,
+        totalItems: nextItems.length,
+        unvaluedItems: nextItems.filter((item) => item.value === null || item.value === undefined).length,
+        durationMs: Math.round((typeof performance !== "undefined" ? performance.now() : Date.now()) - startedAt),
+      });
+      // #endregion
       setItems(nextItems);
     } catch (err) {
+      // #region debug-point D:valuation-refresh-error
+      reportDebugEvent("D", "hooks/index.ts:valuation:refresh:error", "[DEBUG] valuation queue refresh error", {
+        cleanupProjectId,
+        error: err instanceof Error ? err.message : "unknown",
+      });
+      // #endregion
       setError(err instanceof Error ? err.message : "Kunne ikke hente verdisettingskø");
     } finally {
       setLoading(false);
@@ -271,6 +351,16 @@ export function useCleanupValuationQueue(cleanupProjectId: string) {
       if (!currentItem) return null;
       try {
         setSaving(true);
+        // #region debug-point C:valuation-save-start
+        const startedAt = typeof performance !== "undefined" ? performance.now() : Date.now();
+        reportDebugEvent("C", "hooks/index.ts:valuation:save:start", "[DEBUG] valuation save start", {
+          cleanupProjectId,
+          itemId: currentItem.id,
+          itemNumber: currentItem.itemNumber,
+          action: currentItem.action,
+          inputValue: payload.value,
+        });
+        // #endregion
         const updated = await cleanupApiClient.updateItem(cleanupProjectId, currentItem.id, {
           value: payload.value,
           comment: payload.comment ?? null,
@@ -278,9 +368,27 @@ export function useCleanupValuationQueue(cleanupProjectId: string) {
           note: payload.note ?? null,
           valuedAt: payload.value === null ? null : new Date().toISOString(),
         });
+        // #region debug-point C:valuation-save-success
+        reportDebugEvent("C", "hooks/index.ts:valuation:save:success", "[DEBUG] valuation save success", {
+          cleanupProjectId,
+          itemId: updated.id,
+          itemNumber: updated.itemNumber,
+          action: updated.action,
+          savedValue: updated.value,
+          durationMs: Math.round((typeof performance !== "undefined" ? performance.now() : Date.now()) - startedAt),
+        });
+        // #endregion
         setItems((current) => current.map((item) => (item.id === updated.id ? updated : item)));
         return updated;
       } catch (err) {
+        // #region debug-point C:valuation-save-error
+        reportDebugEvent("C", "hooks/index.ts:valuation:save:error", "[DEBUG] valuation save error", {
+          cleanupProjectId,
+          itemId: currentItem.id,
+          itemNumber: currentItem.itemNumber,
+          error: err instanceof Error ? err.message : "unknown",
+        });
+        // #endregion
         setError(err instanceof Error ? err.message : "Kunne ikke lagre verdisetting");
         throw err;
       } finally {

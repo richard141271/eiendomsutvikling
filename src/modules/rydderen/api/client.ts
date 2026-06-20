@@ -11,7 +11,37 @@ import type {
   LegacyCleanupImportPayload,
 } from "@/src/modules/rydderen/types";
 
+// #region debug-point A:client-request-logger
+const DEBUG_SERVER_URL = "http://192.168.0.35:7777/event";
+const DEBUG_SESSION_ID = "slow-app-performance";
+function reportDebugEvent(hypothesisId: string, location: string, msg: string, data: Record<string, unknown>) {
+  if (typeof window === "undefined") return;
+  fetch(DEBUG_SERVER_URL, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      sessionId: DEBUG_SESSION_ID,
+      runId: "pre-fix",
+      hypothesisId,
+      location,
+      msg,
+      data,
+      ts: Date.now(),
+    }),
+    keepalive: true,
+  }).catch(() => {});
+}
+// #endregion
+
 async function request<T>(input: string, init?: RequestInit): Promise<T> {
+  // #region debug-point A:request-start
+  const startedAt = typeof performance !== "undefined" ? performance.now() : Date.now();
+  reportDebugEvent("A", "api/client.ts:request:start", "[DEBUG] cleanup request start", {
+    input,
+    method: init?.method || "GET",
+    hasBody: Boolean(init?.body),
+  });
+  // #endregion
   const response = await fetch(input, {
     ...init,
     headers: {
@@ -22,10 +52,26 @@ async function request<T>(input: string, init?: RequestInit): Promise<T> {
   });
 
   if (!response.ok) {
+    // #region debug-point A:request-error
+    reportDebugEvent("A", "api/client.ts:request:error", "[DEBUG] cleanup request error", {
+      input,
+      method: init?.method || "GET",
+      status: response.status,
+      durationMs: Math.round((typeof performance !== "undefined" ? performance.now() : Date.now()) - startedAt),
+    });
+    // #endregion
     const payload = await response.json().catch(() => ({}));
     throw new Error(payload.error || "Request failed");
   }
 
+  // #region debug-point A:request-success
+  reportDebugEvent("A", "api/client.ts:request:success", "[DEBUG] cleanup request success", {
+    input,
+    method: init?.method || "GET",
+    status: response.status,
+    durationMs: Math.round((typeof performance !== "undefined" ? performance.now() : Date.now()) - startedAt),
+  });
+  // #endregion
   return response.json();
 }
 
