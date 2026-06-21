@@ -80,7 +80,7 @@ export default async function DashboardLayout({
   }
 
   return (
-    <div className="flex h-screen w-full">
+    <div className="flex h-screen w-full print:block print:h-auto">
       <div className="hidden w-64 flex-col border-r bg-gray-100/40 lg:flex dark:bg-gray-800/40 print:hidden">
         <div className="flex h-14 items-center border-b px-6">
           <Link href="/dashboard" className="flex items-center gap-2 font-semibold">
@@ -236,7 +236,7 @@ export default async function DashboardLayout({
           </div>
         </nav>
       </div>
-      <div className="flex flex-col w-full">
+      <div className="flex flex-col w-full print:block">
 
         <header className="flex h-14 items-center gap-4 border-b bg-gray-100/40 px-6 dark:bg-gray-800/40 print:hidden">
           <MobileNav unresolvedNotesCount={unresolvedNotesCount} maintenanceCount={maintenanceCount} isAdmin={isAdmin} isTenant={isTenant} />
@@ -245,7 +245,7 @@ export default async function DashboardLayout({
           </div>
            <UserNav />
         </header>
-        <main className="flex flex-1 flex-col gap-4 p-4 md:gap-8 md:p-6 overflow-auto">
+        <main className="flex flex-1 flex-col gap-4 overflow-auto p-4 md:gap-8 md:p-6 print:block print:overflow-visible print:p-0">
           {children}
         </main>
       </div>

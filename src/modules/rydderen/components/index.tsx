@@ -786,22 +786,22 @@ export function RydderenCostForm(props: { saving?: boolean; onSubmit: (payload: 
 
 export function RydderenReportView({ report }: { report: CleanupReportSummary }) {
   return (
-    <div className="space-y-6">
-      <div className="flex items-start justify-between gap-4">
+    <div className="space-y-6 print:space-y-4">
+      <div className="flex items-start justify-between gap-4 print:gap-2">
         <div>
           <h2 className="text-xl font-bold">{CLEANUP_MODULE_BRAND} rapport</h2>
           <p className="text-sm text-muted-foreground">
             {report.project.name} • {formatDate(report.generatedAt)}
           </p>
         </div>
-        <Button type="button" variant="outline" onClick={() => window.print()}>
+        <Button type="button" variant="outline" className="print:hidden" onClick={() => window.print()}>
           <Printer className="mr-2 h-4 w-4" />
           Print / PDF
         </Button>
       </div>
       <RydderenStatsCards report={report} />
-      <div className="grid gap-3 md:grid-cols-2">
-        <Card>
+      <div className="grid gap-3 md:grid-cols-2 print:grid-cols-2">
+        <Card className="print:break-inside-avoid">
           <CardHeader>
             <CardTitle>Oppsummering</CardTitle>
           </CardHeader>
@@ -814,7 +814,9 @@ export function RydderenReportView({ report }: { report: CleanupReportSummary })
             <div>Total beholdt verdi: {formatCurrency(report.totalKeepValue)}</div>
           </CardContent>
         </Card>
-        <RydderenCostList costs={report.costs} />
+        <div className="print:break-inside-avoid">
+          <RydderenCostList costs={report.costs} />
+        </div>
       </div>
       <RydderenItemsList items={report.items} />
     </div>
@@ -822,7 +824,7 @@ export function RydderenReportView({ report }: { report: CleanupReportSummary })
 }
 
 export function RydderenPrintLayout(props: { children: React.ReactNode }) {
-  return <div className="space-y-6 print:max-w-none">{props.children}</div>;
+  return <div className="space-y-6 print:max-w-none print:space-y-4 print:px-0">{props.children}</div>;
 }
 
 export function RydderenProjectLinkSelector(props: {

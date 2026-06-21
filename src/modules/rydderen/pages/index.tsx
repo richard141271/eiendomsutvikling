@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useEffect, useMemo, useRef, useState } from "react";
-import { useRouter, useSearchParams } from "next/navigation";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { AlertTriangle, ArrowRight, Plus } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -474,20 +474,25 @@ export function RydderenValuationPage(props: { cleanupProjectId: string; basePat
 
 export function RydderenReportPage(props: { cleanupProjectId: string; basePath: string }) {
   const { report, loading, error } = useCleanupReport(props.cleanupProjectId);
+  const pathname = usePathname();
   const searchParams = useSearchParams();
   const shouldAutoPrint = searchParams.get("print") === "1";
+  const autoPrintTriggeredRef = useRef(false);
 
   useEffect(() => {
-    if (!report || !shouldAutoPrint) {
+    if (!report || !shouldAutoPrint || autoPrintTriggeredRef.current) {
       return;
     }
+
+    autoPrintTriggeredRef.current = true;
+    window.history.replaceState({}, "", pathname);
 
     const timeout = window.setTimeout(() => {
       window.print();
     }, 120);
 
     return () => window.clearTimeout(timeout);
-  }, [report, shouldAutoPrint]);
+  }, [pathname, report, shouldAutoPrint]);
 
   if (loading || !report) {
     return <div className="text-sm text-muted-foreground">Laster rapport...</div>;
@@ -503,8 +508,10 @@ export function RydderenReportPage(props: { cleanupProjectId: string; basePath: 
   }
 
   return (
-    <div className="mx-auto flex w-full max-w-6xl flex-col gap-6">
-      <RydderenHeader title={`${report.project.name} • Rapport`} description="Rapport for print og PDF med utvidede objektdetaljer." project={report.project} basePath={props.basePath} active="report" />
+    <div className="mx-auto flex w-full max-w-6xl flex-col gap-6 print:block print:max-w-none print:p-0">
+      <div className="print:hidden">
+        <RydderenHeader title={`${report.project.name} • Rapport`} description="Rapport for print og PDF med utvidede objektdetaljer." project={report.project} basePath={props.basePath} active="report" />
+      </div>
       <RydderenPrintLayout>
         <RydderenReportView report={report} />
       </RydderenPrintLayout>
