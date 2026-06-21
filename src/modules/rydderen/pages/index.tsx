@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useEffect, useMemo, useRef, useState } from "react";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { AlertTriangle, ArrowRight, Plus } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -309,7 +309,11 @@ export function RydderenProjectDetailsPage(props: { cleanupProjectId: string; ba
         </div>
 
         <div className="mb-4">
-          <Button variant="outline" className="min-h-12 rounded-[18px] px-5 text-base font-bold" onClick={() => window.print()}>
+          <Button
+            variant="outline"
+            className="min-h-12 rounded-[18px] px-5 text-base font-bold"
+            onClick={() => router.push(`${props.basePath}/projects/${activeProject.id}/report?print=1`)}
+          >
             Skriv ut rapport
           </Button>
         </div>
@@ -470,6 +474,20 @@ export function RydderenValuationPage(props: { cleanupProjectId: string; basePat
 
 export function RydderenReportPage(props: { cleanupProjectId: string; basePath: string }) {
   const { report, loading, error } = useCleanupReport(props.cleanupProjectId);
+  const searchParams = useSearchParams();
+  const shouldAutoPrint = searchParams.get("print") === "1";
+
+  useEffect(() => {
+    if (!report || !shouldAutoPrint) {
+      return;
+    }
+
+    const timeout = window.setTimeout(() => {
+      window.print();
+    }, 120);
+
+    return () => window.clearTimeout(timeout);
+  }, [report, shouldAutoPrint]);
 
   if (loading || !report) {
     return <div className="text-sm text-muted-foreground">Laster rapport...</div>;
