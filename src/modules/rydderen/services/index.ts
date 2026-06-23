@@ -60,6 +60,22 @@ type CleanupActor = {
   tenantId: string;
 };
 
+function isMissingDocumentationTableError(error: unknown) {
+  if (!(error instanceof Error)) {
+    return false;
+  }
+  const message = error.message || "";
+  return (
+    message.includes("cleanup_evidence_maps") ||
+    message.includes("cleanup_evidence_entries") ||
+    message.includes("cleanup_evidence_entry_images")
+  );
+}
+
+function createDocumentationUnavailableError() {
+  return new Error("Dokumentasjon & Bevis er ikke aktivert i databasen ennå. Kjør nyeste dokumentasjonsmigrasjon først.");
+}
+
 async function requireCleanupActor(): Promise<CleanupActor> {
   const supabase = createClient();
   const {
@@ -565,123 +581,151 @@ export async function getCleanupReport(cleanupProjectId: string): Promise<Cleanu
 }
 
 export async function listCleanupEvidenceEntries(cleanupProjectId: string) {
-  const actor = await requireCleanupActor();
-  await getCleanupProject(cleanupProjectId);
-  const entries = await listCleanupEvidenceEntriesForTenant(cleanupProjectId, actor.tenantId);
-  return Promise.all(entries.map(serializeEvidenceEntry));
+  try {
+    const actor = await requireCleanupActor();
+    await getCleanupProject(cleanupProjectId);
+    const entries = await listCleanupEvidenceEntriesForTenant(cleanupProjectId, actor.tenantId);
+    return Promise.all(entries.map(serializeEvidenceEntry));
+  } catch (error) {
+    if (isMissingDocumentationTableError(error)) {
+      return [];
+    }
+    throw error;
+  }
 }
 
 export async function createCleanupEvidenceEntry(cleanupProjectId: string, input: CleanupEvidenceEntryCreateInput) {
-  const actor = await requireCleanupActor();
-  await getCleanupProject(cleanupProjectId);
+  try {
+    const actor = await requireCleanupActor();
+    await getCleanupProject(cleanupProjectId);
 
-  const sequence = await getNextCleanupEvidenceSequence(cleanupProjectId, input.entryType);
-  const createdAt = new Date();
-  const entry = await createCleanupEvidenceEntryRecord({
-    tenantId: actor.tenantId,
-    cleanupProjectId,
-    entryType: input.entryType,
-    sequence,
-    entryNumber: createEvidenceNumber(input.entryType, sequence),
-    category: input.category ?? null,
-    description: input.description ?? null,
-    comment: input.comment ?? null,
-    zone: input.zone ?? null,
-    count: input.count ?? 1,
-    risk: input.risk ?? null,
-    gps: input.gps ?? null,
-    createdDate: input.createdDate ?? createdAt.toLocaleDateString("no-NO"),
-    createdTime: input.createdTime ?? createdAt.toLocaleTimeString("no-NO", { hour: "2-digit", minute: "2-digit" }),
-    imageCount: input.images?.length ?? 0,
-    createdBy: actor.authUserId,
-    updatedBy: actor.authUserId,
-    metadata: input.metadata || {},
-  });
+    const sequence = await getNextCleanupEvidenceSequence(cleanupProjectId, input.entryType);
+    const createdAt = new Date();
+    const entry = await createCleanupEvidenceEntryRecord({
+      tenantId: actor.tenantId,
+      cleanupProjectId,
+      entryType: input.entryType,
+      sequence,
+      entryNumber: createEvidenceNumber(input.entryType, sequence),
+      category: input.category ?? null,
+      description: input.description ?? null,
+      comment: input.comment ?? null,
+      zone: input.zone ?? null,
+      count: input.count ?? 1,
+      risk: input.risk ?? null,
+      gps: input.gps ?? null,
+      createdDate: input.createdDate ?? createdAt.toLocaleDateString("no-NO"),
+      createdTime: input.createdTime ?? createdAt.toLocaleTimeString("no-NO", { hour: "2-digit", minute: "2-digit" }),
+      imageCount: input.images?.length ?? 0,
+      createdBy: actor.authUserId,
+      updatedBy: actor.authUserId,
+      metadata: input.metadata || {},
+    });
 
-  if (input.images?.length) {
-    for (let index = 0; index < input.images.length; index += 1) {
-      const image = input.images[index];
-      if (image.imageHash) {
-        const duplicate = await findCleanupEvidenceImageByHashForTenant({
-          cleanupProjectId,
-          tenantId: actor.tenantId,
-          imageHash: image.imageHash,
-        });
-        if (duplicate) {
-          throw new Error("Dette bildet er allerede registrert i dokumentasjonen for prosjektet.");
+    if (input.images?.length) {
+      for (let index = 0; index < input.images.length; index += 1) {
+        const image = input.images[index];
+        if (image.imageHash) {
+          const duplicate = await findCleanupEvidenceImageByHashForTenant({
+            cleanupProjectId,
+            tenantId: actor.tenantId,
+            imageHash: image.imageHash,
+          });
+          if (duplicate) {
+            throw new Error("Dette bildet er allerede registrert i dokumentasjonen for prosjektet.");
+          }
         }
+
+        const imageRecord = await createCleanupEvidenceEntryImageRecord({
+          tenantId: actor.tenantId,
+          cleanupEvidenceEntryId: entry.id,
+          storagePath: "",
+          thumbnailPath: null,
+          imageHash: image.imageHash ?? null,
+          originalName: image.originalName ?? image.file.name ?? null,
+          sortOrder: index,
+        });
+
+        const arrayBuffer = await image.file.arrayBuffer();
+        const { originalPath, thumbPath } = await uploadCleanupEvidenceImage({
+          cleanupProjectId,
+          entryId: entry.id,
+          imageId: imageRecord.id,
+          fileBuffer: Buffer.from(arrayBuffer),
+          contentType: image.file.type || "image/jpeg",
+        });
+
+        await updateCleanupEvidenceEntryImageRecord(imageRecord.id, actor.tenantId, {
+          storagePath: originalPath,
+          thumbnailPath: thumbPath,
+        });
       }
-
-      const imageRecord = await createCleanupEvidenceEntryImageRecord({
-        tenantId: actor.tenantId,
-        cleanupEvidenceEntryId: entry.id,
-        storagePath: "",
-        thumbnailPath: null,
-        imageHash: image.imageHash ?? null,
-        originalName: image.originalName ?? image.file.name ?? null,
-        sortOrder: index,
-      });
-
-      const arrayBuffer = await image.file.arrayBuffer();
-      const { originalPath, thumbPath } = await uploadCleanupEvidenceImage({
-        cleanupProjectId,
-        entryId: entry.id,
-        imageId: imageRecord.id,
-        fileBuffer: Buffer.from(arrayBuffer),
-        contentType: image.file.type || "image/jpeg",
-      });
-
-      await updateCleanupEvidenceEntryImageRecord(imageRecord.id, actor.tenantId, {
-        storagePath: originalPath,
-        thumbnailPath: thumbPath,
-      });
     }
-  }
 
-  const record = await getCleanupEvidenceEntryByIdForTenant(cleanupProjectId, entry.id, actor.tenantId);
-  return serializeEvidenceEntry(record);
+    const record = await getCleanupEvidenceEntryByIdForTenant(cleanupProjectId, entry.id, actor.tenantId);
+    return serializeEvidenceEntry(record);
+  } catch (error) {
+    if (isMissingDocumentationTableError(error)) {
+      throw createDocumentationUnavailableError();
+    }
+    throw error;
+  }
 }
 
 export async function getCleanupEvidenceMap(cleanupProjectId: string) {
-  const actor = await requireCleanupActor();
-  await getCleanupProject(cleanupProjectId);
-  const map = await getCleanupEvidenceMapByProjectIdForTenant(cleanupProjectId, actor.tenantId);
-  if (!map) {
-    return null;
+  try {
+    const actor = await requireCleanupActor();
+    await getCleanupProject(cleanupProjectId);
+    const map = await getCleanupEvidenceMapByProjectIdForTenant(cleanupProjectId, actor.tenantId);
+    if (!map) {
+      return null;
+    }
+    return serializeEvidenceMap(map);
+  } catch (error) {
+    if (isMissingDocumentationTableError(error)) {
+      return null;
+    }
+    throw error;
   }
-  return serializeEvidenceMap(map);
 }
 
 export async function upsertCleanupEvidenceMap(cleanupProjectId: string, input: CleanupEvidenceMapUpsertInput) {
-  const actor = await requireCleanupActor();
-  await getCleanupProject(cleanupProjectId);
-  const record = await upsertCleanupEvidenceMapRecord({
-    cleanupProjectId,
-    tenantId: actor.tenantId,
-    create: {
-      tenantId: actor.tenantId,
+  try {
+    const actor = await requireCleanupActor();
+    await getCleanupProject(cleanupProjectId);
+    const record = await upsertCleanupEvidenceMapRecord({
       cleanupProjectId,
-      rows: input.rows,
-      columns: input.columns,
-      zones: input.zones,
-      sketch: input.sketch ?? null,
-      caseName: input.caseName ?? null,
-      address: input.address ?? null,
-      createdBy: actor.authUserId,
-      updatedBy: actor.authUserId,
-    },
-    update: {
       tenantId: actor.tenantId,
-      rows: input.rows,
-      columns: input.columns,
-      zones: input.zones,
-      sketch: input.sketch ?? null,
-      caseName: input.caseName ?? null,
-      address: input.address ?? null,
-      updatedBy: actor.authUserId,
-    },
-  });
-  return serializeEvidenceMap(record);
+      create: {
+        tenantId: actor.tenantId,
+        cleanupProjectId,
+        rows: input.rows,
+        columns: input.columns,
+        zones: input.zones,
+        sketch: input.sketch ?? null,
+        caseName: input.caseName ?? null,
+        address: input.address ?? null,
+        createdBy: actor.authUserId,
+        updatedBy: actor.authUserId,
+      },
+      update: {
+        tenantId: actor.tenantId,
+        rows: input.rows,
+        columns: input.columns,
+        zones: input.zones,
+        sketch: input.sketch ?? null,
+        caseName: input.caseName ?? null,
+        address: input.address ?? null,
+        updatedBy: actor.authUserId,
+      },
+    });
+    return serializeEvidenceMap(record);
+  } catch (error) {
+    if (isMissingDocumentationTableError(error)) {
+      throw createDocumentationUnavailableError();
+    }
+    throw error;
+  }
 }
 
 export async function importLegacyCleanupPayload(payload: LegacyCleanupImportPayload): Promise<CleanupImportResult> {
