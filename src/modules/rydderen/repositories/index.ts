@@ -66,6 +66,93 @@ export async function createCleanupProjectLinkRecord(data: Record<string, unknow
   return (prisma as any).cleanupProjectLink.create({ data });
 }
 
+export async function listCleanupEvidenceEntriesForTenant(cleanupProjectId: string, tenantId: string) {
+  return (prisma as any).cleanupEvidenceEntry.findMany({
+    where: { cleanupProjectId, tenantId },
+    include: {
+      images: {
+        orderBy: { sortOrder: "asc" },
+      },
+    },
+    orderBy: [{ createdAt: "desc" }, { sequence: "desc" }],
+  });
+}
+
+export async function getCleanupEvidenceEntryByIdForTenant(cleanupProjectId: string, entryId: string, tenantId: string) {
+  return (prisma as any).cleanupEvidenceEntry.findFirst({
+    where: { id: entryId, cleanupProjectId, tenantId },
+    include: {
+      images: {
+        orderBy: { sortOrder: "asc" },
+      },
+    },
+  });
+}
+
+export async function getNextCleanupEvidenceSequence(cleanupProjectId: string, entryType: string) {
+  const result = await (prisma as any).cleanupEvidenceEntry.aggregate({
+    where: { cleanupProjectId, entryType },
+    _max: { sequence: true },
+  });
+  return (result?._max?.sequence || 0) + 1;
+}
+
+export async function createCleanupEvidenceEntryRecord(data: Record<string, unknown>) {
+  return (prisma as any).cleanupEvidenceEntry.create({ data });
+}
+
+export async function createCleanupEvidenceEntryImageRecord(data: Record<string, unknown>) {
+  return (prisma as any).cleanupEvidenceEntryImage.create({ data });
+}
+
+export async function updateCleanupEvidenceEntryImageRecord(imageId: string, tenantId: string, data: Record<string, unknown>) {
+  return (prisma as any).cleanupEvidenceEntryImage.updateMany({
+    where: { id: imageId, tenantId },
+    data,
+  });
+}
+
+export async function findCleanupEvidenceImageByHashForTenant(params: {
+  cleanupProjectId: string;
+  tenantId: string;
+  imageHash: string;
+}) {
+  return (prisma as any).cleanupEvidenceEntryImage.findFirst({
+    where: {
+      tenantId: params.tenantId,
+      imageHash: params.imageHash,
+      cleanupEvidenceEntry: {
+        cleanupProjectId: params.cleanupProjectId,
+      },
+    },
+    select: {
+      id: true,
+      cleanupEvidenceEntryId: true,
+    },
+  });
+}
+
+export async function getCleanupEvidenceMapByProjectIdForTenant(cleanupProjectId: string, tenantId: string) {
+  return (prisma as any).cleanupEvidenceMap.findFirst({
+    where: { cleanupProjectId, tenantId },
+  });
+}
+
+export async function upsertCleanupEvidenceMapRecord(params: {
+  cleanupProjectId: string;
+  tenantId: string;
+  create: Record<string, unknown>;
+  update: Record<string, unknown>;
+}) {
+  return (prisma as any).cleanupEvidenceMap.upsert({
+    where: {
+      cleanupProjectId: params.cleanupProjectId,
+    },
+    create: params.create,
+    update: params.update,
+  });
+}
+
 export async function listCleanupItemsForTenant(params: {
   tenantId: string;
   cleanupProjectId: string;
@@ -222,6 +309,40 @@ export async function uploadCleanupItemImages(params: {
   const thumbBuffer = await sharp(params.fileBuffer)
     .rotate()
     .resize({ width: 640, height: 640, fit: "inside", withoutEnlargement: true })
+    .jpeg({ quality: 82 })
+    .toBuffer();
+
+  const { error: originalError } = await admin().storage.from(CLEANUP_BUCKET).upload(originalPath, params.fileBuffer, {
+    contentType: params.contentType,
+    upsert: true,
+  });
+  if (originalError) throw new Error(originalError.message);
+
+  const { error: thumbError } = await admin().storage.from(CLEANUP_BUCKET).upload(thumbPath, thumbBuffer, {
+    contentType: "image/jpeg",
+    upsert: true,
+  });
+  if (thumbError) throw new Error(thumbError.message);
+
+  return { originalPath, thumbPath };
+}
+
+export async function uploadCleanupEvidenceImage(params: {
+  cleanupProjectId: string;
+  entryId: string;
+  imageId: string;
+  fileBuffer: Buffer;
+  contentType: string;
+}) {
+  await ensureCleanupStorageBucket();
+
+  const ext = resolveFileExtension(params.contentType);
+  const originalPath = `cleanup-projects/${params.cleanupProjectId}/documentation/${params.entryId}/${params.imageId}/original.${ext}`;
+  const thumbPath = `cleanup-projects/${params.cleanupProjectId}/documentation/${params.entryId}/${params.imageId}/thumb.jpg`;
+
+  const thumbBuffer = await sharp(params.fileBuffer)
+    .rotate()
+    .resize({ width: 900, height: 900, fit: "inside", withoutEnlargement: true })
     .jpeg({ quality: 82 })
     .toBuffer();
 

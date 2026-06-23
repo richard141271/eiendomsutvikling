@@ -3,31 +3,46 @@ import "server-only";
 import { createClient } from "@/lib/supabase-server";
 import {
   createCleanupCostRecord,
+  createCleanupEvidenceEntryImageRecord,
+  createCleanupEvidenceEntryRecord,
   createCleanupItemRecord,
   createCleanupProjectLinkRecord,
   createCleanupProjectRecord,
   createCleanupSignedUrl,
   deleteCleanupProjectRecord,
   ensureCleanupStorageBucket,
+  findCleanupEvidenceImageByHashForTenant,
   findCleanupProjectBySlug,
   findCleanupItemByImageHashForTenant,
+  getCleanupEvidenceEntryByIdForTenant,
+  getCleanupEvidenceMapByProjectIdForTenant,
   getCleanupItemByIdForTenant,
+  getNextCleanupEvidenceSequence,
   getCleanupProjectByIdForTenant,
   getNextCleanupItemNumber,
   listCleanupContextOptionsFromDb,
   listCleanupCostsForTenant,
+  listCleanupEvidenceEntriesForTenant,
   listCleanupItemsForTenant,
   listCleanupProjectsByTenant,
   resolveCleanupContextReference,
+  upsertCleanupEvidenceMapRecord,
   updateCleanupItemRecord,
   updateCleanupProjectRecord,
   uploadCleanupImageDataUrl,
+  uploadCleanupEvidenceImage,
   uploadCleanupItemImages,
+  updateCleanupEvidenceEntryImageRecord,
 } from "@/src/modules/rydderen/repositories";
 import type {
   CleanupContextOptions,
   CleanupCost,
   CleanupCostCreateInput,
+  CleanupEvidenceEntry,
+  CleanupEvidenceEntryCreateInput,
+  CleanupEvidenceEntryImage,
+  CleanupEvidenceMap,
+  CleanupEvidenceMapUpsertInput,
   CleanupImportResult,
   CleanupItem,
   CleanupItemCreateInput,
@@ -142,6 +157,82 @@ function serializeCost(cost: any): CleanupCost {
     createdAt: cost.createdAt.toISOString(),
     updatedAt: cost.updatedAt.toISOString(),
   };
+}
+
+async function serializeEvidenceImage(image: any): Promise<CleanupEvidenceEntryImage> {
+  const imageUrl = await createCleanupSignedUrl(image.storagePath);
+  const thumbnailUrl = await createCleanupSignedUrl(image.thumbnailPath);
+  return {
+    id: image.id,
+    tenantId: image.tenantId,
+    cleanupEvidenceEntryId: image.cleanupEvidenceEntryId,
+    storagePath: image.storagePath,
+    thumbnailPath: image.thumbnailPath ?? null,
+    imageHash: image.imageHash ?? null,
+    originalName: image.originalName ?? null,
+    sortOrder: image.sortOrder,
+    imageUrl,
+    thumbnailUrl,
+    createdAt: image.createdAt.toISOString(),
+    updatedAt: image.updatedAt.toISOString(),
+  };
+}
+
+async function serializeEvidenceEntry(entry: any): Promise<CleanupEvidenceEntry> {
+  return {
+    id: entry.id,
+    tenantId: entry.tenantId,
+    cleanupProjectId: entry.cleanupProjectId,
+    entryType: entry.entryType,
+    sequence: entry.sequence,
+    entryNumber: entry.entryNumber,
+    category: entry.category ?? null,
+    description: entry.description ?? null,
+    comment: entry.comment ?? null,
+    zone: entry.zone ?? null,
+    count: entry.count ?? 1,
+    risk: entry.risk ?? null,
+    gps: entry.gps ? (entry.gps as { lat: number; lon: number }) : null,
+    createdDate: entry.createdDate ?? null,
+    createdTime: entry.createdTime ?? null,
+    imageCount: entry.imageCount ?? entry.images?.length ?? 0,
+    createdBy: entry.createdBy,
+    updatedBy: entry.updatedBy ?? null,
+    createdAt: entry.createdAt.toISOString(),
+    updatedAt: entry.updatedAt.toISOString(),
+    metadata: (entry.metadata || {}) as Record<string, unknown>,
+    images: await Promise.all((entry.images || []).map(serializeEvidenceImage)),
+  };
+}
+
+function serializeEvidenceMap(map: any): CleanupEvidenceMap {
+  return {
+    id: map.id,
+    tenantId: map.tenantId,
+    cleanupProjectId: map.cleanupProjectId,
+    rows: map.rows,
+    columns: map.columns,
+    zones: Array.isArray(map.zones) ? map.zones.map((zone: unknown) => String(zone)) : [],
+    sketch: map.sketch ?? null,
+    caseName: map.caseName ?? null,
+    address: map.address ?? null,
+    createdBy: map.createdBy,
+    updatedBy: map.updatedBy ?? null,
+    createdAt: map.createdAt.toISOString(),
+    updatedAt: map.updatedAt.toISOString(),
+  };
+}
+
+function createEvidenceNumber(entryType: string, sequence: number) {
+  const prefixes: Record<string, string> = {
+    finding: "FUNN",
+    observation: "OBS",
+    damage: "SKADE",
+    measurement: "MAL",
+    sample: "SP",
+  };
+  const prefix = prefixes[entryType] || entryType.toUpperCase();
+  return `${prefix}-${String(sequence).padStart(3, "0")}`;
 }
 
 async function resolveUniqueSlug(tenantId: string, preferred: string) {
@@ -471,6 +562,126 @@ export async function getCleanupReport(cleanupProjectId: string): Promise<Cleanu
     generatedAt: new Date().toISOString(),
     ...calculateCleanupSummary(items, costs),
   };
+}
+
+export async function listCleanupEvidenceEntries(cleanupProjectId: string) {
+  const actor = await requireCleanupActor();
+  await getCleanupProject(cleanupProjectId);
+  const entries = await listCleanupEvidenceEntriesForTenant(cleanupProjectId, actor.tenantId);
+  return Promise.all(entries.map(serializeEvidenceEntry));
+}
+
+export async function createCleanupEvidenceEntry(cleanupProjectId: string, input: CleanupEvidenceEntryCreateInput) {
+  const actor = await requireCleanupActor();
+  await getCleanupProject(cleanupProjectId);
+
+  const sequence = await getNextCleanupEvidenceSequence(cleanupProjectId, input.entryType);
+  const createdAt = new Date();
+  const entry = await createCleanupEvidenceEntryRecord({
+    tenantId: actor.tenantId,
+    cleanupProjectId,
+    entryType: input.entryType,
+    sequence,
+    entryNumber: createEvidenceNumber(input.entryType, sequence),
+    category: input.category ?? null,
+    description: input.description ?? null,
+    comment: input.comment ?? null,
+    zone: input.zone ?? null,
+    count: input.count ?? 1,
+    risk: input.risk ?? null,
+    gps: input.gps ?? null,
+    createdDate: input.createdDate ?? createdAt.toLocaleDateString("no-NO"),
+    createdTime: input.createdTime ?? createdAt.toLocaleTimeString("no-NO", { hour: "2-digit", minute: "2-digit" }),
+    imageCount: input.images?.length ?? 0,
+    createdBy: actor.authUserId,
+    updatedBy: actor.authUserId,
+    metadata: input.metadata || {},
+  });
+
+  if (input.images?.length) {
+    for (let index = 0; index < input.images.length; index += 1) {
+      const image = input.images[index];
+      if (image.imageHash) {
+        const duplicate = await findCleanupEvidenceImageByHashForTenant({
+          cleanupProjectId,
+          tenantId: actor.tenantId,
+          imageHash: image.imageHash,
+        });
+        if (duplicate) {
+          throw new Error("Dette bildet er allerede registrert i dokumentasjonen for prosjektet.");
+        }
+      }
+
+      const imageRecord = await createCleanupEvidenceEntryImageRecord({
+        tenantId: actor.tenantId,
+        cleanupEvidenceEntryId: entry.id,
+        storagePath: "",
+        thumbnailPath: null,
+        imageHash: image.imageHash ?? null,
+        originalName: image.originalName ?? image.file.name ?? null,
+        sortOrder: index,
+      });
+
+      const arrayBuffer = await image.file.arrayBuffer();
+      const { originalPath, thumbPath } = await uploadCleanupEvidenceImage({
+        cleanupProjectId,
+        entryId: entry.id,
+        imageId: imageRecord.id,
+        fileBuffer: Buffer.from(arrayBuffer),
+        contentType: image.file.type || "image/jpeg",
+      });
+
+      await updateCleanupEvidenceEntryImageRecord(imageRecord.id, actor.tenantId, {
+        storagePath: originalPath,
+        thumbnailPath: thumbPath,
+      });
+    }
+  }
+
+  const record = await getCleanupEvidenceEntryByIdForTenant(cleanupProjectId, entry.id, actor.tenantId);
+  return serializeEvidenceEntry(record);
+}
+
+export async function getCleanupEvidenceMap(cleanupProjectId: string) {
+  const actor = await requireCleanupActor();
+  await getCleanupProject(cleanupProjectId);
+  const map = await getCleanupEvidenceMapByProjectIdForTenant(cleanupProjectId, actor.tenantId);
+  if (!map) {
+    return null;
+  }
+  return serializeEvidenceMap(map);
+}
+
+export async function upsertCleanupEvidenceMap(cleanupProjectId: string, input: CleanupEvidenceMapUpsertInput) {
+  const actor = await requireCleanupActor();
+  await getCleanupProject(cleanupProjectId);
+  const record = await upsertCleanupEvidenceMapRecord({
+    cleanupProjectId,
+    tenantId: actor.tenantId,
+    create: {
+      tenantId: actor.tenantId,
+      cleanupProjectId,
+      rows: input.rows,
+      columns: input.columns,
+      zones: input.zones,
+      sketch: input.sketch ?? null,
+      caseName: input.caseName ?? null,
+      address: input.address ?? null,
+      createdBy: actor.authUserId,
+      updatedBy: actor.authUserId,
+    },
+    update: {
+      tenantId: actor.tenantId,
+      rows: input.rows,
+      columns: input.columns,
+      zones: input.zones,
+      sketch: input.sketch ?? null,
+      caseName: input.caseName ?? null,
+      address: input.address ?? null,
+      updatedBy: actor.authUserId,
+    },
+  });
+  return serializeEvidenceMap(record);
 }
 
 export async function importLegacyCleanupPayload(payload: LegacyCleanupImportPayload): Promise<CleanupImportResult> {

@@ -34,6 +34,31 @@ export const DEFAULT_RYDDEREN_CATEGORIES = [
   "Diverse",
 ];
 
+export const CLEANUP_DOCUMENTATION_CATEGORIES = [
+  "Kloakkrelatert",
+  "Vannskade",
+  "Fukt",
+  "Lukt",
+  "Mugg",
+  "Avfall",
+  "Stikkpilleemballasje",
+  "Papir",
+  "Fremmedlegeme",
+  "Bygningsskade",
+  "Elektrisk",
+  "Annet",
+] as const;
+
+export const CLEANUP_DOCUMENTATION_TYPES = [
+  { id: "finding", label: "Nytt funn", prefix: "FUNN", shortLabel: "Funn" },
+  { id: "observation", label: "Ny observasjon", prefix: "OBS", shortLabel: "Observasjon" },
+  { id: "damage", label: "Ny skade", prefix: "SKADE", shortLabel: "Skade" },
+  { id: "measurement", label: "Ny måling", prefix: "MAL", shortLabel: "Maling" },
+  { id: "sample", label: "Ny prove", prefix: "SP", shortLabel: "Prove" },
+] as const;
+
+export const CLEANUP_DOCUMENTATION_RISK_OPTIONS = ["Lav", "Middels", "Hoy", "Kritisk"] as const;
+
 export function slugify(value: string) {
   return value
     .normalize("NFKD")
@@ -98,6 +123,14 @@ export function formatDate(value: string | null | undefined) {
   return new Date(value).toLocaleDateString("no-NO");
 }
 
+export function formatTime(value: string | null | undefined) {
+  if (!value) return "-";
+  return new Date(value).toLocaleTimeString("no-NO", {
+    hour: "2-digit",
+    minute: "2-digit",
+  });
+}
+
 export function formatCleanupObjectLabel(itemNumber: number | null | undefined) {
   if (!itemNumber && itemNumber !== 0) return "Objekt";
   return `Objekt #${String(itemNumber).padStart(3, "0")}`;
@@ -108,4 +141,26 @@ export function formatCleanupActionLabel(action: string | null | undefined) {
   if (action === "selg") return "Selg";
   if (action === "behold") return "Behold";
   return action || "";
+}
+
+export function getCleanupDocumentationTypeConfig(entryType: string | null | undefined) {
+  return CLEANUP_DOCUMENTATION_TYPES.find((type) => type.id === entryType) || CLEANUP_DOCUMENTATION_TYPES[0];
+}
+
+export function formatCleanupEvidenceNumber(entryType: string, sequence: number) {
+  const type = getCleanupDocumentationTypeConfig(entryType);
+  return `${type.prefix}-${String(sequence).padStart(3, "0")}`;
+}
+
+export function buildCleanupZones(rows: number, columns: number) {
+  const safeRows = Math.max(1, Math.min(8, Number(rows) || 1));
+  const safeColumns = Math.max(1, Math.min(8, Number(columns) || 1));
+  const zones: string[] = [];
+  for (let row = 0; row < safeRows; row += 1) {
+    const rowLabel = String.fromCharCode(65 + row);
+    for (let column = 1; column <= safeColumns; column += 1) {
+      zones.push(`${rowLabel}${column}`);
+    }
+  }
+  return zones;
 }

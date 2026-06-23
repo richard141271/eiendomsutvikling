@@ -47,19 +47,20 @@ export function RydderenHeader(props: {
   description?: string | null;
   project?: CleanupProject | null;
   basePath: string;
-  active?: "overview" | "register" | "valuation" | "report";
+  active?: "overview" | "register" | "valuation" | "report" | "documentation";
 }) {
   const tabs = props.project
     ? [
         { key: "overview", label: "Oversikt", href: `${props.basePath}/projects/${props.project.id}` },
         { key: "register", label: "Registrer", href: `${props.basePath}/projects/${props.project.id}/register` },
         { key: "valuation", label: "Verdisetting", href: `${props.basePath}/projects/${props.project.id}/valuation` },
+        { key: "documentation", label: "Dokumentasjon", href: `${props.basePath}/projects/${props.project.id}/documentation` },
         { key: "report", label: "Rapport", href: `${props.basePath}/projects/${props.project.id}/report` },
       ]
     : [];
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-4 print:hidden">
       <div className="flex flex-col gap-3">
         <div className="space-y-1">
           <div className="flex items-center gap-2">
@@ -111,16 +112,17 @@ export function RydderenProjectStrip(props: {
   project: CleanupProject;
   projects: CleanupProject[];
   basePath: string;
-  activeView: "register" | "valuation" | "overview";
+  activeView: "register" | "valuation" | "overview" | "documentation";
 }) {
   const getProjectHref = (projectId: string) => {
     if (props.activeView === "register") return `${props.basePath}/projects/${projectId}/register`;
     if (props.activeView === "valuation") return `${props.basePath}/projects/${projectId}/valuation`;
+    if (props.activeView === "documentation") return `${props.basePath}/projects/${projectId}/documentation`;
     return `${props.basePath}/projects/${projectId}`;
   };
 
   return (
-    <section className="grid gap-3 rounded-[20px] bg-white p-4 shadow-[0_16px_40px_rgba(17,24,39,0.10)]">
+    <section className="grid gap-3 rounded-[20px] bg-white p-4 shadow-[0_16px_40px_rgba(17,24,39,0.10)] print:hidden">
       <div>
         <p className="mb-1 text-xs uppercase tracking-[0.08em] text-slate-500">Aktivt prosjekt</p>
         <h2 className="text-xl font-bold">{props.project.name}</h2>
@@ -146,7 +148,7 @@ export function RydderenProjectStrip(props: {
 export function RydderenBottomNav(props: {
   cleanupProjectId: string;
   basePath: string;
-  active: "register" | "valuation" | "overview";
+  active: "register" | "valuation" | "overview" | "documentation";
 }) {
   const items = [
     { key: "register", label: "Registrer", href: `${props.basePath}/projects/${props.cleanupProjectId}/register` },
@@ -157,7 +159,7 @@ export function RydderenBottomNav(props: {
   return (
     <nav
       aria-label="Hovednavigasjon"
-      className="fixed inset-x-0 bottom-0 z-20 mx-auto grid max-w-[820px] grid-cols-3 gap-3 bg-slate-100/95 px-4 pb-[calc(12px+env(safe-area-inset-bottom))] pt-3 backdrop-blur"
+      className="fixed inset-x-0 bottom-0 z-20 mx-auto grid max-w-[820px] grid-cols-3 gap-3 bg-slate-100/95 px-4 pb-[calc(12px+env(safe-area-inset-bottom))] pt-3 backdrop-blur print:hidden"
     >
       {items.map((item) => (
         <Link
@@ -180,15 +182,15 @@ export function RydderenAppShell(props: {
   projects: CleanupProject[];
   cleanupProjectId: string;
   basePath: string;
-  active: "register" | "valuation" | "overview";
+  active: "register" | "valuation" | "overview" | "documentation";
   children: React.ReactNode;
 }) {
   return (
     <div
-      className="mx-auto flex min-h-[calc(100vh-8rem)] w-full max-w-[820px] flex-col gap-3 overflow-x-hidden px-3 pb-[calc(9rem+env(safe-area-inset-bottom))] pt-3 sm:px-4 sm:pb-[calc(8rem+env(safe-area-inset-bottom))] sm:pt-4"
+      className="mx-auto flex min-h-[calc(100vh-8rem)] w-full max-w-[820px] flex-col gap-3 overflow-x-hidden px-3 pb-[calc(9rem+env(safe-area-inset-bottom))] pt-3 sm:px-4 sm:pb-[calc(8rem+env(safe-area-inset-bottom))] sm:pt-4 print:block print:max-w-none print:px-0 print:pb-0 print:pt-0"
       style={{ touchAction: "pan-y", overscrollBehaviorX: "none" }}
     >
-      <header className="flex items-start justify-between gap-4">
+      <header className="flex items-start justify-between gap-4 print:hidden">
         <div>
           <p className="mb-1 text-xs uppercase tracking-[0.08em] text-slate-500">Prosjektnavn</p>
           <h1 className="text-3xl font-bold">{CLEANUP_MODULE_BRAND}</h1>
@@ -300,11 +302,13 @@ export function RydderenActionStep(props: { onSelect: (action: "kast" | "selg" |
 
 export function RydderenRegisterFlow(props: {
   previewUrl?: string | null;
+  projectName?: string | null;
   category?: string | null;
   step: "camera" | "category" | "action";
   saving?: boolean;
   error?: string | null;
   onCapture: (file: File | null) => void;
+  onRequestCapture?: () => boolean | Promise<boolean>;
   onCategory: (category: string) => void;
   onAction: (action: "kast" | "selg" | "behold") => void;
   onExitHref: string;
@@ -347,18 +351,32 @@ export function RydderenRegisterFlow(props: {
             <h2 className="text-2xl font-bold">Ta bilde av neste objekt</h2>
           </div>
           <div className="rounded-[18px] border border-slate-300 bg-slate-50 p-4">
-            <label className="flex min-h-16 cursor-pointer items-center justify-center rounded-[18px] bg-blue-600 px-4 py-4 text-center text-xl font-bold text-white">
-              <input
-                ref={cameraInputRef}
-                className="hidden"
-                type="file"
-                accept="image/*"
-                capture="environment"
-                onChange={(event) => props.onCapture(event.target.files?.[0] || null)}
-              />
+            <input
+              ref={cameraInputRef}
+              className="hidden"
+              type="file"
+              accept="image/*"
+              capture="environment"
+              onChange={(event) => props.onCapture(event.target.files?.[0] || null)}
+            />
+            <button
+              type="button"
+              className="flex min-h-16 w-full items-center justify-center rounded-[18px] bg-blue-600 px-4 py-4 text-center text-xl font-bold text-white"
+              onClick={async () => {
+                const allowed = (await props.onRequestCapture?.()) ?? true;
+                if (allowed) {
+                  cameraInputRef.current?.click();
+                }
+              }}
+            >
               Ta bilde
-            </label>
+            </button>
             <p className="mt-3 text-sm text-slate-500">Bildet lagres i valgt prosjekt.</p>
+            {props.projectName ? (
+              <p className="mt-2 text-sm text-slate-500">
+                Dette registreres i <span className="font-semibold text-slate-700">{props.projectName}</span>.
+              </p>
+            ) : null}
           </div>
           <div className="mt-4 grid gap-3">
             <Link href={props.onExitHref}>

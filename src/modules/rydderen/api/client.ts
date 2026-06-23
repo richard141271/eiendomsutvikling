@@ -1,6 +1,9 @@
 import type {
   CleanupCost,
   CleanupCostCreateInput,
+  CleanupEvidenceEntry,
+  CleanupEvidenceMap,
+  CleanupEvidenceMapUpsertInput,
   CleanupImportResult,
   CleanupItem,
   CleanupItemUpdateInput,
@@ -86,6 +89,24 @@ export const cleanupApiClient = {
   },
   getReport(cleanupProjectId: string) {
     return request<CleanupReportSummary>(`/api/rydderen/projects/${cleanupProjectId}/report`);
+  },
+  listDocumentationEntries(cleanupProjectId: string) {
+    return request<CleanupEvidenceEntry[]>(`/api/rydderen/projects/${cleanupProjectId}/documentation/entries`);
+  },
+  createDocumentationEntry(cleanupProjectId: string, formData: FormData) {
+    return request<CleanupEvidenceEntry>(`/api/rydderen/projects/${cleanupProjectId}/documentation/entries`, {
+      method: "POST",
+      body: formData,
+    });
+  },
+  getDocumentationMap(cleanupProjectId: string) {
+    return request<CleanupEvidenceMap | null>(`/api/rydderen/projects/${cleanupProjectId}/documentation/map`);
+  },
+  upsertDocumentationMap(cleanupProjectId: string, body: CleanupEvidenceMapUpsertInput) {
+    return request<CleanupEvidenceMap>(`/api/rydderen/projects/${cleanupProjectId}/documentation/map`, {
+      method: "PUT",
+      body: JSON.stringify(body),
+    });
   },
   importLegacyPayload(body: LegacyCleanupImportPayload) {
     return request<CleanupImportResult>("/api/rydderen/import", {

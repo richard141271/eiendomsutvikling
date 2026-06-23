@@ -7,6 +7,15 @@ import { AlertTriangle, ArrowRight, Plus } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import {
+  CleanupDocumentationDraftImage,
+  CleanupDocumentationView,
+  RydderenDocumentationEntryForm,
+  RydderenDocumentationMapForm,
+  RydderenDocumentationMenu,
+  RydderenDocumentationReportView,
+} from "@/src/modules/rydderen/documentation-components";
+import { exportDocumentationDocx, exportDocumentationZip, saveAllDocumentationImages } from "@/src/modules/rydderen/documentation-export";
+import {
   RydderenAppShell,
   RydderenCostForm,
   RydderenCostList,
@@ -22,6 +31,8 @@ import {
 } from "@/src/modules/rydderen/components";
 import {
   useCleanupCosts,
+  useCleanupDocumentationEntries,
+  useCleanupDocumentationMap,
   useCleanupFilters,
   useCleanupItems,
   useCleanupProject,
@@ -31,7 +42,14 @@ import {
   useCleanupValuationQueue,
 } from "@/src/modules/rydderen/hooks";
 import type { CleanupContextOptions, CleanupCost, CleanupItem, CleanupProject, CleanupProjectContextType } from "@/src/modules/rydderen/types";
-import { CLEANUP_MODULE_BRAND, formatCurrency } from "@/src/modules/rydderen/utils";
+import {
+  CLEANUP_DOCUMENTATION_CATEGORIES,
+  CLEANUP_MODULE_BRAND,
+  buildCleanupZones,
+  formatCleanupEvidenceNumber,
+  formatCurrency,
+  getCleanupDocumentationTypeConfig,
+} from "@/src/modules/rydderen/utils";
 
 function createLoadingProject(cleanupProjectId: string) {
   const now = new Date().toISOString();
@@ -71,6 +89,16 @@ function scrollWorkAreaIntoView(element: HTMLElement | null) {
   });
 }
 
+async function hashDocumentationFile(file: File) {
+  const buffer = await file.arrayBuffer();
+  const digest = await crypto.subtle.digest("SHA-256", buffer);
+  return Array.from(new Uint8Array(digest), (byte) => byte.toString(16).padStart(2, "0")).join("");
+}
+
+function getProjectConfirmationKey(cleanupProjectId: string) {
+  return `rydderen-project-confirmed:${cleanupProjectId}`;
+}
+
 function buildOverviewSummary(items: CleanupItem[], costs: CleanupCost[], project: CleanupProject | null) {
   const castCount = items.filter((item) => item.action === "kast").length;
   const sellCount = items.filter((item) => item.action === "selg").length;
@@ -100,6 +128,44 @@ function buildOverviewSummary(items: CleanupItem[], costs: CleanupCost[], projec
     netValue: totalValue - projectCosts,
     project,
   };
+}
+
+function useProjectRegistrationConfirmation(cleanupProjectId: string, projectName: string, basePath: string) {
+  const router = useRouter();
+  const [confirmed, setConfirmed] = useState(false);
+
+  useEffect(() => {
+    if (typeof window === "undefined") {
+      return;
+    }
+    setConfirmed(window.sessionStorage.getItem(getProjectConfirmationKey(cleanupProjectId)) === "1");
+  }, [cleanupProjectId]);
+
+  const ensureConfirmed = async () => {
+    if (confirmed) {
+      return true;
+    }
+
+    const isConfirmed = window.confirm(`Dette registreres i "${projectName}". Er dette riktig?`);
+    if (!isConfirmed) {
+      router.push(`${basePath}/projects/${cleanupProjectId}`);
+      return false;
+    }
+
+    window.sessionStorage.setItem(getProjectConfirmationKey(cleanupProjectId), "1");
+    setConfirmed(true);
+    return true;
+  };
+
+  const resetConfirmation = () => {
+    if (typeof window === "undefined") {
+      return;
+    }
+    window.sessionStorage.removeItem(getProjectConfirmationKey(cleanupProjectId));
+    setConfirmed(false);
+  };
+
+  return { confirmed, ensureConfirmed, resetConfirmation };
 }
 
 export function RydderenModulePage({ basePath }: { basePath: string }) {
@@ -405,6 +471,7 @@ export function RydderenRegisterPage(props: { cleanupProjectId: string; basePath
   const flow = useCleanupRegisterFlow(props.cleanupProjectId, items);
   const activeProject = project ?? createLoadingProject(props.cleanupProjectId);
   const visibleProjects = projects.length ? projects : [activeProject];
+  const { ensureConfirmed } = useProjectRegistrationConfirmation(props.cleanupProjectId, activeProject.name, props.basePath);
 
   if (error && !project) {
     return <div className="rounded-xl bg-red-50 p-3 text-sm text-red-700">{error}</div>;
@@ -415,12 +482,14 @@ export function RydderenRegisterPage(props: { cleanupProjectId: string; basePath
       {loading && !project ? <div className="text-sm text-muted-foreground">Laster prosjekt i bakgrunnen...</div> : null}
       <RydderenRegisterFlow
         previewUrl={flow.previewUrl}
+        projectName={activeProject.name}
         category={flow.category}
         step={flow.step}
         saving={flow.actionLocked}
         error={flow.error}
         autoOpenCameraCount={flow.cameraReopenCount}
         onCapture={flow.chooseFile}
+        onRequestCapture={ensureConfirmed}
         onCategory={(category) => {
           if (!category) {
             flow.chooseCategory("");
@@ -433,6 +502,364 @@ export function RydderenRegisterPage(props: { cleanupProjectId: string; basePath
         }}
         onExitHref={`${props.basePath}/projects/${activeProject.id}`}
       />
+    </RydderenAppShell>
+  );
+}
+
+export function RydderenDocumentationPage(props: { cleanupProjectId: string; basePath: string }) {
+  const router = useRouter();
+  const pathname = usePathname();
+  const searchParams = useSearchParams();
+  const requestedView = searchParams.get("view");
+  const shouldAutoPrint = searchParams.get("print") === "1";
+  const { project, loading, error } = useCleanupProject(props.cleanupProjectId);
+  const { projects } = useCleanupProjects();
+  const entriesState = useCleanupDocumentationEntries(props.cleanupProjectId);
+  const mapState = useCleanupDocumentationMap(props.cleanupProjectId);
+  const activeProject = project ?? createLoadingProject(props.cleanupProjectId);
+  const visibleProjects = projects.length ? projects : [activeProject];
+  const { ensureConfirmed } = useProjectRegistrationConfirmation(props.cleanupProjectId, activeProject.name, props.basePath);
+  const [view, setView] = useState<CleanupDocumentationView>("menu");
+  const [entryType, setEntryType] = useState("finding");
+  const [category, setCategory] = useState<string>(CLEANUP_DOCUMENTATION_CATEGORIES[0]);
+  const [description, setDescription] = useState("");
+  const [zone, setZone] = useState("");
+  const [comment, setComment] = useState("");
+  const [count, setCount] = useState("1");
+  const [risk, setRisk] = useState<string>("Middels");
+  const [images, setImages] = useState<CleanupDocumentationDraftImage[]>([]);
+  const [moreOpen, setMoreOpen] = useState(false);
+  const [gpsStatus, setGpsStatus] = useState<string | null>(null);
+  const [draftError, setDraftError] = useState<string | null>(null);
+  const [search, setSearch] = useState("");
+  const [exporting, setExporting] = useState(false);
+  const cameraInputRef = useRef<HTMLInputElement | null>(null);
+  const galleryInputRef = useRef<HTMLInputElement | null>(null);
+  const autoPrintTriggeredRef = useRef(false);
+  const latestImagesRef = useRef<CleanupDocumentationDraftImage[]>([]);
+
+  const zoneOptions = mapState.map?.zones?.length ? mapState.map.zones : buildCleanupZones(3, 3);
+  const nextSequence =
+    entriesState.entries.filter((entry) => entry.entryType === entryType).reduce((max, entry) => Math.max(max, entry.sequence), 0) + 1;
+  const nextEntryNumber = formatCleanupEvidenceNumber(entryType, nextSequence);
+  const timestampLabel = `${new Date().toLocaleDateString("no-NO")} ${new Date().toLocaleTimeString("no-NO", {
+    hour: "2-digit",
+    minute: "2-digit",
+  })}`;
+
+  useEffect(() => {
+    if (requestedView === "entry" || requestedView === "map" || requestedView === "report") {
+      setView(requestedView);
+      return;
+    }
+    setView("menu");
+  }, [requestedView]);
+
+  useEffect(() => {
+    latestImagesRef.current = images;
+  }, [images]);
+
+  useEffect(() => {
+    return () => {
+      latestImagesRef.current.forEach((image) => URL.revokeObjectURL(image.previewUrl));
+    };
+  }, []);
+
+  useEffect(() => {
+    if (!shouldAutoPrint || view !== "report" || autoPrintTriggeredRef.current) {
+      return;
+    }
+    autoPrintTriggeredRef.current = true;
+    window.history.replaceState({}, "", `${pathname}?view=report`);
+    const timeout = window.setTimeout(() => window.print(), 150);
+    return () => window.clearTimeout(timeout);
+  }, [pathname, shouldAutoPrint, view]);
+
+  const resetDraft = (nextType = entryType) => {
+    images.forEach((image) => URL.revokeObjectURL(image.previewUrl));
+    setEntryType(nextType);
+    setCategory(CLEANUP_DOCUMENTATION_CATEGORIES[0]);
+    setDescription("");
+    setZone("");
+    setComment("");
+    setCount("1");
+    setRisk("Middels");
+    setImages([]);
+    setMoreOpen(false);
+    setGpsStatus(null);
+    setDraftError(null);
+  };
+
+  const handleFiles = async (fileList: FileList | null) => {
+    const files = Array.from(fileList || []);
+    if (!files.length) {
+      return;
+    }
+
+    const existingHashes = new Set(entriesState.entries.flatMap((entry) => entry.images.map((image) => image.imageHash || "")));
+    const draftHashes = new Set(images.map((image) => image.imageHash));
+    const nextImages: CleanupDocumentationDraftImage[] = [];
+    let duplicateFound = false;
+
+    for (const file of files) {
+      const imageHash = await hashDocumentationFile(file);
+      if (!imageHash || existingHashes.has(imageHash) || draftHashes.has(imageHash)) {
+        duplicateFound = true;
+        continue;
+      }
+      draftHashes.add(imageHash);
+      nextImages.push({
+        file,
+        imageHash,
+        previewUrl: URL.createObjectURL(file),
+      });
+    }
+
+    if (nextImages.length) {
+      setImages((current) => [...current, ...nextImages]);
+      setDraftError(null);
+    } else if (duplicateFound) {
+      setDraftError("Dette bildet er allerede registrert i dokumentasjonen for prosjektet.");
+    }
+  };
+
+  const requestGps = async () => {
+    if (!("geolocation" in navigator)) {
+      return null;
+    }
+    return new Promise<{ lat: number; lon: number } | null>((resolve) => {
+      navigator.geolocation.getCurrentPosition(
+        (position) =>
+          resolve({
+            lat: position.coords.latitude,
+            lon: position.coords.longitude,
+          }),
+        () => resolve(null),
+        { enableHighAccuracy: true, timeout: 2500, maximumAge: 60000 }
+      );
+    });
+  };
+
+  if (error && !project) {
+    return <div className="rounded-xl bg-red-50 p-3 text-sm text-red-700">{error}</div>;
+  }
+
+  return (
+    <RydderenAppShell project={activeProject} projects={visibleProjects} cleanupProjectId={activeProject.id} basePath={props.basePath} active="documentation">
+      <input
+        ref={cameraInputRef}
+        className="hidden"
+        type="file"
+        accept="image/*"
+        capture="environment"
+        multiple
+        onChange={(event) => {
+          void handleFiles(event.target.files);
+          event.currentTarget.value = "";
+        }}
+      />
+      <input
+        ref={galleryInputRef}
+        className="hidden"
+        type="file"
+        accept="image/*"
+        multiple
+        onChange={(event) => {
+          void handleFiles(event.target.files);
+          event.currentTarget.value = "";
+        }}
+      />
+
+      {loading && !project ? <div className="text-sm text-muted-foreground">Laster prosjekt i bakgrunnen...</div> : null}
+      {mapState.error ? <div className="rounded-xl bg-red-50 p-3 text-sm text-red-700">{mapState.error}</div> : null}
+
+      {view === "menu" ? (
+        <RydderenDocumentationMenu
+          onSelectEntryType={(nextType) => {
+            resetDraft(nextType);
+            setView("entry");
+            router.replace(`${pathname}?view=entry`);
+          }}
+          onOpenMap={() => {
+            setView("map");
+            router.replace(`${pathname}?view=map`);
+          }}
+          onOpenReport={() => {
+            setView("report");
+            router.replace(`${pathname}?view=report`);
+          }}
+        />
+      ) : null}
+
+      {view === "entry" ? (
+        <RydderenDocumentationEntryForm
+          entryType={entryType}
+          nextEntryNumber={nextEntryNumber}
+          timestampLabel={timestampLabel}
+          images={images}
+          category={category}
+          description={description}
+          zone={zone}
+          comment={comment}
+          count={count}
+          risk={risk}
+          moreOpen={moreOpen}
+          saving={entriesState.saving}
+          error={draftError || entriesState.error}
+          gpsStatus={gpsStatus}
+          zoneOptions={zoneOptions}
+          onBack={() => {
+            setView("menu");
+            router.replace(pathname);
+          }}
+          onToggleMore={() => setMoreOpen((current) => !current)}
+          onRequestCamera={() => cameraInputRef.current?.click()}
+          onRequestGallery={() => galleryInputRef.current?.click()}
+          onRemoveImage={(index) => {
+            setImages((current) => {
+              const next = [...current];
+              const removed = next.splice(index, 1)[0];
+              if (removed) {
+                URL.revokeObjectURL(removed.previewUrl);
+              }
+              return next;
+            });
+          }}
+          onChange={(field, value) => {
+            setDraftError(null);
+            if (field === "category") setCategory(value);
+            if (field === "description") setDescription(value);
+            if (field === "zone") setZone(value);
+            if (field === "comment") setComment(value);
+            if (field === "count") setCount(value);
+            if (field === "risk") setRisk(value);
+          }}
+          onSave={() => {
+            void (async () => {
+              const hasQuickContent = images.length > 0 || description.trim() || comment.trim();
+              if (!hasQuickContent) {
+                setDraftError("Ta bilde eller skriv en kort beskrivelse for a lagre.");
+                return;
+              }
+              if (!(await ensureConfirmed())) {
+                return;
+              }
+              setGpsStatus("Henter GPS hvis tilgjengelig ...");
+              const gps = await requestGps();
+              const saved = await entriesState.createEntry({
+                entryType,
+                category,
+                description: description.trim() || null,
+                comment: comment.trim() || null,
+                zone: zone.trim() || null,
+                count: Math.max(1, Number(count) || 1),
+                risk,
+                gps,
+                images: images.map((image) => ({
+                  file: image.file,
+                  imageHash: image.imageHash,
+                })),
+              });
+              resetDraft(saved.entryType);
+              setGpsStatus(gps ? "GPS lagret." : "GPS ikke tilgjengelig. Funnet er lagret uten GPS.");
+            })();
+          }}
+        />
+      ) : null}
+
+      {view === "map" ? (
+        <RydderenDocumentationMapForm
+          map={mapState.map}
+          entries={entriesState.entries}
+          saving={mapState.saving}
+          onBack={() => {
+            setView("menu");
+            router.replace(pathname);
+          }}
+          onSave={(payload) => {
+            void mapState.saveMap(payload);
+          }}
+          onSelectZone={(selectedZone) => {
+            resetDraft(entryType);
+            setZone(selectedZone);
+            setView("entry");
+            router.replace(`${pathname}?view=entry`);
+          }}
+        />
+      ) : null}
+
+      {view === "report" ? (
+        <RydderenDocumentationReportView
+          projectName={activeProject.name}
+          map={mapState.map}
+          entries={entriesState.entries}
+          search={search}
+          exporting={exporting}
+          onSearchChange={setSearch}
+          onClearSearch={() => setSearch("")}
+          onBack={() => {
+            setView("menu");
+            router.replace(pathname);
+          }}
+          onPrintPdf={() => {
+            router.push(`${props.basePath}/projects/${activeProject.id}/documentation?view=report&print=1`);
+          }}
+          onExportPages={() => {
+            void (async () => {
+              try {
+                setExporting(true);
+                await exportDocumentationDocx({
+                  project: activeProject,
+                  map: mapState.map,
+                  entries: entriesState.entries.filter((entry) =>
+                    [
+                      entry.entryNumber,
+                      entry.category,
+                      entry.createdDate,
+                      entry.zone,
+                      entry.description,
+                      entry.comment,
+                      getCleanupDocumentationTypeConfig(entry.entryType).shortLabel,
+                    ]
+                      .join(" ")
+                      .toLowerCase()
+                      .includes(search.trim().toLowerCase())
+                  ),
+                });
+                window.alert("Pages-dokumentet er lastet ned. Aapne filen i Filer eller Pages for a vise rapporten.");
+              } catch (exportError) {
+                window.alert(`Pages-eksport feilet: ${exportError instanceof Error ? exportError.message : String(exportError)}`);
+              } finally {
+                setExporting(false);
+              }
+            })();
+          }}
+          onSaveImages={() => {
+            void (async () => {
+              try {
+                setExporting(true);
+                await saveAllDocumentationImages({ project: activeProject, entries: entriesState.entries });
+              } catch (exportError) {
+                window.alert(exportError instanceof Error ? exportError.message : String(exportError));
+              } finally {
+                setExporting(false);
+              }
+            })();
+          }}
+          onExportZip={() => {
+            void (async () => {
+              try {
+                setExporting(true);
+                await exportDocumentationZip({ project: activeProject, entries: entriesState.entries });
+              } catch (exportError) {
+                window.alert(exportError instanceof Error ? exportError.message : String(exportError));
+              } finally {
+                setExporting(false);
+              }
+            })();
+          }}
+        />
+      ) : null}
     </RydderenAppShell>
   );
 }

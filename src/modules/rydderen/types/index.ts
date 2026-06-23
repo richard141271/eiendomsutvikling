@@ -2,6 +2,7 @@ export type CleanupAction = "kast" | "selg" | "behold";
 export type CleanupCostType = "container" | "transport" | "arbeid" | "bortkjoring" | "annet";
 export type CleanupProjectContextType = "property" | "case" | "project" | "standalone";
 export type CleanupProjectStatus = "active" | "completed" | "archived";
+export type CleanupEvidenceEntryType = "finding" | "observation" | "damage" | "measurement" | "sample";
 export type CleanupModuleType =
   | "rydderen"
   | "dodsbo"
@@ -174,6 +175,95 @@ export interface CleanupContextOptions {
   properties: CleanupContextOption[];
   projects: CleanupContextOption[];
   cases: CleanupContextOption[];
+}
+
+export interface CleanupEvidenceGps {
+  lat: number;
+  lon: number;
+}
+
+export interface CleanupEvidenceEntryImage {
+  id: string;
+  tenantId: string;
+  cleanupEvidenceEntryId: string;
+  storagePath: string;
+  thumbnailPath: string | null;
+  imageHash: string | null;
+  originalName: string | null;
+  sortOrder: number;
+  imageUrl: string | null;
+  thumbnailUrl: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface CleanupEvidenceEntry {
+  id: string;
+  tenantId: string;
+  cleanupProjectId: string;
+  entryType: CleanupEvidenceEntryType | string;
+  sequence: number;
+  entryNumber: string;
+  category: string | null;
+  description: string | null;
+  comment: string | null;
+  zone: string | null;
+  count: number;
+  risk: string | null;
+  gps: CleanupEvidenceGps | null;
+  createdDate: string | null;
+  createdTime: string | null;
+  imageCount: number;
+  createdBy: string;
+  updatedBy: string | null;
+  createdAt: string;
+  updatedAt: string;
+  metadata: Record<string, unknown>;
+  images: CleanupEvidenceEntryImage[];
+}
+
+export interface CleanupEvidenceMap {
+  id: string;
+  tenantId: string;
+  cleanupProjectId: string;
+  rows: number;
+  columns: number;
+  zones: string[];
+  sketch: string | null;
+  caseName: string | null;
+  address: string | null;
+  createdBy: string;
+  updatedBy: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface CleanupEvidenceEntryCreateInput {
+  entryType: CleanupEvidenceEntryType | string;
+  category?: string | null;
+  description?: string | null;
+  comment?: string | null;
+  zone?: string | null;
+  count?: number;
+  risk?: string | null;
+  gps?: CleanupEvidenceGps | null;
+  createdDate?: string | null;
+  createdTime?: string | null;
+  images?: Array<{
+    file: File;
+    imageHash?: string | null;
+    originalName?: string | null;
+  }>;
+  metadata?: Record<string, unknown>;
+}
+
+export interface CleanupEvidenceMapUpsertInput {
+  rows: number;
+  columns: number;
+  zones: string[];
+  sketch?: string | null;
+  caseName?: string | null;
+  address?: string | null;
 }
 
 export interface LegacyCleanupImportItem {

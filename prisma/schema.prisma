@@ -851,6 +851,8 @@ model CleanupProject {
   items          CleanupItem[]
   costs          CleanupProjectCost[]
   links          CleanupProjectLink[]
+  evidenceEntries CleanupEvidenceEntry[]
+  evidenceMaps    CleanupEvidenceMap[]
 
   @@unique([tenantId, slug])
   @@index([tenantId])
@@ -921,6 +923,78 @@ model CleanupProjectLink {
 
   @@unique([cleanupProjectId, linkedEntityType, linkedEntityId])
   @@map("cleanup_project_links")
+}
+
+model CleanupEvidenceEntry {
+  id               String                     @id @default(uuid()) @map("id")
+  tenantId         String                     @map("tenant_id")
+  cleanupProjectId String                     @map("cleanup_project_id")
+  cleanupProject   CleanupProject             @relation(fields: [cleanupProjectId], references: [id], onDelete: Cascade)
+  entryType        String                     @map("entry_type")
+  sequence         Int                        @map("sequence")
+  entryNumber      String                     @map("entry_number")
+  category         String?                    @map("category")
+  description      String?                    @map("description")
+  comment          String?                    @map("comment")
+  zone             String?                    @map("zone")
+  count            Int                        @default(1) @map("count")
+  risk             String?                    @map("risk")
+  gps              Json?                      @map("gps")
+  createdDate      String?                    @map("created_date")
+  createdTime      String?                    @map("created_time")
+  imageCount       Int                        @default(0) @map("image_count")
+  createdBy        String                     @map("created_by")
+  updatedBy        String?                    @map("updated_by")
+  createdAt        DateTime                   @default(now()) @map("created_at")
+  updatedAt        DateTime                   @updatedAt @map("updated_at")
+  metadata         Json                       @default("{}") @map("metadata")
+  images           CleanupEvidenceEntryImage[]
+
+  @@unique([cleanupProjectId, entryType, sequence])
+  @@unique([cleanupProjectId, entryNumber])
+  @@index([cleanupProjectId])
+  @@index([cleanupProjectId, createdAt(sort: Desc)])
+  @@index([cleanupProjectId, entryType])
+  @@map("cleanup_evidence_entries")
+}
+
+model CleanupEvidenceEntryImage {
+  id                    String               @id @default(uuid()) @map("id")
+  tenantId              String               @map("tenant_id")
+  cleanupEvidenceEntryId String              @map("cleanup_evidence_entry_id")
+  cleanupEvidenceEntry  CleanupEvidenceEntry @relation(fields: [cleanupEvidenceEntryId], references: [id], onDelete: Cascade)
+  storagePath           String               @map("storage_path")
+  thumbnailPath         String?              @map("thumbnail_path")
+  imageHash             String?              @map("image_hash")
+  originalName          String?              @map("original_name")
+  sortOrder             Int                  @default(0) @map("sort_order")
+  createdAt             DateTime             @default(now()) @map("created_at")
+  updatedAt             DateTime             @updatedAt @map("updated_at")
+
+  @@unique([cleanupEvidenceEntryId, imageHash])
+  @@index([cleanupEvidenceEntryId, sortOrder])
+  @@map("cleanup_evidence_entry_images")
+}
+
+model CleanupEvidenceMap {
+  id               String         @id @default(uuid()) @map("id")
+  tenantId         String         @map("tenant_id")
+  cleanupProjectId String         @map("cleanup_project_id")
+  cleanupProject   CleanupProject @relation(fields: [cleanupProjectId], references: [id], onDelete: Cascade)
+  rows             Int            @default(3) @map("rows")
+  columns          Int            @default(3) @map("columns")
+  zones            Json           @default("[]") @map("zones")
+  sketch           String?        @map("sketch")
+  caseName         String?        @map("case_name")
+  address          String?        @map("address")
+  createdBy        String         @map("created_by")
+  updatedBy        String?        @map("updated_by")
+  createdAt        DateTime       @default(now()) @map("created_at")
+  updatedAt        DateTime       @updatedAt @map("updated_at")
+
+  @@unique([cleanupProjectId])
+  @@index([tenantId])
+  @@map("cleanup_evidence_maps")
 }
 
 model LocationTask {

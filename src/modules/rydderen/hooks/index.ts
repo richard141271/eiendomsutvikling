@@ -5,6 +5,9 @@ import { cleanupApiClient } from "@/src/modules/rydderen/api/client";
 import type {
   CleanupCost,
   CleanupCostCreateInput,
+  CleanupEvidenceEntry,
+  CleanupEvidenceMap,
+  CleanupEvidenceMapUpsertInput,
   CleanupItem,
   CleanupItemUpdateInput,
   CleanupProject,
@@ -18,6 +21,8 @@ const cleanupProjectListCache = new Map<string, CleanupProject[]>();
 const cleanupItemsCache = new Map<string, CleanupItem[]>();
 const cleanupReportCache = new Map<string, CleanupReportSummary>();
 const cleanupCostsCache = new Map<string, CleanupCost[]>();
+const cleanupDocumentationEntriesCache = new Map<string, CleanupEvidenceEntry[]>();
+const cleanupDocumentationMapCache = new Map<string, CleanupEvidenceMap | null>();
 
 function getProjectListCacheKey(filters?: { contextType?: string | null; contextId?: string | null }) {
   return JSON.stringify({
@@ -566,4 +571,135 @@ export function useCleanupFilters(items: CleanupItem[]) {
   }, [actionFilter, items]);
 
   return { actionFilter, setActionFilter, filteredItems };
+}
+
+export function useCleanupDocumentationEntries(cleanupProjectId: string) {
+  const cachedEntries = cleanupDocumentationEntriesCache.get(cleanupProjectId) ?? [];
+  const [entries, setEntries] = useState<CleanupEvidenceEntry[]>(cachedEntries);
+  const [loading, setLoading] = useState(cachedEntries.length === 0);
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const refresh = useCallback(async (options?: { showLoading?: boolean }) => {
+    try {
+      if (options?.showLoading ?? entries.length === 0) {
+        setLoading(true);
+      }
+      setError(null);
+      const nextEntries = await cleanupApiClient.listDocumentationEntries(cleanupProjectId);
+      cleanupDocumentationEntriesCache.set(cleanupProjectId, nextEntries);
+      setEntries(nextEntries);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Kunne ikke hente dokumentasjonsfunn");
+    } finally {
+      setLoading(false);
+    }
+  }, [cleanupProjectId, entries.length]);
+
+  useEffect(() => {
+    void refresh({ showLoading: cachedEntries.length === 0 });
+  }, [cachedEntries.length, refresh]);
+
+  const createEntry = useCallback(
+    async (payload: {
+      entryType: string;
+      category?: string | null;
+      description?: string | null;
+      comment?: string | null;
+      zone?: string | null;
+      count?: number;
+      risk?: string | null;
+      gps?: { lat: number; lon: number } | null;
+      createdDate?: string | null;
+      createdTime?: string | null;
+      images?: Array<{ file: File; imageHash?: string | null }>;
+    }) => {
+      const formData = new FormData();
+      formData.set("entryType", payload.entryType);
+      if (payload.category) formData.set("category", payload.category);
+      if (payload.description) formData.set("description", payload.description);
+      if (payload.comment) formData.set("comment", payload.comment);
+      if (payload.zone) formData.set("zone", payload.zone);
+      if (payload.count) formData.set("count", String(payload.count));
+      if (payload.risk) formData.set("risk", payload.risk);
+      if (payload.gps) formData.set("gps", JSON.stringify(payload.gps));
+      if (payload.createdDate) formData.set("createdDate", payload.createdDate);
+      if (payload.createdTime) formData.set("createdTime", payload.createdTime);
+      payload.images?.forEach((image) => {
+        formData.append("images", image.file);
+        if (image.imageHash) {
+          formData.append("imageHash", image.imageHash);
+        }
+      });
+
+      try {
+        setSaving(true);
+        setError(null);
+        const created = await cleanupApiClient.createDocumentationEntry(cleanupProjectId, formData);
+        setEntries((current) => {
+          const nextEntries = [created, ...current];
+          cleanupDocumentationEntriesCache.set(cleanupProjectId, nextEntries);
+          return nextEntries;
+        });
+        return created;
+      } catch (err) {
+        setError(err instanceof Error ? err.message : "Kunne ikke lagre dokumentasjonsfunn");
+        throw err;
+      } finally {
+        setSaving(false);
+      }
+    },
+    [cleanupProjectId]
+  );
+
+  return { entries, loading, saving, error, refresh, createEntry };
+}
+
+export function useCleanupDocumentationMap(cleanupProjectId: string) {
+  const cachedMap = cleanupDocumentationMapCache.get(cleanupProjectId) ?? null;
+  const [map, setMap] = useState<CleanupEvidenceMap | null>(cachedMap);
+  const [loading, setLoading] = useState(cachedMap === null);
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const refresh = useCallback(async (options?: { showLoading?: boolean }) => {
+    try {
+      if (options?.showLoading ?? map === null) {
+        setLoading(true);
+      }
+      setError(null);
+      const nextMap = await cleanupApiClient.getDocumentationMap(cleanupProjectId);
+      cleanupDocumentationMapCache.set(cleanupProjectId, nextMap);
+      setMap(nextMap);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Kunne ikke hente kartlegging");
+    } finally {
+      setLoading(false);
+    }
+  }, [cleanupProjectId, map]);
+
+  useEffect(() => {
+    void refresh({ showLoading: cachedMap === null });
+  }, [cachedMap, refresh]);
+
+  const saveMap = useCallback(
+    async (input: CleanupEvidenceMapUpsertInput) => {
+      try {
+        setSaving(true);
+        setError(null);
+        const saved = await cleanupApiClient.upsertDocumentationMap(cleanupProjectId, input);
+        cleanupDocumentationMapCache.set(cleanupProjectId, saved);
+        setMap(saved);
+        return saved;
+      } catch (err) {
+        setError(err instanceof Error ? err.message : "Kunne ikke lagre kartlegging");
+        throw err;
+      } finally {
+        setSaving(false);
+      }
+    },
+    [cleanupProjectId]
+  );
+
+  return { map, loading, saving, error, refresh, saveMap };
 }
