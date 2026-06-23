@@ -95,6 +95,61 @@ async function hashDocumentationFile(file: File) {
   return Array.from(new Uint8Array(digest), (byte) => byte.toString(16).padStart(2, "0")).join("");
 }
 
+async function compressDocumentationImage(file: File) {
+  if (typeof window === "undefined" || !file.type.startsWith("image/")) {
+    return file;
+  }
+
+  if (file.size <= 1_500_000) {
+    return file;
+  }
+
+  try {
+    const imageUrl = URL.createObjectURL(file);
+    const image = await new Promise<HTMLImageElement>((resolve, reject) => {
+      const element = new Image();
+      element.onload = () => resolve(element);
+      element.onerror = () => reject(new Error("Kunne ikke lese bilde"));
+      element.src = imageUrl;
+    });
+
+    const maxDimension = 2000;
+    const longestSide = Math.max(image.naturalWidth, image.naturalHeight);
+    const scale = longestSide > maxDimension ? maxDimension / longestSide : 1;
+    const width = Math.max(1, Math.round(image.naturalWidth * scale));
+    const height = Math.max(1, Math.round(image.naturalHeight * scale));
+
+    const canvas = document.createElement("canvas");
+    canvas.width = width;
+    canvas.height = height;
+    const context = canvas.getContext("2d");
+    if (!context) {
+      URL.revokeObjectURL(imageUrl);
+      return file;
+    }
+
+    context.drawImage(image, 0, 0, width, height);
+
+    const compressedBlob = await new Promise<Blob | null>((resolve) => {
+      canvas.toBlob(resolve, "image/jpeg", 0.8);
+    });
+
+    URL.revokeObjectURL(imageUrl);
+
+    if (!compressedBlob || compressedBlob.size >= file.size * 0.92) {
+      return file;
+    }
+
+    const baseName = file.name.replace(/\.[^.]+$/, "") || "dokumentasjon";
+    return new File([compressedBlob], `${baseName}.jpg`, {
+      type: "image/jpeg",
+      lastModified: file.lastModified,
+    });
+  } catch {
+    return file;
+  }
+}
+
 function getProjectConfirmationKey(cleanupProjectId: string) {
   return `rydderen-project-confirmed:${cleanupProjectId}`;
 }
@@ -531,6 +586,7 @@ export function RydderenDocumentationPage(props: { cleanupProjectId: string; bas
   const [moreOpen, setMoreOpen] = useState(false);
   const [gpsStatus, setGpsStatus] = useState<string | null>(null);
   const [draftError, setDraftError] = useState<string | null>(null);
+  const [preparingImages, setPreparingImages] = useState(false);
   const [search, setSearch] = useState("");
   const [exporting, setExporting] = useState(false);
   const cameraInputRef = useRef<HTMLInputElement | null>(null);
@@ -596,30 +652,37 @@ export function RydderenDocumentationPage(props: { cleanupProjectId: string; bas
       return;
     }
 
-    const existingHashes = new Set(entriesState.entries.flatMap((entry) => entry.images.map((image) => image.imageHash || "")));
-    const draftHashes = new Set(images.map((image) => image.imageHash));
-    const nextImages: CleanupDocumentationDraftImage[] = [];
-    let duplicateFound = false;
+    try {
+      setPreparingImages(true);
+      const existingHashes = new Set(entriesState.entries.flatMap((entry) => entry.images.map((image) => image.imageHash || "")));
+      const draftHashes = new Set(images.map((image) => image.imageHash));
+      const nextImages: CleanupDocumentationDraftImage[] = [];
+      let duplicateFound = false;
 
-    for (const file of files) {
-      const imageHash = await hashDocumentationFile(file);
-      if (!imageHash || existingHashes.has(imageHash) || draftHashes.has(imageHash)) {
-        duplicateFound = true;
-        continue;
+      for (const file of files) {
+        const imageHash = await hashDocumentationFile(file);
+        if (!imageHash || existingHashes.has(imageHash) || draftHashes.has(imageHash)) {
+          duplicateFound = true;
+          continue;
+        }
+
+        const uploadFile = await compressDocumentationImage(file);
+        draftHashes.add(imageHash);
+        nextImages.push({
+          file: uploadFile,
+          imageHash,
+          previewUrl: URL.createObjectURL(uploadFile),
+        });
       }
-      draftHashes.add(imageHash);
-      nextImages.push({
-        file,
-        imageHash,
-        previewUrl: URL.createObjectURL(file),
-      });
-    }
 
-    if (nextImages.length) {
-      setImages((current) => [...current, ...nextImages]);
-      setDraftError(null);
-    } else if (duplicateFound) {
-      setDraftError("Dette bildet er allerede registrert i dokumentasjonen for prosjektet.");
+      if (nextImages.length) {
+        setImages((current) => [...current, ...nextImages]);
+        setDraftError(null);
+      } else if (duplicateFound) {
+        setDraftError("Dette bildet er allerede registrert i dokumentasjonen for prosjektet.");
+      }
+    } finally {
+      setPreparingImages(false);
     }
   };
 
@@ -705,6 +768,7 @@ export function RydderenDocumentationPage(props: { cleanupProjectId: string; bas
           risk={risk}
           moreOpen={moreOpen}
           saving={entriesState.saving}
+          preparingImages={preparingImages}
           error={draftError || entriesState.error}
           gpsStatus={gpsStatus}
           zoneOptions={zoneOptions}

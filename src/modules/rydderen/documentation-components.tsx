@@ -81,6 +81,7 @@ export function RydderenDocumentationEntryForm(props: {
   risk: string;
   moreOpen: boolean;
   saving?: boolean;
+  preparingImages?: boolean;
   error?: string | null;
   gpsStatus?: string | null;
   zoneOptions: string[];
@@ -113,13 +114,14 @@ export function RydderenDocumentationEntryForm(props: {
       </div>
 
       {props.error ? <div className="rounded-xl bg-red-50 p-3 text-sm text-red-700">{props.error}</div> : null}
+      {props.preparingImages ? <div className="rounded-xl bg-blue-50 p-3 text-sm text-blue-700">Klargjor bilder for raskere opplasting ...</div> : null}
 
       <div className="grid gap-3 sm:grid-cols-2">
-        <Button type="button" className="min-h-16 rounded-[18px] text-base font-bold" onClick={props.onRequestCamera}>
+        <Button type="button" className="min-h-16 rounded-[18px] text-base font-bold" onClick={props.onRequestCamera} disabled={props.preparingImages}>
           <Camera className="mr-2 h-5 w-5" />
           Kamera
         </Button>
-        <Button type="button" variant="outline" className="min-h-16 rounded-[18px] text-base font-bold" onClick={props.onRequestGallery}>
+        <Button type="button" variant="outline" className="min-h-16 rounded-[18px] text-base font-bold" onClick={props.onRequestGallery} disabled={props.preparingImages}>
           <Upload className="mr-2 h-5 w-5" />
           Galleri
         </Button>
@@ -212,8 +214,8 @@ export function RydderenDocumentationEntryForm(props: {
       <p className="text-sm text-slate-500">{props.gpsStatus || "GPS lagres hvis tilgjengelig. Ellers lagres funnet uten GPS."}</p>
 
       <div className="grid gap-3 md:grid-cols-3">
-        <Button type="button" className="min-h-16 rounded-[18px] text-base font-bold" disabled={props.saving} onClick={props.onSave}>
-          {props.saving ? "Lagrer..." : "Lagre"}
+        <Button type="button" className="min-h-16 rounded-[18px] text-base font-bold" disabled={props.saving || props.preparingImages} onClick={props.onSave}>
+          {props.preparingImages ? "Klargjor bilder..." : props.saving ? "Lagrer..." : "Lagre"}
         </Button>
         <Button type="button" variant="outline" className="min-h-16 rounded-[18px] text-base font-bold" onClick={props.onToggleMore}>
           Mer

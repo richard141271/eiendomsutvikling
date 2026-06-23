@@ -101,8 +101,21 @@ export async function createCleanupEvidenceEntryRecord(data: Record<string, unkn
   return (prisma as any).cleanupEvidenceEntry.create({ data });
 }
 
+export async function updateCleanupEvidenceEntryRecord(entryId: string, tenantId: string, data: Record<string, unknown>) {
+  return (prisma as any).cleanupEvidenceEntry.updateMany({
+    where: { id: entryId, tenantId },
+    data,
+  });
+}
+
 export async function createCleanupEvidenceEntryImageRecord(data: Record<string, unknown>) {
   return (prisma as any).cleanupEvidenceEntryImage.create({ data });
+}
+
+export async function countCleanupEvidenceEntryImages(entryId: string, tenantId: string) {
+  return (prisma as any).cleanupEvidenceEntryImage.count({
+    where: { cleanupEvidenceEntryId: entryId, tenantId },
+  });
 }
 
 export async function updateCleanupEvidenceEntryImageRecord(imageId: string, tenantId: string, data: Record<string, unknown>) {
