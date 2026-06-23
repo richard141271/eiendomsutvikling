@@ -188,7 +188,7 @@ export function RydderenAppShell(props: {
 }) {
   const moduleLinks = {
     rydderen: `${props.basePath}/projects/${props.cleanupProjectId}/register`,
-    documentation: `${props.basePath}/projects/${props.cleanupProjectId}/documentation`,
+    documentation: `${props.basePath}/projects/${props.cleanupProjectId}/documentation?view=menu`,
   };
 
   return (

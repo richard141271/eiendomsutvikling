@@ -105,6 +105,12 @@ export const cleanupApiClient = {
       body: formData,
     });
   },
+  uploadDocumentationEntryImage(cleanupProjectId: string, entryId: string, formData: FormData) {
+    return request<CleanupEvidenceEntry>(`/api/rydderen/projects/${cleanupProjectId}/documentation/entries/${entryId}/images`, {
+      method: "POST",
+      body: formData,
+    });
+  },
   getDocumentationMap(cleanupProjectId: string) {
     return request<CleanupEvidenceMap | null>(`/api/rydderen/projects/${cleanupProjectId}/documentation/map`);
   },

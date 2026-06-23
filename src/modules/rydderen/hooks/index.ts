@@ -625,19 +625,36 @@ export function useCleanupDocumentationEntries(cleanupProjectId: string) {
       if (payload.gps) formData.set("gps", JSON.stringify(payload.gps));
       if (payload.createdDate) formData.set("createdDate", payload.createdDate);
       if (payload.createdTime) formData.set("createdTime", payload.createdTime);
-      payload.images?.forEach((image) => {
-        formData.append("images", image.file);
-        if (image.imageHash) {
-          formData.append("imageHash", image.imageHash);
-        }
-      });
 
       try {
         setSaving(true);
         setError(null);
-        const created = await cleanupApiClient.createDocumentationEntry(cleanupProjectId, formData);
+        let created = await cleanupApiClient.createDocumentationEntry(cleanupProjectId, formData);
         setEntries((current) => {
           const nextEntries = [created, ...current];
+          cleanupDocumentationEntriesCache.set(cleanupProjectId, nextEntries);
+          return nextEntries;
+        });
+
+        for (let index = 0; index < (payload.images?.length || 0); index += 1) {
+          const image = payload.images?.[index];
+          if (!image) continue;
+
+          const imageFormData = new FormData();
+          imageFormData.set("image", image.file);
+          imageFormData.set("sortOrder", String(index));
+          if (image.imageHash) {
+            imageFormData.set("imageHash", image.imageHash);
+          }
+          if (image.file.name) {
+            imageFormData.set("originalName", image.file.name);
+          }
+
+          created = await cleanupApiClient.uploadDocumentationEntryImage(cleanupProjectId, created.id, imageFormData);
+        }
+
+        setEntries((current) => {
+          const nextEntries = [created, ...current.filter((entry) => entry.id !== created.id)];
           cleanupDocumentationEntriesCache.set(cleanupProjectId, nextEntries);
           return nextEntries;
         });

@@ -8,6 +8,7 @@ import {
   createCleanupItemRecord,
   createCleanupProjectLinkRecord,
   createCleanupProjectRecord,
+  countCleanupEvidenceEntryImages,
   createCleanupSignedUrl,
   deleteCleanupProjectRecord,
   ensureCleanupStorageBucket,
@@ -27,6 +28,7 @@ import {
   listCleanupProjectsByTenant,
   resolveCleanupContextReference,
   upsertCleanupEvidenceMapRecord,
+  updateCleanupEvidenceEntryRecord,
   updateCleanupItemRecord,
   updateCleanupProjectRecord,
   uploadCleanupImageDataUrl,
@@ -616,51 +618,76 @@ export async function createCleanupEvidenceEntry(cleanupProjectId: string, input
       gps: input.gps ?? null,
       createdDate: input.createdDate ?? createdAt.toLocaleDateString("no-NO"),
       createdTime: input.createdTime ?? createdAt.toLocaleTimeString("no-NO", { hour: "2-digit", minute: "2-digit" }),
-      imageCount: input.images?.length ?? 0,
+      imageCount: 0,
       createdBy: actor.authUserId,
       updatedBy: actor.authUserId,
       metadata: input.metadata || {},
     });
 
-    if (input.images?.length) {
-      for (let index = 0; index < input.images.length; index += 1) {
-        const image = input.images[index];
-        if (image.imageHash) {
-          const duplicate = await findCleanupEvidenceImageByHashForTenant({
-            cleanupProjectId,
-            tenantId: actor.tenantId,
-            imageHash: image.imageHash,
-          });
-          if (duplicate) {
-            throw new Error("Dette bildet er allerede registrert i dokumentasjonen for prosjektet.");
-          }
-        }
+    const record = await getCleanupEvidenceEntryByIdForTenant(cleanupProjectId, entry.id, actor.tenantId);
+    return serializeEvidenceEntry(record);
+  } catch (error) {
+    if (isMissingDocumentationTableError(error)) {
+      throw createDocumentationUnavailableError();
+    }
+    throw error;
+  }
+}
 
-        const imageRecord = await createCleanupEvidenceEntryImageRecord({
-          tenantId: actor.tenantId,
-          cleanupEvidenceEntryId: entry.id,
-          storagePath: "",
-          thumbnailPath: null,
-          imageHash: image.imageHash ?? null,
-          originalName: image.originalName ?? image.file.name ?? null,
-          sortOrder: index,
-        });
+export async function addCleanupEvidenceEntryImage(
+  cleanupProjectId: string,
+  entryId: string,
+  input: { file: File; imageHash?: string | null; originalName?: string | null; sortOrder?: number | null }
+) {
+  try {
+    const actor = await requireCleanupActor();
+    await getCleanupProject(cleanupProjectId);
 
-        const arrayBuffer = await image.file.arrayBuffer();
-        const { originalPath, thumbPath } = await uploadCleanupEvidenceImage({
-          cleanupProjectId,
-          entryId: entry.id,
-          imageId: imageRecord.id,
-          fileBuffer: Buffer.from(arrayBuffer),
-          contentType: image.file.type || "image/jpeg",
-        });
+    const entry = await getCleanupEvidenceEntryByIdForTenant(cleanupProjectId, entryId, actor.tenantId);
+    if (!entry) {
+      throw new Error("Dokumentasjonsfunnet finnes ikke.");
+    }
 
-        await updateCleanupEvidenceEntryImageRecord(imageRecord.id, actor.tenantId, {
-          storagePath: originalPath,
-          thumbnailPath: thumbPath,
-        });
+    if (input.imageHash) {
+      const duplicate = await findCleanupEvidenceImageByHashForTenant({
+        cleanupProjectId,
+        tenantId: actor.tenantId,
+        imageHash: input.imageHash,
+      });
+      if (duplicate) {
+        throw new Error("Dette bildet er allerede registrert i dokumentasjonen for prosjektet.");
       }
     }
+
+    const imageRecord = await createCleanupEvidenceEntryImageRecord({
+      tenantId: actor.tenantId,
+      cleanupEvidenceEntryId: entry.id,
+      storagePath: "",
+      thumbnailPath: null,
+      imageHash: input.imageHash ?? null,
+      originalName: input.originalName ?? input.file.name ?? null,
+      sortOrder: input.sortOrder ?? entry.images.length,
+    });
+
+    const arrayBuffer = await input.file.arrayBuffer();
+    const { originalPath, thumbPath } = await uploadCleanupEvidenceImage({
+      cleanupProjectId,
+      entryId: entry.id,
+      imageId: imageRecord.id,
+      fileBuffer: Buffer.from(arrayBuffer),
+      contentType: input.file.type || "image/jpeg",
+    });
+
+    await updateCleanupEvidenceEntryImageRecord(imageRecord.id, actor.tenantId, {
+      storagePath: originalPath,
+      thumbnailPath: thumbPath,
+    });
+
+    const imageCount = await countCleanupEvidenceEntryImages(entry.id, actor.tenantId);
+    await updateCleanupEvidenceEntryRecord(entry.id, actor.tenantId, {
+      imageCount,
+      updatedBy: actor.authUserId,
+    });
 
     const record = await getCleanupEvidenceEntryByIdForTenant(cleanupProjectId, entry.id, actor.tenantId);
     return serializeEvidenceEntry(record);
