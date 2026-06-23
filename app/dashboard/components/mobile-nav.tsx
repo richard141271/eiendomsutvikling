@@ -77,7 +77,7 @@ export function MobileNav({ unresolvedNotesCount = 0, maintenanceCount = 0, isAd
                 </>
               )}
 
-              <Link href="/dashboard/rydderen/projects" onClick={() => setIsOpen(false)} className="text-lg font-medium hover:text-primary flex items-center gap-2">
+              <Link href="/dashboard/rydderen" onClick={() => setIsOpen(false)} className="text-lg font-medium hover:text-primary flex items-center gap-2">
                 <Camera className="h-5 w-5" />
                 Rydder&apos;n
               </Link>

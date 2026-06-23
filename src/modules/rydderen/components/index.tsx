@@ -54,7 +54,7 @@ export function RydderenHeader(props: {
         { key: "overview", label: "Oversikt", href: `${props.basePath}/projects/${props.project.id}` },
         { key: "register", label: "Registrer", href: `${props.basePath}/projects/${props.project.id}/register` },
         { key: "valuation", label: "Verdisetting", href: `${props.basePath}/projects/${props.project.id}/valuation` },
-        { key: "documentation", label: "Dokumentasjon", href: `${props.basePath}/projects/${props.project.id}/documentation` },
+        { key: "documentation", label: "Dokumentasjon & Bevis", href: `${props.basePath}/projects/${props.project.id}/documentation` },
         { key: "report", label: "Rapport", href: `${props.basePath}/projects/${props.project.id}/report` },
       ]
     : [];
@@ -132,6 +132,7 @@ export function RydderenProjectStrip(props: {
         className="min-h-14 w-full rounded-2xl border border-slate-300 bg-white px-4 py-3 text-base"
         value={props.project.id}
         onChange={(event) => {
+          window.localStorage.setItem("rydderen-activeProjectId", event.target.value);
           window.location.href = getProjectHref(event.target.value);
         }}
       >
@@ -153,14 +154,13 @@ export function RydderenBottomNav(props: {
   const items = [
     { key: "register", label: "Registrer", href: `${props.basePath}/projects/${props.cleanupProjectId}/register` },
     { key: "valuation", label: "Verdisetting", href: `${props.basePath}/projects/${props.cleanupProjectId}/valuation` },
-    { key: "documentation", label: "Dokumentasjon", href: `${props.basePath}/projects/${props.cleanupProjectId}/documentation` },
     { key: "overview", label: "Oversikt", href: `${props.basePath}/projects/${props.cleanupProjectId}` },
   ] as const;
 
   return (
     <nav
       aria-label="Hovednavigasjon"
-      className="fixed inset-x-0 bottom-0 z-20 mx-auto grid max-w-[820px] grid-cols-4 gap-3 bg-slate-100/95 px-4 pb-[calc(12px+env(safe-area-inset-bottom))] pt-3 backdrop-blur print:hidden"
+      className="fixed inset-x-0 bottom-0 z-20 mx-auto grid max-w-[820px] grid-cols-3 gap-3 bg-slate-100/95 px-4 pb-[calc(12px+env(safe-area-inset-bottom))] pt-3 backdrop-blur print:hidden"
     >
       {items.map((item) => (
         <Link
@@ -186,6 +186,11 @@ export function RydderenAppShell(props: {
   active: "register" | "valuation" | "overview" | "documentation";
   children: React.ReactNode;
 }) {
+  const moduleLinks = {
+    rydderen: `${props.basePath}/projects/${props.cleanupProjectId}/register`,
+    documentation: `${props.basePath}/projects/${props.cleanupProjectId}/documentation`,
+  };
+
   return (
     <div
       className="mx-auto flex min-h-[calc(100vh-8rem)] w-full max-w-[820px] flex-col gap-3 overflow-x-hidden px-3 pb-[calc(9rem+env(safe-area-inset-bottom))] pt-3 sm:px-4 sm:pb-[calc(8rem+env(safe-area-inset-bottom))] sm:pt-4 print:block print:max-w-none print:px-0 print:pb-0 print:pt-0"
@@ -198,8 +203,30 @@ export function RydderenAppShell(props: {
         </div>
       </header>
       <RydderenProjectStrip project={props.project} projects={props.projects} basePath={props.basePath} activeView={props.active} />
+      <section className="grid grid-cols-2 gap-3 rounded-[20px] bg-white p-4 shadow-[0_16px_40px_rgba(17,24,39,0.10)] print:hidden">
+        <Link
+          href={moduleLinks.rydderen}
+          className={cn(
+            "flex min-h-20 items-center justify-center rounded-[18px] px-4 text-base font-bold transition",
+            props.active === "documentation" ? "bg-slate-200 text-slate-900" : "bg-blue-700 text-white"
+          )}
+        >
+          {CLEANUP_MODULE_BRAND}
+        </Link>
+        <Link
+          href={moduleLinks.documentation}
+          className={cn(
+            "flex min-h-20 items-center justify-center rounded-[18px] px-4 text-base font-bold transition",
+            props.active === "documentation" ? "bg-blue-700 text-white" : "bg-slate-200 text-slate-900"
+          )}
+        >
+          Dokumentasjon &amp; Bevis
+        </Link>
+      </section>
       {props.children}
-      <RydderenBottomNav cleanupProjectId={props.cleanupProjectId} basePath={props.basePath} active={props.active} />
+      {props.active === "documentation" ? null : (
+        <RydderenBottomNav cleanupProjectId={props.cleanupProjectId} basePath={props.basePath} active={props.active} />
+      )}
     </div>
   );
 }

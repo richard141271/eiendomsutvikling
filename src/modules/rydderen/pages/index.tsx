@@ -252,7 +252,7 @@ export function RydderenProjectListPage(props: {
           </Card>
         ) : projects.length ? (
           projects.map((project) => (
-            <Link key={project.id} href={`${props.basePath}/projects/${project.id}`}>
+            <Link key={project.id} href={`${props.basePath}/projects/${project.id}/register`}>
               <Card className="rounded-3xl border transition hover:bg-slate-50">
                 <CardContent className="flex items-center justify-between gap-4 p-5">
                   <div className="space-y-2">
