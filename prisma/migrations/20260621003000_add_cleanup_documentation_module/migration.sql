@@ -1,7 +1,11 @@
+DROP TABLE IF EXISTS "cleanup_evidence_entry_images" CASCADE;
+DROP TABLE IF EXISTS "cleanup_evidence_maps" CASCADE;
+DROP TABLE IF EXISTS "cleanup_evidence_entries" CASCADE;
+
 CREATE TABLE "cleanup_evidence_entries" (
-  "id" TEXT NOT NULL,
-  "tenant_id" TEXT NOT NULL,
-  "cleanup_project_id" TEXT NOT NULL,
+  "id" UUID NOT NULL DEFAULT gen_random_uuid(),
+  "tenant_id" UUID NOT NULL,
+  "cleanup_project_id" UUID NOT NULL,
   "entry_type" TEXT NOT NULL,
   "sequence" INTEGER NOT NULL,
   "entry_number" TEXT NOT NULL,
@@ -15,42 +19,42 @@ CREATE TABLE "cleanup_evidence_entries" (
   "created_date" TEXT,
   "created_time" TEXT,
   "image_count" INTEGER NOT NULL DEFAULT 0,
-  "created_by" TEXT NOT NULL,
-  "updated_by" TEXT,
-  "created_at" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
-  "updated_at" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
-  "metadata" JSONB NOT NULL DEFAULT '{}',
+  "created_by" UUID NOT NULL,
+  "updated_by" UUID,
+  "created_at" TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  "updated_at" TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  "metadata" JSONB NOT NULL DEFAULT '{}'::jsonb,
   CONSTRAINT "cleanup_evidence_entries_pkey" PRIMARY KEY ("id")
 );
 
 CREATE TABLE "cleanup_evidence_entry_images" (
-  "id" TEXT NOT NULL,
-  "tenant_id" TEXT NOT NULL,
-  "cleanup_evidence_entry_id" TEXT NOT NULL,
+  "id" UUID NOT NULL DEFAULT gen_random_uuid(),
+  "tenant_id" UUID NOT NULL,
+  "cleanup_evidence_entry_id" UUID NOT NULL,
   "storage_path" TEXT NOT NULL,
   "thumbnail_path" TEXT,
   "image_hash" TEXT,
   "original_name" TEXT,
   "sort_order" INTEGER NOT NULL DEFAULT 0,
-  "created_at" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
-  "updated_at" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  "created_at" TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  "updated_at" TIMESTAMPTZ NOT NULL DEFAULT NOW(),
   CONSTRAINT "cleanup_evidence_entry_images_pkey" PRIMARY KEY ("id")
 );
 
 CREATE TABLE "cleanup_evidence_maps" (
-  "id" TEXT NOT NULL,
-  "tenant_id" TEXT NOT NULL,
-  "cleanup_project_id" TEXT NOT NULL,
+  "id" UUID NOT NULL DEFAULT gen_random_uuid(),
+  "tenant_id" UUID NOT NULL,
+  "cleanup_project_id" UUID NOT NULL,
   "rows" INTEGER NOT NULL DEFAULT 3,
   "columns" INTEGER NOT NULL DEFAULT 3,
-  "zones" JSONB NOT NULL DEFAULT '[]',
+  "zones" JSONB NOT NULL DEFAULT '[]'::jsonb,
   "sketch" TEXT,
   "case_name" TEXT,
   "address" TEXT,
-  "created_by" TEXT NOT NULL,
-  "updated_by" TEXT,
-  "created_at" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
-  "updated_at" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  "created_by" UUID NOT NULL,
+  "updated_by" UUID,
+  "created_at" TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  "updated_at" TIMESTAMPTZ NOT NULL DEFAULT NOW(),
   CONSTRAINT "cleanup_evidence_maps_pkey" PRIMARY KEY ("id")
 );
 
