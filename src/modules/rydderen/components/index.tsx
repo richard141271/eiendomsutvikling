@@ -31,13 +31,13 @@ import {
   formatDate,
 } from "@/src/modules/rydderen/utils";
 
-function scrollWorkAreaIntoView(element: HTMLElement | null) {
+function scrollWorkAreaIntoView(element: HTMLElement | null, offset = 88) {
   if (!element || typeof window === "undefined") {
     return;
   }
 
   window.requestAnimationFrame(() => {
-    const top = element.getBoundingClientRect().top + window.scrollY - 88;
+    const top = element.getBoundingClientRect().top + window.scrollY - offset;
     window.scrollTo({ top: Math.max(0, top), behavior: "auto" });
   });
 }
@@ -345,6 +345,7 @@ export function RydderenRegisterFlow(props: {
   const cameraInputRef = useRef<HTMLInputElement | null>(null);
   const cameraSectionRef = useRef<HTMLElement | null>(null);
   const categorySectionRef = useRef<HTMLElement | null>(null);
+  const categoryButtonsRef = useRef<HTMLDivElement | null>(null);
   const actionSectionRef = useRef<HTMLElement | null>(null);
 
   useEffect(() => {
@@ -363,7 +364,8 @@ export function RydderenRegisterFlow(props: {
       return;
     }
     if (props.step === "category") {
-      scrollWorkAreaIntoView(categorySectionRef.current);
+      const extraOffset = typeof window === "undefined" ? 88 : Math.max(88, Math.round(window.innerHeight * 0.28));
+      scrollWorkAreaIntoView(categoryButtonsRef.current || categorySectionRef.current, extraOffset);
       return;
     }
     scrollWorkAreaIntoView(actionSectionRef.current);
@@ -428,7 +430,7 @@ export function RydderenRegisterFlow(props: {
               <img src={props.previewUrl} alt="Forhåndsvisning av valgt objekt" className="h-40 w-full object-cover" />
             </div>
           ) : null}
-          <div className="grid grid-cols-2 gap-3">
+          <div ref={categoryButtonsRef} className="grid grid-cols-2 gap-3">
             {DEFAULT_RYDDEREN_CATEGORIES.map((category) => (
               <button
                 key={category}

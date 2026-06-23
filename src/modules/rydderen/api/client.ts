@@ -25,8 +25,14 @@ async function request<T>(input: string, init?: RequestInit): Promise<T> {
   });
 
   if (!response.ok) {
-    const payload = await response.json().catch(() => ({}));
-    throw new Error(payload.error || "Request failed");
+    const responseText = await response.text();
+    try {
+      const payload = JSON.parse(responseText);
+      throw new Error(payload.error || payload.message || `Request failed (${response.status})`);
+    } catch {
+      const cleaned = responseText.replace(/<[^>]+>/g, " ").replace(/\s+/g, " ").trim();
+      throw new Error(cleaned || `Request failed (${response.status})`);
+    }
   }
 
   return response.json();

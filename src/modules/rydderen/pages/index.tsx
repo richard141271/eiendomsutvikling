@@ -744,24 +744,30 @@ export function RydderenDocumentationPage(props: { cleanupProjectId: string; bas
               if (!(await ensureConfirmed())) {
                 return;
               }
-              setGpsStatus("Henter GPS hvis tilgjengelig ...");
-              const gps = await requestGps();
-              const saved = await entriesState.createEntry({
-                entryType,
-                category,
-                description: description.trim() || null,
-                comment: comment.trim() || null,
-                zone: zone.trim() || null,
-                count: Math.max(1, Number(count) || 1),
-                risk,
-                gps,
-                images: images.map((image) => ({
-                  file: image.file,
-                  imageHash: image.imageHash,
-                })),
-              });
-              resetDraft(saved.entryType);
-              setGpsStatus(gps ? "GPS lagret." : "GPS ikke tilgjengelig. Funnet er lagret uten GPS.");
+              try {
+                setDraftError(null);
+                setGpsStatus("Henter GPS hvis tilgjengelig ...");
+                const gps = await requestGps();
+                const saved = await entriesState.createEntry({
+                  entryType,
+                  category,
+                  description: description.trim() || null,
+                  comment: comment.trim() || null,
+                  zone: zone.trim() || null,
+                  count: Math.max(1, Number(count) || 1),
+                  risk,
+                  gps,
+                  images: images.map((image) => ({
+                    file: image.file,
+                    imageHash: image.imageHash,
+                  })),
+                });
+                resetDraft(saved.entryType);
+                setGpsStatus(gps ? "GPS lagret." : "GPS ikke tilgjengelig. Funnet er lagret uten GPS.");
+              } catch (error) {
+                setGpsStatus(null);
+                setDraftError(error instanceof Error ? error.message : "Kunne ikke lagre dokumentasjonsfunn.");
+              }
             })();
           }}
         />
