@@ -3,6 +3,7 @@ import { Inter } from "next/font/google";
 import "./globals.css";
 import { cn } from "@/lib/utils";
 import { Toaster } from "sonner";
+import { BuildSync } from "@/components/build-sync";
 
 const inter = Inter({ subsets: ["latin"], variable: "--font-sans" });
 
@@ -29,6 +30,7 @@ export default function RootLayout({
         )}
       >
         {children}
+        <BuildSync />
         <Toaster richColors closeButton />
       </body>
     </html>
