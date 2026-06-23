@@ -5,12 +5,15 @@ const nextConfig = {
       (process.env.VERCEL_GIT_COMMIT_SHA || process.env.NEXT_PUBLIC_APP_COMMIT || "local").slice(0, 7),
   },
   async headers() {
+    const commit =
+      (process.env.VERCEL_GIT_COMMIT_SHA || process.env.NEXT_PUBLIC_APP_COMMIT || "unknown").slice(0, 7);
     return [
       {
         source: "/(dashboard/)?rydderen/:path*",
         headers: [
           { key: "Cache-Control", value: "no-store, max-age=0, must-revalidate" },
           { key: "Pragma", value: "no-cache" },
+          { key: "X-App-Commit", value: commit },
         ],
       },
     ];

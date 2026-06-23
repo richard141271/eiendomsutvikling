@@ -153,13 +153,14 @@ export function RydderenBottomNav(props: {
   const items = [
     { key: "register", label: "Registrer", href: `${props.basePath}/projects/${props.cleanupProjectId}/register` },
     { key: "valuation", label: "Verdisetting", href: `${props.basePath}/projects/${props.cleanupProjectId}/valuation` },
+    { key: "documentation", label: "Dokumentasjon", href: `${props.basePath}/projects/${props.cleanupProjectId}/documentation` },
     { key: "overview", label: "Oversikt", href: `${props.basePath}/projects/${props.cleanupProjectId}` },
   ] as const;
 
   return (
     <nav
       aria-label="Hovednavigasjon"
-      className="fixed inset-x-0 bottom-0 z-20 mx-auto grid max-w-[820px] grid-cols-3 gap-3 bg-slate-100/95 px-4 pb-[calc(12px+env(safe-area-inset-bottom))] pt-3 backdrop-blur print:hidden"
+      className="fixed inset-x-0 bottom-0 z-20 mx-auto grid max-w-[820px] grid-cols-4 gap-3 bg-slate-100/95 px-4 pb-[calc(12px+env(safe-area-inset-bottom))] pt-3 backdrop-blur print:hidden"
     >
       {items.map((item) => (
         <Link
