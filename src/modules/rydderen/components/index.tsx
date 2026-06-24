@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 import { ArrowRight, Camera, FolderKanban, Printer, X } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
@@ -114,6 +115,7 @@ export function RydderenProjectStrip(props: {
   basePath: string;
   activeView: "register" | "valuation" | "overview" | "documentation";
 }) {
+  const router = useRouter();
   const getProjectHref = (projectId: string) => {
     if (props.activeView === "register") return `${props.basePath}/projects/${projectId}/register`;
     if (props.activeView === "valuation") return `${props.basePath}/projects/${projectId}/valuation`;
@@ -133,7 +135,7 @@ export function RydderenProjectStrip(props: {
         value={props.project.id}
         onChange={(event) => {
           window.localStorage.setItem("rydderen-activeProjectId", event.target.value);
-          window.location.href = getProjectHref(event.target.value);
+          router.push(getProjectHref(event.target.value));
         }}
       >
         {props.projects.map((project) => (

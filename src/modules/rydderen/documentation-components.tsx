@@ -26,6 +26,14 @@ export type CleanupDocumentationDraftImage = {
 
 export type CleanupDocumentationView = "menu" | "entry" | "map" | "report";
 
+function chunkArray<T>(items: T[], size: number) {
+  const chunks: T[][] = [];
+  for (let index = 0; index < items.length; index += size) {
+    chunks.push(items.slice(index, index + size));
+  }
+  return chunks;
+}
+
 export function RydderenDocumentationMenu(props: {
   onSelectEntryType: (entryType: string) => void;
   onOpenMap: () => void;
@@ -322,10 +330,10 @@ export function RydderenDocumentationMapForm(props: {
   );
 }
 
-function DocumentationEntryCard(props: { entry: CleanupEvidenceEntry }) {
+function DocumentationEntryScreenCard(props: { entry: CleanupEvidenceEntry }) {
   const type = getCleanupDocumentationTypeConfig(props.entry.entryType);
   return (
-    <Card className="rounded-[18px] border bg-slate-50 print:break-inside-avoid">
+    <Card className="rounded-[18px] border bg-slate-50">
       <CardContent className="space-y-3 p-4">
         <div className="grid gap-3 md:grid-cols-[220px_minmax(0,1fr)]">
           <div className="overflow-hidden rounded-[14px] bg-slate-200">
@@ -367,6 +375,154 @@ function DocumentationEntryCard(props: { entry: CleanupEvidenceEntry }) {
         ) : null}
       </CardContent>
     </Card>
+  );
+}
+
+function DocumentationPrintPage(props: { children: React.ReactNode; breakAfter?: boolean }) {
+  return (
+    <section
+      className={`hidden print:mx-auto print:flex print:w-[186mm] print:min-h-[273mm] print:flex-col print:bg-white print:px-[8mm] print:py-[7mm] ${
+        props.breakAfter === false ? "" : "print:[break-after:page]"
+      }`}
+    >
+      {props.children}
+    </section>
+  );
+}
+
+function DocumentationPrintCoverPage(props: {
+  projectName: string;
+  map: CleanupEvidenceMap | null;
+  filteredEntries: CleanupEvidenceEntry[];
+  totalImages: number;
+  categories: string;
+  breakAfter: boolean;
+}) {
+  return (
+    <DocumentationPrintPage breakAfter={props.breakAfter}>
+      <div className="flex min-h-full flex-1 flex-col rounded-[6mm] border border-slate-200 bg-white p-[10mm]">
+        <div className="space-y-3 border-b border-slate-200 pb-6">
+          <p className="text-[3.5mm] font-semibold uppercase tracking-[0.18em] text-slate-500">Dokumentasjonsrapport</p>
+          <h1 className="text-[9mm] font-bold leading-tight text-slate-950">{props.projectName}</h1>
+          <p className="max-w-[120mm] text-[4.2mm] leading-relaxed text-slate-600">
+            Rapporten er satt opp for utskrift med én kontrollert side per visning, uten delte kort, avbrutte bilder eller tekst som flyter over mellom sider.
+          </p>
+        </div>
+
+        <div className="mt-8 grid flex-1 gap-5 md:grid-cols-2">
+          <div className="rounded-[5mm] bg-slate-50 p-5">
+            <h2 className="mb-4 text-[4.8mm] font-bold text-slate-900">Oversikt</h2>
+            <div className="grid gap-2 text-[4mm] text-slate-700">
+              <p>Prosjekt: {props.projectName}</p>
+              <p>Adresse: {props.map?.address || "-"}</p>
+              <p>Saksnavn: {props.map?.caseName || "-"}</p>
+              <p>Dato: {formatDate(new Date().toISOString())}</p>
+              <p>Antall funn: {props.filteredEntries.length}</p>
+              <p>Antall bilder: {props.totalImages}</p>
+            </div>
+          </div>
+          <div className="rounded-[5mm] bg-slate-50 p-5">
+            <h2 className="mb-4 text-[4.8mm] font-bold text-slate-900">Kategorier</h2>
+            <p className="text-[4mm] leading-relaxed text-slate-700">{props.categories || "-"}</p>
+          </div>
+        </div>
+      </div>
+    </DocumentationPrintPage>
+  );
+}
+
+function DocumentationPrintHeroPage(props: {
+  entry: CleanupEvidenceEntry;
+  breakAfter: boolean;
+}) {
+  const type = getCleanupDocumentationTypeConfig(props.entry.entryType);
+  const heroImage = props.entry.images[0];
+
+  return (
+    <DocumentationPrintPage breakAfter={props.breakAfter}>
+      <div className="flex min-h-full flex-1 flex-col rounded-[6mm] border border-slate-200 bg-white p-[6mm]">
+        <div className="mb-4 flex items-start justify-between gap-4">
+          <div>
+            <h2 className="text-[6mm] font-bold text-slate-950">{props.entry.entryNumber}</h2>
+            <p className="mt-1 text-[3.8mm] text-slate-600">{type.label}</p>
+          </div>
+          <Badge variant="outline" className="rounded-full border-slate-300 px-3 py-1 text-[3mm] uppercase tracking-[0.08em]">
+            {type.shortLabel}
+          </Badge>
+        </div>
+
+        <div className="grid gap-4 lg:grid-cols-[1.15fr_0.85fr]">
+          <div className="flex min-h-[118mm] items-center justify-center overflow-hidden rounded-[5mm] border border-slate-200 bg-slate-100 p-3">
+            {heroImage?.imageUrl ? (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img src={heroImage.imageUrl} alt={props.entry.entryNumber} className="max-h-[112mm] w-full object-contain" />
+            ) : (
+              <div className="flex h-[112mm] w-full items-center justify-center text-slate-400">
+                <ImageIcon className="h-12 w-12" />
+              </div>
+            )}
+          </div>
+
+          <div className="grid content-start gap-3 rounded-[5mm] bg-slate-50 p-4">
+            <div className="grid gap-1 text-[3.8mm] text-slate-700">
+              <p>Kategori: {props.entry.category || "-"}</p>
+              <p>Sone: {props.entry.zone || "-"}</p>
+              <p>Dato: {props.entry.createdDate || formatDate(props.entry.createdAt)}</p>
+              <p>Tid: {props.entry.createdTime || formatTime(props.entry.createdAt)}</p>
+              <p>Risiko: {props.entry.risk || "-"}</p>
+              <p>Antall bilder: {props.entry.imageCount || props.entry.images.length}</p>
+            </div>
+
+            <div className="rounded-[4mm] bg-white p-4">
+              <p className="mb-2 text-[3.2mm] font-semibold uppercase tracking-[0.08em] text-slate-500">Beskrivelse</p>
+              <p className="text-[4mm] leading-relaxed text-slate-900">{props.entry.description || "Ingen beskrivelse"}</p>
+            </div>
+
+            <div className="rounded-[4mm] bg-white p-4">
+              <p className="mb-2 text-[3.2mm] font-semibold uppercase tracking-[0.08em] text-slate-500">Kommentar</p>
+              <p className="text-[4mm] leading-relaxed text-slate-700">{props.entry.comment || "-"}</p>
+            </div>
+          </div>
+        </div>
+      </div>
+    </DocumentationPrintPage>
+  );
+}
+
+function DocumentationPrintGalleryPage(props: {
+  entry: CleanupEvidenceEntry;
+  images: CleanupEvidenceEntry["images"];
+  pageNumber: number;
+  totalPages: number;
+  breakAfter: boolean;
+}) {
+  return (
+    <DocumentationPrintPage breakAfter={props.breakAfter}>
+      <div className="flex min-h-full flex-1 flex-col rounded-[6mm] border border-slate-200 bg-white p-[6mm]">
+        <div className="mb-4 flex items-end justify-between gap-4 border-b border-slate-200 pb-3">
+          <div>
+            <h3 className="text-[5.2mm] font-bold text-slate-950">{props.entry.entryNumber}</h3>
+            <p className="text-[3.8mm] text-slate-600">Bildeflate {props.pageNumber} av {props.totalPages}</p>
+          </div>
+          <p className="text-[3.5mm] text-slate-500">{props.images.length} bilder på denne siden</p>
+        </div>
+
+        <div className="grid flex-1 grid-cols-3 gap-[3mm]">
+          {props.images.map((image) => (
+            <div key={image.id} className="flex min-h-[42mm] items-center justify-center overflow-hidden rounded-[4mm] border border-slate-200 bg-slate-100 p-2">
+              {image.imageUrl || image.thumbnailUrl ? (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img src={image.imageUrl || image.thumbnailUrl || ""} alt={props.entry.entryNumber} className="h-full w-full object-contain" />
+              ) : (
+                <div className="text-slate-400">
+                  <ImageIcon className="h-8 w-8" />
+                </div>
+              )}
+            </div>
+          ))}
+        </div>
+      </div>
+    </DocumentationPrintPage>
   );
 }
 
@@ -416,10 +572,12 @@ export function RydderenDocumentationReportView(props: {
     .sort((a, b) => b[1] - a[1])
     .map(([category, count]) => `${category}: ${count}`)
     .join(", ");
+  const hasEntries = filteredEntries.length > 0;
 
   return (
-    <section className="space-y-4 rounded-[20px] bg-white p-5 shadow-[0_16px_40px_rgba(17,24,39,0.10)] print:rounded-none print:bg-white print:p-0 print:shadow-none">
+    <>
       <div className="print:hidden">
+        <section className="space-y-4 rounded-[20px] bg-white p-5 shadow-[0_16px_40px_rgba(17,24,39,0.10)]">
         <div className="flex items-start justify-between gap-3">
           <div>
             <p className="mb-1 text-xs uppercase tracking-[0.08em] text-slate-500">Rapportoversikt</p>
@@ -430,7 +588,7 @@ export function RydderenDocumentationReportView(props: {
           </Button>
         </div>
 
-        <div className="mt-4 grid gap-3 md:grid-cols-[1fr_auto]">
+          <div className="mt-4 grid gap-3 md:grid-cols-[1fr_auto]">
           <div className="relative">
             <Search className="absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
             <Input className="min-h-14 rounded-2xl pl-10" value={props.search} onChange={(event) => props.onSearchChange(event.target.value)} placeholder="Sok pa nummer, kategori, dato, sone eller tekst" />
@@ -458,9 +616,9 @@ export function RydderenDocumentationReportView(props: {
             ZIP med bilder
           </Button>
         </div>
-      </div>
+        </section>
 
-      <Card className="rounded-[18px] border bg-slate-50 shadow-none print:border-0 print:bg-white">
+        <Card className="mt-4 rounded-[18px] border bg-slate-50 shadow-none">
         <CardHeader>
           <CardTitle>Dokumentasjonsrapport</CardTitle>
         </CardHeader>
@@ -476,15 +634,50 @@ export function RydderenDocumentationReportView(props: {
         </CardContent>
       </Card>
 
-      <div className="grid gap-4">
+        <div className="mt-4 grid gap-4">
         {filteredEntries.length ? (
-          filteredEntries.map((entry) => <DocumentationEntryCard key={entry.id} entry={entry} />)
+          filteredEntries.map((entry) => <DocumentationEntryScreenCard key={entry.id} entry={entry} />)
         ) : (
           <Card className="rounded-[18px] border bg-slate-50 shadow-none">
             <CardContent className="p-6 text-sm text-slate-500">Ingen funn registrert i valgt prosjekt.</CardContent>
           </Card>
         )}
+        </div>
       </div>
-    </section>
+      <DocumentationPrintCoverPage
+        projectName={props.projectName}
+        map={props.map}
+        filteredEntries={filteredEntries}
+        totalImages={totalImages}
+        categories={categories}
+        breakAfter={hasEntries}
+      />
+      {filteredEntries.map((entry, entryIndex) => {
+        const galleryChunks = chunkArray(entry.images.slice(1), 12);
+        const isLastEntry = entryIndex === filteredEntries.length - 1;
+
+        return (
+          <div key={`print-${entry.id}`}>
+            <DocumentationPrintHeroPage
+              entry={entry}
+              breakAfter={!isLastEntry || galleryChunks.length > 0}
+            />
+            {galleryChunks.map((chunk, chunkIndex) => {
+              const isLastGalleryPage = chunkIndex === galleryChunks.length - 1;
+              return (
+                <DocumentationPrintGalleryPage
+                  key={`${entry.id}-gallery-${chunkIndex}`}
+                  entry={entry}
+                  images={chunk}
+                  pageNumber={chunkIndex + 1}
+                  totalPages={galleryChunks.length}
+                  breakAfter={!isLastEntry || !isLastGalleryPage}
+                />
+              );
+            })}
+          </div>
+        );
+      })}
+    </>
   );
 }

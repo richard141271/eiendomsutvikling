@@ -6,6 +6,9 @@ import { createAdminClient, ensureBucketExists } from "@/lib/supabase-admin";
 import { CLEANUP_BUCKET } from "@/src/modules/rydderen/utils";
 
 const admin = () => createAdminClient();
+const CLEANUP_SIGNED_URL_TTL_SECONDS = 3600;
+const CLEANUP_SIGNED_URL_CACHE_MS = 45 * 60 * 1000;
+const cleanupSignedUrlCache = new Map<string, { url: string; expiresAt: number }>();
 
 export async function listCleanupProjectsByTenant(params: {
   tenantId: string;
@@ -353,16 +356,17 @@ export async function uploadCleanupEvidenceImage(params: {
   const originalPath = `cleanup-projects/${params.cleanupProjectId}/documentation/${params.entryId}/${params.imageId}/original.${ext}`;
   const thumbPath = `cleanup-projects/${params.cleanupProjectId}/documentation/${params.entryId}/${params.imageId}/thumb.jpg`;
 
-  const thumbBuffer = await sharp(params.fileBuffer)
+  const thumbBufferPromise = sharp(params.fileBuffer)
     .rotate()
-    .resize({ width: 900, height: 900, fit: "inside", withoutEnlargement: true })
-    .jpeg({ quality: 82 })
+    .resize({ width: 640, height: 640, fit: "inside", withoutEnlargement: true })
+    .jpeg({ quality: 72, mozjpeg: true })
     .toBuffer();
-
-  const { error: originalError } = await admin().storage.from(CLEANUP_BUCKET).upload(originalPath, params.fileBuffer, {
+  const originalUploadPromise = admin().storage.from(CLEANUP_BUCKET).upload(originalPath, params.fileBuffer, {
     contentType: params.contentType,
     upsert: true,
   });
+
+  const [thumbBuffer, { error: originalError }] = await Promise.all([thumbBufferPromise, originalUploadPromise]);
   if (originalError) throw new Error(originalError.message);
 
   const { error: thumbError } = await admin().storage.from(CLEANUP_BUCKET).upload(thumbPath, thumbBuffer, {
@@ -395,7 +399,19 @@ export async function uploadCleanupImageDataUrl(params: {
 
 export async function createCleanupSignedUrl(path: string | null | undefined) {
   if (!path) return null;
-  const { data, error } = await admin().storage.from(CLEANUP_BUCKET).createSignedUrl(path, 3600);
+  const cached = cleanupSignedUrlCache.get(path);
+  if (cached && cached.expiresAt > Date.now()) {
+    return cached.url;
+  }
+
+  const { data, error } = await admin().storage.from(CLEANUP_BUCKET).createSignedUrl(path, CLEANUP_SIGNED_URL_TTL_SECONDS);
   if (error) return null;
-  return data?.signedUrl || null;
+  const signedUrl = data?.signedUrl || null;
+  if (signedUrl) {
+    cleanupSignedUrlCache.set(path, {
+      url: signedUrl,
+      expiresAt: Date.now() + CLEANUP_SIGNED_URL_CACHE_MS,
+    });
+  }
+  return signedUrl;
 }

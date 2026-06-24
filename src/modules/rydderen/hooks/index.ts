@@ -58,9 +58,34 @@ function updateProjectInListCaches(project: CleanupProject) {
   });
 }
 
+function mergeCleanupEvidenceEntry(existing: CleanupEvidenceEntry | null, incoming: CleanupEvidenceEntry) {
+  if (!existing) {
+    return incoming;
+  }
+
+  const mergedImages = Array.from(
+    [...existing.images, ...incoming.images].reduce((map, image) => {
+      const current = map.get(image.id);
+      if (!current || (image.updatedAt || "") >= (current.updatedAt || "")) {
+        map.set(image.id, image);
+      }
+      return map;
+    }, new Map<string, CleanupEvidenceEntry["images"][number]>()).values()
+  ).sort((left, right) => left.sortOrder - right.sortOrder);
+
+  return {
+    ...existing,
+    ...incoming,
+    imageCount: Math.max(existing.imageCount, incoming.imageCount, mergedImages.length),
+    images: mergedImages,
+  };
+}
+
 function upsertDocumentationEntryInCache(cleanupProjectId: string, entry: CleanupEvidenceEntry) {
   const currentEntries = cleanupDocumentationEntriesCache.get(cleanupProjectId) ?? [];
-  const nextEntries = [entry, ...currentEntries.filter((currentEntry) => currentEntry.id !== entry.id)];
+  const existingEntry = currentEntries.find((currentEntry) => currentEntry.id === entry.id) ?? null;
+  const mergedEntry = mergeCleanupEvidenceEntry(existingEntry, entry);
+  const nextEntries = [mergedEntry, ...currentEntries.filter((currentEntry) => currentEntry.id !== entry.id)];
   cleanupDocumentationEntriesCache.set(cleanupProjectId, nextEntries);
   return nextEntries;
 }
@@ -615,6 +640,7 @@ export function useCleanupFilters(items: CleanupItem[]) {
 }
 
 export function useCleanupDocumentationEntries(cleanupProjectId: string) {
+  const MAX_BACKGROUND_UPLOADS = 3;
   const cachedEntries = cleanupDocumentationEntriesCache.get(cleanupProjectId) ?? [];
   const hasCachedEntries = cachedEntries.length > 0;
   const [entries, setEntries] = useState<CleanupEvidenceEntry[]>(cachedEntries);
@@ -625,7 +651,7 @@ export function useCleanupDocumentationEntries(cleanupProjectId: string) {
   const [pendingUploads, setPendingUploads] = useState(0);
   const [backgroundError, setBackgroundError] = useState<string | null>(null);
   const uploadQueueRef = useRef<Array<{ entryId: string; index: number; image: { file: File; imageHash?: string | null } }>>([]);
-  const processingUploadsRef = useRef(false);
+  const activeUploadCountRef = useRef(0);
 
   const upsertEntry = useCallback(
     (entry: CleanupEvidenceEntry) => {
@@ -676,33 +702,34 @@ export function useCleanupDocumentationEntries(cleanupProjectId: string) {
     void refresh({ showLoading: !hasCachedEntries });
   }, [hasCachedEntries, refresh]);
 
-  const processUploadQueue = useCallback(async () => {
-    if (processingUploadsRef.current) {
+  const processUploadQueue = useCallback(() => {
+    if (uploadQueueRef.current.length === 0 && activeUploadCountRef.current === 0) {
+      setBackgroundUploading(false);
       return;
     }
 
-    processingUploadsRef.current = true;
     setBackgroundUploading(true);
 
-    try {
-      while (uploadQueueRef.current.length > 0) {
-        const nextUpload = uploadQueueRef.current.shift();
-        if (!nextUpload) {
-          continue;
-        }
+    while (activeUploadCountRef.current < MAX_BACKGROUND_UPLOADS && uploadQueueRef.current.length > 0) {
+      const nextUpload = uploadQueueRef.current.shift();
+      if (!nextUpload) {
+        continue;
+      }
 
-        const imageFormData = new FormData();
-        imageFormData.set("image", nextUpload.image.file);
-        imageFormData.set("sortOrder", String(nextUpload.index));
-        if (nextUpload.image.imageHash) {
-          imageFormData.set("imageHash", nextUpload.image.imageHash);
-        }
-        if (nextUpload.image.file.name) {
-          imageFormData.set("originalName", nextUpload.image.file.name);
-        }
+      activeUploadCountRef.current += 1;
+      const imageFormData = new FormData();
+      imageFormData.set("image", nextUpload.image.file);
+      imageFormData.set("sortOrder", String(nextUpload.index));
+      if (nextUpload.image.imageHash) {
+        imageFormData.set("imageHash", nextUpload.image.imageHash);
+      }
+      if (nextUpload.image.file.name) {
+        imageFormData.set("originalName", nextUpload.image.file.name);
+      }
 
-        const uploadStartedAt = typeof performance !== "undefined" ? performance.now() : Date.now();
+      const uploadStartedAt = typeof performance !== "undefined" ? performance.now() : Date.now();
 
+      void (async () => {
         try {
           // #region debug-point B:queued-image-upload-start
           reportDebugEvent("B", "src/modules/rydderen/hooks/index.ts:useCleanupDocumentationEntries:queue:image:start", "[DEBUG] Documentation background image upload started", {
@@ -712,6 +739,7 @@ export function useCleanupDocumentationEntries(cleanupProjectId: string) {
             imageName: nextUpload.image.file.name,
             imageSize: nextUpload.image.file.size,
             remainingQueue: uploadQueueRef.current.length,
+            activeUploads: activeUploadCountRef.current,
           });
           // #endregion
           const updatedEntry = await cleanupApiClient.uploadDocumentationEntryImage(cleanupProjectId, nextUpload.entryId, imageFormData);
@@ -725,6 +753,7 @@ export function useCleanupDocumentationEntries(cleanupProjectId: string) {
             imageCountAfterUpload: updatedEntry.imageCount,
             durationMs: Math.round((typeof performance !== "undefined" ? performance.now() : Date.now()) - uploadStartedAt),
             remainingQueue: uploadQueueRef.current.length,
+            activeUploads: activeUploadCountRef.current,
           });
           // #endregion
         } catch (uploadError) {
@@ -738,18 +767,19 @@ export function useCleanupDocumentationEntries(cleanupProjectId: string) {
             durationMs: Math.round((typeof performance !== "undefined" ? performance.now() : Date.now()) - uploadStartedAt),
             error: message,
             remainingQueue: uploadQueueRef.current.length,
+            activeUploads: activeUploadCountRef.current,
           });
           // #endregion
         } finally {
+          activeUploadCountRef.current = Math.max(0, activeUploadCountRef.current - 1);
           setPendingUploads((current) => Math.max(0, current - 1));
+          if (uploadQueueRef.current.length > 0 || activeUploadCountRef.current > 0) {
+            processUploadQueue();
+          } else {
+            setBackgroundUploading(false);
+          }
         }
-      }
-    } finally {
-      processingUploadsRef.current = false;
-      setBackgroundUploading(uploadQueueRef.current.length > 0);
-      if (uploadQueueRef.current.length > 0) {
-        void processUploadQueue();
-      }
+      })();
     }
   }, [cleanupProjectId, upsertEntry]);
 
