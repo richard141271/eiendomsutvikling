@@ -52,17 +52,6 @@ export function LoginForm() {
     },
   })
 
-  React.useEffect(() => {
-    if (typeof window === "undefined") {
-      return
-    }
-
-    const lastLoginEmail = window.localStorage.getItem("last-login-email")
-    if (lastLoginEmail && !form.getValues("email")) {
-      form.setValue("email", lastLoginEmail)
-    }
-  }, [form])
-
   async function onSubmit(values: z.infer<typeof formSchema>) {
     const startedAt = typeof performance !== "undefined" ? performance.now() : Date.now()
     setIsLoading(true)
@@ -117,9 +106,6 @@ export function LoginForm() {
         durationMs: Math.round((typeof performance !== "undefined" ? performance.now() : Date.now()) - startedAt),
       })
       // #endregion
-      if (typeof window !== "undefined") {
-        window.localStorage.setItem("last-login-email", values.email)
-      }
       router.push("/dashboard")
       router.refresh()
     } catch (err) {
@@ -130,7 +116,7 @@ export function LoginForm() {
         error: err instanceof Error ? err.message : String(err),
       })
       // #endregion
-      setError("En uventet feil oppstod")
+      setError(err instanceof Error ? `Feil ved innlogging: ${err.message}` : "En uventet feil oppstod")
       setIsLoading(false)
     }
   }
