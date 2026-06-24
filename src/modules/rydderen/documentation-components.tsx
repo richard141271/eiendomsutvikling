@@ -419,7 +419,7 @@ function DocumentationEntryScreenCard(props: { entry: CleanupEvidenceEntry }) {
 function DocumentationPrintPage(props: { children: React.ReactNode; breakAfter?: boolean }) {
   return (
     <section
-      className={`hidden print:mx-auto print:flex print:h-[246mm] print:w-[176mm] print:break-inside-avoid print:flex-col print:overflow-hidden print:bg-white print:box-border ${
+      className={`hidden print:mx-auto print:flex print:h-[238mm] print:w-[170mm] print:break-inside-avoid print:flex-col print:overflow-hidden print:bg-white print:box-border ${
         props.breakAfter === false ? "" : "print:[break-after:page]"
       }`}
     >
@@ -438,20 +438,20 @@ function DocumentationPrintCoverPage(props: {
 }) {
   return (
     <DocumentationPrintPage breakAfter={props.breakAfter}>
-      <div className="flex h-full flex-1 flex-col overflow-hidden bg-white p-[3mm]">
-        <div className="flex h-full flex-1 flex-col overflow-hidden rounded-[2.5mm] border border-slate-200 bg-white p-[3mm]">
-        <div className="space-y-1.5 border-b border-slate-200 pb-3">
+      <div className="flex h-full flex-1 flex-col overflow-hidden bg-white p-[2.5mm]">
+        <div className="flex h-full flex-1 flex-col overflow-hidden rounded-[2mm] border border-slate-200 bg-white p-[2.5mm]">
+        <div className="space-y-1 border-b border-slate-200 pb-2.5">
           <p className="text-[2.8mm] font-semibold uppercase tracking-[0.15em] text-slate-500">Dokumentasjonsrapport</p>
-          <h1 className="break-words text-[5.3mm] font-bold leading-[1.02] text-slate-950">{props.projectName}</h1>
-          <p className="max-w-[96mm] text-[2.8mm] leading-snug text-slate-600">
+          <h1 className="break-words text-[4.9mm] font-bold leading-[1.02] text-slate-950">{props.projectName}</h1>
+          <p className="max-w-[90mm] text-[2.6mm] leading-snug text-slate-600">
             Rapporten er satt opp for utskrift med én kontrollert side per visning, uten delte kort, avbrutte bilder eller tekst som flyter over mellom sider.
           </p>
         </div>
 
-        <div className="mt-2.5 grid items-start gap-2 print:grid-cols-2">
-          <div className="rounded-[2.5mm] bg-slate-50 p-2.5">
-            <h2 className="mb-1.5 text-[3.4mm] font-bold text-slate-900">Oversikt</h2>
-            <div className="grid gap-0.5 text-[2.8mm] text-slate-700">
+        <div className="mt-2 grid items-start gap-1.5 print:grid-cols-2">
+          <div className="rounded-[2mm] bg-slate-50 p-2">
+            <h2 className="mb-1 text-[3.1mm] font-bold text-slate-900">Oversikt</h2>
+            <div className="grid gap-0.5 text-[2.55mm] text-slate-700">
               <p>Prosjekt: {props.projectName}</p>
               <p>Adresse: {props.map?.address || "-"}</p>
               <p>Saksnavn: {props.map?.caseName || "-"}</p>
@@ -460,9 +460,9 @@ function DocumentationPrintCoverPage(props: {
               <p>Antall bilder: {props.totalImages}</p>
             </div>
           </div>
-          <div className="rounded-[2.5mm] bg-slate-50 p-2.5">
-            <h2 className="mb-1.5 text-[3.4mm] font-bold text-slate-900">Kategorier</h2>
-            <p className="break-words text-[2.8mm] leading-snug text-slate-700">{props.categories || "-"}</p>
+          <div className="rounded-[2mm] bg-slate-50 p-2">
+            <h2 className="mb-1 text-[3.1mm] font-bold text-slate-900">Kategorier</h2>
+            <p className="break-words text-[2.55mm] leading-snug text-slate-700">{props.categories || "-"}</p>
           </div>
         </div>
         </div>
@@ -480,30 +480,30 @@ function DocumentationPrintHeroPage(props: {
 
   return (
     <DocumentationPrintPage breakAfter={props.breakAfter}>
-      <div className="flex h-full flex-1 flex-col overflow-hidden bg-white p-[3mm]">
-        <div className="flex h-full flex-1 flex-col overflow-hidden rounded-[2.5mm] border border-slate-200 bg-white p-[2.5mm]">
-        <div className="mb-1.5 flex items-start justify-between gap-2.5">
+      <div className="flex h-full flex-1 flex-col overflow-hidden bg-white p-[2.5mm]">
+        <div className="flex h-full flex-1 flex-col overflow-hidden rounded-[2mm] border border-slate-200 bg-white p-[2mm]">
+        <div className="mb-1 flex items-start justify-between gap-2">
           <div>
-            <h2 className="text-[3.9mm] font-bold text-slate-950">{props.entry.entryNumber}</h2>
-            <p className="mt-0.5 text-[2.6mm] text-slate-600">{type.label}</p>
+            <h2 className="text-[3.6mm] font-bold text-slate-950">{props.entry.entryNumber}</h2>
+            <p className="mt-0.5 text-[2.4mm] text-slate-600">{type.label}</p>
           </div>
-          <Badge variant="outline" className="rounded-full border-slate-300 px-1.5 py-0.5 text-[2.3mm] uppercase tracking-[0.08em]">
+          <Badge variant="outline" className="rounded-full border-slate-300 px-1.5 py-0 text-[2.15mm] uppercase tracking-[0.08em]">
             {type.shortLabel}
           </Badge>
         </div>
 
-        <div className="grid flex-1 gap-1.5 print:grid-cols-[1.02fr_0.98fr]">
+        <div className="grid flex-1 gap-1 print:grid-cols-[1fr_0.94fr]">
           <DocumentationImageFrame
             src={heroImage?.imageUrl}
             alt={props.entry.entryNumber}
             chrome="compact"
-            className="min-h-0 print:h-[102mm]"
+            className="min-h-0 print:h-[95mm]"
             imageClassName="h-full w-full object-contain"
             emptyIconClassName="h-12 w-12"
           />
 
-          <div className="grid min-h-0 content-start gap-1 rounded-[2.5mm] bg-slate-50 p-1.5">
-            <div className="grid gap-0.5 text-[2.55mm] text-slate-700">
+          <div className="grid min-h-0 content-start gap-1 rounded-[2mm] bg-slate-50 p-1.25">
+            <div className="grid gap-0.5 text-[2.35mm] text-slate-700">
               <p>Kategori: {props.entry.category || "-"}</p>
               <p>Sone: {props.entry.zone || "-"}</p>
               <p>Dato: {props.entry.createdDate || formatDate(props.entry.createdAt)}</p>
@@ -512,14 +512,14 @@ function DocumentationPrintHeroPage(props: {
               <p>Antall bilder: {props.entry.imageCount || props.entry.images.length}</p>
             </div>
 
-            <div className="rounded-[2mm] bg-white p-1.5">
-              <p className="mb-1 text-[2.3mm] font-semibold uppercase tracking-[0.08em] text-slate-500">Beskrivelse</p>
-              <p className="max-h-[14mm] overflow-hidden text-[2.5mm] leading-snug text-slate-900">{props.entry.description || "Ingen beskrivelse"}</p>
+            <div className="rounded-[1.5mm] bg-white p-1.25">
+              <p className="mb-0.5 text-[2.1mm] font-semibold uppercase tracking-[0.08em] text-slate-500">Beskrivelse</p>
+              <p className="max-h-[12mm] overflow-hidden text-[2.35mm] leading-snug text-slate-900">{props.entry.description || "Ingen beskrivelse"}</p>
             </div>
 
-            <div className="rounded-[2mm] bg-white p-1.5">
-              <p className="mb-1 text-[2.3mm] font-semibold uppercase tracking-[0.08em] text-slate-500">Kommentar</p>
-              <p className="max-h-[10mm] overflow-hidden text-[2.5mm] leading-snug text-slate-700">{props.entry.comment || "-"}</p>
+            <div className="rounded-[1.5mm] bg-white p-1.25">
+              <p className="mb-0.5 text-[2.1mm] font-semibold uppercase tracking-[0.08em] text-slate-500">Kommentar</p>
+              <p className="max-h-[8mm] overflow-hidden text-[2.35mm] leading-snug text-slate-700">{props.entry.comment || "-"}</p>
             </div>
           </div>
         </div>
@@ -538,25 +538,25 @@ function DocumentationPrintGalleryPage(props: {
 }) {
   return (
     <DocumentationPrintPage breakAfter={props.breakAfter}>
-      <div className="flex h-full flex-1 flex-col overflow-hidden bg-white p-[3mm]">
-        <div className="flex h-full flex-1 flex-col overflow-hidden rounded-[2.5mm] border border-slate-200 bg-white p-[2.5mm]">
-        <div className="mb-1.5 flex items-end justify-between gap-2 border-b border-slate-200 pb-1">
+      <div className="flex h-full flex-1 flex-col overflow-hidden bg-white p-[2.5mm]">
+        <div className="flex h-full flex-1 flex-col overflow-hidden rounded-[2mm] border border-slate-200 bg-white p-[2mm]">
+        <div className="mb-1 flex items-end justify-between gap-2 border-b border-slate-200 pb-0.5">
           <div>
-            <h3 className="text-[3.6mm] font-bold text-slate-950">{props.entry.entryNumber}</h3>
-            <p className="text-[2.5mm] text-slate-600">Bildeflate {props.pageNumber} av {props.totalPages}</p>
+            <h3 className="text-[3.3mm] font-bold text-slate-950">{props.entry.entryNumber}</h3>
+            <p className="text-[2.3mm] text-slate-600">Bildeflate {props.pageNumber} av {props.totalPages}</p>
           </div>
-          <p className="text-[2.4mm] text-slate-500">{props.images.length} bilder</p>
+          <p className="text-[2.2mm] text-slate-500">{props.images.length} bilder</p>
         </div>
 
-        <div className="grid flex-1 auto-rows-[24mm] grid-cols-3 gap-[0.9mm] content-start">
+        <div className="grid h-full flex-1 grid-cols-3 grid-rows-5 gap-[0.8mm] content-stretch">
           {props.images.map((image) => (
             <DocumentationImageFrame
               key={image.id}
               src={image.imageUrl || image.thumbnailUrl || ""}
               alt={props.entry.entryNumber}
               chrome="none"
-              className="min-h-0 rounded-[1.5mm]"
-              imageClassName="h-full w-full object-cover"
+              className="min-h-0 rounded-[1mm] border border-slate-200 bg-white p-0.5"
+              imageClassName="h-full w-full object-contain"
               emptyIconClassName="h-8 w-8"
             />
           ))}
