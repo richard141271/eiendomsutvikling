@@ -1,12 +1,26 @@
+const { execSync } = require("node:child_process");
+
+function resolveCommit() {
+  const envCommit = process.env.VERCEL_GIT_COMMIT_SHA || process.env.NEXT_PUBLIC_APP_COMMIT;
+  if (envCommit) {
+    return envCommit.slice(0, 8);
+  }
+
+  try {
+    return execSync("git rev-parse --short=8 HEAD", { stdio: ["ignore", "pipe", "ignore"] }).toString().trim();
+  } catch {
+    return "unknown";
+  }
+}
+
 /** @type {import('next').NextConfig} */
+const commit = resolveCommit();
+
 const nextConfig = {
   env: {
-    NEXT_PUBLIC_APP_COMMIT:
-      (process.env.VERCEL_GIT_COMMIT_SHA || process.env.NEXT_PUBLIC_APP_COMMIT || "local").slice(0, 7),
+    NEXT_PUBLIC_APP_COMMIT: commit,
   },
   async headers() {
-    const commit =
-      (process.env.VERCEL_GIT_COMMIT_SHA || process.env.NEXT_PUBLIC_APP_COMMIT || "unknown").slice(0, 7);
     return [
       {
         source: "/(dashboard/)?rydderen/:path*",

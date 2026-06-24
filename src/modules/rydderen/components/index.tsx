@@ -25,6 +25,7 @@ import {
   CLEANUP_CONTEXT_TYPES,
   CLEANUP_COST_TYPES,
   CLEANUP_MODULE_BRAND,
+  CLEANUP_MODULE_COMMIT,
   DEFAULT_RYDDEREN_CATEGORIES,
   formatCleanupActionLabel,
   formatCleanupObjectLabel,
@@ -201,7 +202,10 @@ export function RydderenAppShell(props: {
       <header className="flex items-start justify-between gap-4 print:hidden">
         <div>
           <p className="mb-1 text-xs uppercase tracking-[0.08em] text-slate-500">Prosjektnavn</p>
-          <h1 className="text-3xl font-bold">{CLEANUP_MODULE_BRAND}</h1>
+          <h1 className="flex flex-wrap items-baseline gap-2 text-3xl font-bold">
+            <span>{CLEANUP_MODULE_BRAND}</span>
+            <span className="text-base font-semibold tracking-[0.06em] text-slate-500">{CLEANUP_MODULE_COMMIT}</span>
+          </h1>
         </div>
       </header>
       <RydderenProjectStrip project={props.project} projects={props.projects} basePath={props.basePath} activeView={props.active} />

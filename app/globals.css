@@ -98,8 +98,13 @@
 
 @media print {
   @page {
-    margin: 12mm;
+    margin: 0;
     size: A4 portrait;
+  }
+  html,
+  body {
+    margin: 0 !important;
+    padding: 0 !important;
   }
   body {
     print-color-adjust: exact;

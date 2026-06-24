@@ -405,7 +405,7 @@ function DocumentationEntryScreenCard(props: { entry: CleanupEvidenceEntry }) {
 function DocumentationPrintPage(props: { children: React.ReactNode; breakAfter?: boolean }) {
   return (
     <section
-      className={`hidden print:mx-auto print:flex print:h-[273mm] print:w-[186mm] print:break-inside-avoid print:flex-col print:overflow-hidden print:bg-white print:px-[8mm] print:py-[7mm] print:box-border ${
+      className={`hidden print:mx-auto print:flex print:h-[297mm] print:w-[210mm] print:break-inside-avoid print:flex-col print:overflow-hidden print:bg-white print:box-border ${
         props.breakAfter === false ? "" : "print:[break-after:page]"
       }`}
     >
@@ -424,7 +424,8 @@ function DocumentationPrintCoverPage(props: {
 }) {
   return (
     <DocumentationPrintPage breakAfter={props.breakAfter}>
-      <div className="flex h-full flex-1 flex-col overflow-hidden rounded-[6mm] border border-slate-200 bg-white p-[8mm]">
+      <div className="flex h-full flex-1 flex-col overflow-hidden bg-white p-[12mm]">
+        <div className="flex h-full flex-1 flex-col overflow-hidden rounded-[6mm] border border-slate-200 bg-white p-[8mm]">
         <div className="space-y-2 border-b border-slate-200 pb-4">
           <p className="text-[3.5mm] font-semibold uppercase tracking-[0.18em] text-slate-500">Dokumentasjonsrapport</p>
           <h1 className="break-words text-[7.2mm] font-bold leading-[1.05] text-slate-950">{props.projectName}</h1>
@@ -450,6 +451,7 @@ function DocumentationPrintCoverPage(props: {
             <p className="break-words text-[3.6mm] leading-snug text-slate-700">{props.categories || "-"}</p>
           </div>
         </div>
+        </div>
       </div>
     </DocumentationPrintPage>
   );
@@ -464,7 +466,8 @@ function DocumentationPrintHeroPage(props: {
 
   return (
     <DocumentationPrintPage breakAfter={props.breakAfter}>
-      <div className="flex h-full flex-1 flex-col overflow-hidden rounded-[6mm] border border-slate-200 bg-white p-[6mm]">
+      <div className="flex h-full flex-1 flex-col overflow-hidden bg-white p-[12mm]">
+        <div className="flex h-full flex-1 flex-col overflow-hidden rounded-[6mm] border border-slate-200 bg-white p-[6mm]">
         <div className="mb-3 flex items-start justify-between gap-4">
           <div>
             <h2 className="text-[5.4mm] font-bold text-slate-950">{props.entry.entryNumber}</h2>
@@ -475,11 +478,11 @@ function DocumentationPrintHeroPage(props: {
           </Badge>
         </div>
 
-        <div className="grid flex-1 gap-3 print:grid-cols-[1.05fr_0.95fr]">
+        <div className="grid flex-1 gap-3 print:grid-cols-[1.08fr_0.92fr]">
           <DocumentationImageFrame
             src={heroImage?.imageUrl}
             alt={props.entry.entryNumber}
-            className="min-h-0 print:h-[156mm] p-3"
+            className="min-h-0 print:h-[145mm] p-3"
             imageClassName="h-full w-full object-contain"
             emptyIconClassName="h-12 w-12"
           />
@@ -505,6 +508,7 @@ function DocumentationPrintHeroPage(props: {
             </div>
           </div>
         </div>
+        </div>
       </div>
     </DocumentationPrintPage>
   );
@@ -519,7 +523,8 @@ function DocumentationPrintGalleryPage(props: {
 }) {
   return (
     <DocumentationPrintPage breakAfter={props.breakAfter}>
-      <div className="flex h-full flex-1 flex-col overflow-hidden rounded-[6mm] border border-slate-200 bg-white p-[6mm]">
+      <div className="flex h-full flex-1 flex-col overflow-hidden bg-white p-[12mm]">
+        <div className="flex h-full flex-1 flex-col overflow-hidden rounded-[6mm] border border-slate-200 bg-white p-[6mm]">
         <div className="mb-3 flex items-end justify-between gap-4 border-b border-slate-200 pb-2.5">
           <div>
             <h3 className="text-[4.8mm] font-bold text-slate-950">{props.entry.entryNumber}</h3>
@@ -528,7 +533,7 @@ function DocumentationPrintGalleryPage(props: {
           <p className="text-[3.2mm] text-slate-500">{props.images.length} bilder på denne siden</p>
         </div>
 
-        <div className="grid flex-1 auto-rows-fr grid-cols-3 gap-[2.5mm]">
+        <div className="grid flex-1 auto-rows-[50mm] grid-cols-3 gap-[2.5mm] content-start">
           {props.images.map((image) => (
             <DocumentationImageFrame
               key={image.id}
@@ -539,6 +544,7 @@ function DocumentationPrintGalleryPage(props: {
               emptyIconClassName="h-8 w-8"
             />
           ))}
+        </div>
         </div>
       </div>
     </DocumentationPrintPage>

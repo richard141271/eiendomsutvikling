@@ -1,6 +1,7 @@
 import type { CleanupCost, CleanupItem } from "@/src/modules/rydderen/types";
 
 export const CLEANUP_MODULE_BRAND = "Rydder'n";
+export const CLEANUP_MODULE_COMMIT = (process.env.NEXT_PUBLIC_APP_COMMIT || "unknown").slice(0, 8);
 export const CLEANUP_BUCKET = "cleanup-media";
 
 export const CLEANUP_ACTIONS = [
