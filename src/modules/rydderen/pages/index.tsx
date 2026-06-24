@@ -154,6 +154,13 @@ function getProjectConfirmationKey(cleanupProjectId: string) {
   return `rydderen-project-confirmed:${cleanupProjectId}`;
 }
 
+function reportDebugEvent(hypothesisId: "A" | "B" | "C" | "D" | "E", location: string, msg: string, data: Record<string, unknown>) {
+  void hypothesisId;
+  void location;
+  void msg;
+  void data;
+}
+
 function buildOverviewSummary(items: CleanupItem[], costs: CleanupCost[], project: CleanupProject | null) {
   const castCount = items.filter((item) => item.action === "kast").length;
   const sellCount = items.filter((item) => item.action === "selg").length;
@@ -659,7 +666,15 @@ export function RydderenDocumentationPage(props: { cleanupProjectId: string; bas
       return;
     }
 
+    const startedAt = typeof performance !== "undefined" ? performance.now() : Date.now();
     try {
+      // #region debug-point E:documentation-handle-files-start
+      reportDebugEvent("E", "src/modules/rydderen/pages/index.tsx:RydderenDocumentationPage:handleFiles:start", "[DEBUG] Documentation handleFiles started", {
+        cleanupProjectId: props.cleanupProjectId,
+        fileCount: files.length,
+        totalSize: files.reduce((sum, file) => sum + file.size, 0),
+      });
+      // #endregion
       setPreparingImages(true);
       const existingHashes = new Set(entriesState.entries.flatMap((entry) => entry.images.map((image) => image.imageHash || "")));
       const draftHashes = new Set(images.map((image) => image.imageHash));
@@ -688,6 +703,25 @@ export function RydderenDocumentationPage(props: { cleanupProjectId: string; bas
       } else if (duplicateFound) {
         setDraftError("Dette bildet er allerede registrert i dokumentasjonen for prosjektet.");
       }
+      // #region debug-point E:documentation-handle-files-finished
+      reportDebugEvent("E", "src/modules/rydderen/pages/index.tsx:RydderenDocumentationPage:handleFiles:finished", "[DEBUG] Documentation handleFiles finished", {
+        cleanupProjectId: props.cleanupProjectId,
+        fileCount: files.length,
+        acceptedCount: nextImages.length,
+        duplicateFound,
+        durationMs: Math.round((typeof performance !== "undefined" ? performance.now() : Date.now()) - startedAt),
+      });
+      // #endregion
+    } catch (error) {
+      // #region debug-point E:documentation-handle-files-error
+      reportDebugEvent("E", "src/modules/rydderen/pages/index.tsx:RydderenDocumentationPage:handleFiles:error", "[DEBUG] Documentation handleFiles failed", {
+        cleanupProjectId: props.cleanupProjectId,
+        fileCount: files.length,
+        durationMs: Math.round((typeof performance !== "undefined" ? performance.now() : Date.now()) - startedAt),
+        error: error instanceof Error ? error.message : String(error),
+      });
+      // #endregion
+      throw error;
     } finally {
       setPreparingImages(false);
     }
@@ -705,7 +739,7 @@ export function RydderenDocumentationPage(props: { cleanupProjectId: string; bas
             lon: position.coords.longitude,
           }),
         () => resolve(null),
-        { enableHighAccuracy: true, timeout: 2500, maximumAge: 60000 }
+        { enableHighAccuracy: true, timeout: 900, maximumAge: 300000 }
       );
     });
   };
@@ -742,6 +776,16 @@ export function RydderenDocumentationPage(props: { cleanupProjectId: string; bas
 
       {loading && !project ? <div className="text-sm text-muted-foreground">Laster prosjekt i bakgrunnen...</div> : null}
       {mapState.error ? <div className="rounded-xl bg-red-50 p-3 text-sm text-red-700">{mapState.error}</div> : null}
+      {entriesState.backgroundUploading ? (
+        <div className="rounded-xl bg-blue-50 p-3 text-sm text-blue-700">
+          Laster opp {entriesState.pendingUploads} bilde{entriesState.pendingUploads === 1 ? "" : "r"} i bakgrunnen. Du kan jobbe videre imens.
+        </div>
+      ) : null}
+      {entriesState.backgroundError ? (
+        <div className="rounded-xl bg-amber-50 p-3 text-sm text-amber-800">
+          Noen bilder ble ikke lastet opp i bakgrunnen: {entriesState.backgroundError}
+        </div>
+      ) : null}
 
       {view === "menu" ? (
         <RydderenDocumentationMenu
@@ -819,6 +863,7 @@ export function RydderenDocumentationPage(props: { cleanupProjectId: string; bas
                 setDraftError(null);
                 setGpsStatus("Henter GPS hvis tilgjengelig ...");
                 const gps = await requestGps();
+                const imageCount = images.length;
                 const saved = await entriesState.createEntry({
                   entryType,
                   category,
@@ -834,7 +879,11 @@ export function RydderenDocumentationPage(props: { cleanupProjectId: string; bas
                   })),
                 });
                 resetDraft(saved.entryType);
-                setGpsStatus(gps ? "GPS lagret." : "GPS ikke tilgjengelig. Funnet er lagret uten GPS.");
+                if (imageCount > 0) {
+                  setGpsStatus(`Funnet er lagret. ${imageCount} bilde${imageCount === 1 ? "" : "r"} lastes opp i bakgrunnen.`);
+                } else {
+                  setGpsStatus(gps ? "GPS lagret." : "GPS ikke tilgjengelig. Funnet er lagret uten GPS.");
+                }
               } catch (error) {
                 setGpsStatus(null);
                 setDraftError(error instanceof Error ? error.message : "Kunne ikke lagre dokumentasjonsfunn.");

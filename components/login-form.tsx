@@ -22,6 +22,13 @@ import { toast } from "sonner"
 import { Eye, EyeOff } from "lucide-react"
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 
+function reportDebugEvent(hypothesisId: "A" | "B" | "C" | "D" | "E", location: string, msg: string, data: Record<string, unknown>) {
+  void hypothesisId
+  void location
+  void msg
+  void data
+}
+
 const formSchema = z.object({
   email: z.string().email("Ugyldig e-postadresse"),
   password: z.string().min(4, "Passordet må være minst 4 tegn"),
@@ -45,8 +52,14 @@ export function LoginForm() {
   })
 
   async function onSubmit(values: z.infer<typeof formSchema>) {
+    const startedAt = typeof performance !== "undefined" ? performance.now() : Date.now()
     setIsLoading(true)
     setError(null)
+    // #region debug-point D:login-start
+    reportDebugEvent("D", "components/login-form.tsx:onSubmit:start", "[DEBUG] Login started", {
+      email: values.email,
+    })
+    // #endregion
 
     try {
       const passwordToUse = values.password.length === 4 ? values.password + "00" : values.password
@@ -57,6 +70,13 @@ export function LoginForm() {
       })
 
       if (error) {
+        // #region debug-point D:login-error
+        reportDebugEvent("D", "components/login-form.tsx:onSubmit:error", "[DEBUG] Login failed", {
+          email: values.email,
+          durationMs: Math.round((typeof performance !== "undefined" ? performance.now() : Date.now()) - startedAt),
+          error: error.message,
+        })
+        // #endregion
         if (error.message === "Invalid login credentials") {
           setError("Feil e-post eller passord")
         } else if (error.message.includes("Email not confirmed")) {
@@ -68,9 +88,22 @@ export function LoginForm() {
         return
       }
 
+      // #region debug-point D:login-success
+      reportDebugEvent("D", "components/login-form.tsx:onSubmit:success", "[DEBUG] Login succeeded", {
+        email: values.email,
+        durationMs: Math.round((typeof performance !== "undefined" ? performance.now() : Date.now()) - startedAt),
+      })
+      // #endregion
       router.push("/dashboard")
       router.refresh()
     } catch (err) {
+      // #region debug-point D:login-catch
+      reportDebugEvent("D", "components/login-form.tsx:onSubmit:catch", "[DEBUG] Login threw unexpected error", {
+        email: values.email,
+        durationMs: Math.round((typeof performance !== "undefined" ? performance.now() : Date.now()) - startedAt),
+        error: err instanceof Error ? err.message : String(err),
+      })
+      // #endregion
       setError("En uventet feil oppstod")
       setIsLoading(false)
     }

@@ -24,6 +24,13 @@ const cleanupCostsCache = new Map<string, CleanupCost[]>();
 const cleanupDocumentationEntriesCache = new Map<string, CleanupEvidenceEntry[]>();
 const cleanupDocumentationMapCache = new Map<string, CleanupEvidenceMap | null>();
 
+function reportDebugEvent(hypothesisId: "A" | "B" | "C" | "D" | "E", location: string, msg: string, data: Record<string, unknown>) {
+  void hypothesisId;
+  void location;
+  void msg;
+  void data;
+}
+
 function getProjectListCacheKey(filters?: { contextType?: string | null; contextId?: string | null }) {
   return JSON.stringify({
     contextType: filters?.contextType ?? null,
@@ -51,6 +58,13 @@ function updateProjectInListCaches(project: CleanupProject) {
   });
 }
 
+function upsertDocumentationEntryInCache(cleanupProjectId: string, entry: CleanupEvidenceEntry) {
+  const currentEntries = cleanupDocumentationEntriesCache.get(cleanupProjectId) ?? [];
+  const nextEntries = [entry, ...currentEntries.filter((currentEntry) => currentEntry.id !== entry.id)];
+  cleanupDocumentationEntriesCache.set(cleanupProjectId, nextEntries);
+  return nextEntries;
+}
+
 async function hashFile(file: File) {
   const buffer = await file.arrayBuffer();
   const digest = await crypto.subtle.digest("SHA-256", buffer);
@@ -60,15 +74,16 @@ async function hashFile(file: File) {
 export function useCleanupProjects(filters?: { contextType?: string | null; contextId?: string | null }) {
   const cacheKey = getProjectListCacheKey(filters);
   const cachedProjects = cleanupProjectListCache.get(cacheKey) ?? [];
+  const hasCachedProjects = cachedProjects.length > 0;
   const [projects, setProjects] = useState<CleanupProject[]>(cachedProjects);
-  const [loading, setLoading] = useState(cachedProjects.length === 0);
+  const [loading, setLoading] = useState(!hasCachedProjects);
   const [error, setError] = useState<string | null>(null);
   const contextType = filters?.contextType ?? null;
   const contextId = filters?.contextId ?? null;
 
   const refresh = useCallback(async (options?: { showLoading?: boolean }) => {
     try {
-      if (options?.showLoading ?? projects.length === 0) {
+      if (options?.showLoading ?? !hasCachedProjects) {
         setLoading(true);
       }
       setError(null);
@@ -81,11 +96,11 @@ export function useCleanupProjects(filters?: { contextType?: string | null; cont
     } finally {
       setLoading(false);
     }
-  }, [cacheKey, contextId, contextType, projects.length]);
+  }, [cacheKey, contextId, contextType, hasCachedProjects]);
 
   useEffect(() => {
-    void refresh({ showLoading: cachedProjects.length === 0 });
-  }, [cachedProjects.length, refresh]);
+    void refresh({ showLoading: !hasCachedProjects });
+  }, [hasCachedProjects, refresh]);
 
   const createProject = useCallback(
     async (input: CleanupProjectCreateInput) => {
@@ -118,13 +133,22 @@ export function useCleanupProjects(filters?: { contextType?: string | null; cont
 
 export function useCleanupProject(cleanupProjectId: string) {
   const cachedProject = cleanupProjectCache.get(cleanupProjectId) ?? null;
+  const hasCachedProject = cachedProject !== null;
   const [project, setProject] = useState<CleanupProject | null>(cachedProject);
-  const [loading, setLoading] = useState(cachedProject === null);
+  const [loading, setLoading] = useState(!hasCachedProject);
   const [error, setError] = useState<string | null>(null);
 
   const refresh = useCallback(async (options?: { showLoading?: boolean }) => {
+    const startedAt = typeof performance !== "undefined" ? performance.now() : Date.now();
     try {
-      if (options?.showLoading ?? project === null) {
+      // #region debug-point C:project-refresh-start
+      reportDebugEvent("C", "src/modules/rydderen/hooks/index.ts:useCleanupProject:refresh:start", "[DEBUG] Project refresh started", {
+        cleanupProjectId,
+        showLoading: options?.showLoading ?? !hasCachedProject,
+        hasCachedProject,
+      });
+      // #endregion
+      if (options?.showLoading ?? !hasCachedProject) {
         setLoading(true);
       }
       setError(null);
@@ -132,16 +156,29 @@ export function useCleanupProject(cleanupProjectId: string) {
       cleanupProjectCache.set(cleanupProjectId, nextProject);
       updateProjectInListCaches(nextProject);
       setProject(nextProject);
+      // #region debug-point C:project-refresh-success
+      reportDebugEvent("C", "src/modules/rydderen/hooks/index.ts:useCleanupProject:refresh:success", "[DEBUG] Project refresh completed", {
+        cleanupProjectId,
+        durationMs: Math.round((typeof performance !== "undefined" ? performance.now() : Date.now()) - startedAt),
+      });
+      // #endregion
     } catch (err) {
+      // #region debug-point C:project-refresh-error
+      reportDebugEvent("C", "src/modules/rydderen/hooks/index.ts:useCleanupProject:refresh:error", "[DEBUG] Project refresh failed", {
+        cleanupProjectId,
+        durationMs: Math.round((typeof performance !== "undefined" ? performance.now() : Date.now()) - startedAt),
+        error: err instanceof Error ? err.message : String(err),
+      });
+      // #endregion
       setError(err instanceof Error ? err.message : "Kunne ikke hente ryddeprosjekt");
     } finally {
       setLoading(false);
     }
-  }, [cleanupProjectId, project]);
+  }, [cleanupProjectId, hasCachedProject]);
 
   useEffect(() => {
-    void refresh({ showLoading: cachedProject === null });
-  }, [cachedProject, refresh]);
+    void refresh({ showLoading: !hasCachedProject });
+  }, [hasCachedProject, refresh]);
 
   const updateProject = useCallback(
     async (input: CleanupProjectUpdateInput) => {
@@ -160,14 +197,15 @@ export function useCleanupProject(cleanupProjectId: string) {
 export function useCleanupItems(cleanupProjectId: string, filters?: { action?: string | null }) {
   const cacheKey = getItemsCacheKey(cleanupProjectId, filters);
   const cachedItems = cleanupItemsCache.get(cacheKey) ?? [];
+  const hasCachedItems = cachedItems.length > 0;
   const [items, setItems] = useState<CleanupItem[]>(cachedItems);
-  const [loading, setLoading] = useState(cachedItems.length === 0);
+  const [loading, setLoading] = useState(!hasCachedItems);
   const [error, setError] = useState<string | null>(null);
   const action = filters?.action ?? null;
 
   const refresh = useCallback(async (options?: { showLoading?: boolean }) => {
     try {
-      if (options?.showLoading ?? items.length === 0) {
+      if (options?.showLoading ?? !hasCachedItems) {
         setLoading(true);
       }
       setError(null);
@@ -179,11 +217,11 @@ export function useCleanupItems(cleanupProjectId: string, filters?: { action?: s
     } finally {
       setLoading(false);
     }
-  }, [action, cacheKey, cleanupProjectId, items.length]);
+  }, [action, cacheKey, cleanupProjectId, hasCachedItems]);
 
   useEffect(() => {
-    void refresh({ showLoading: cachedItems.length === 0 });
-  }, [cachedItems.length, refresh]);
+    void refresh({ showLoading: !hasCachedItems });
+  }, [hasCachedItems, refresh]);
 
   const updateItem = useCallback(
     async (itemId: string, body: CleanupItemUpdateInput) => {
@@ -421,15 +459,16 @@ export function useCleanupRegisterFlow(cleanupProjectId: string, existingItems: 
 export function useCleanupValuationQueue(cleanupProjectId: string) {
   const cacheKey = getItemsCacheKey(cleanupProjectId, { action: null });
   const cachedItems = cleanupItemsCache.get(cacheKey) ?? [];
+  const hasCachedItems = cachedItems.length > 0;
   const [items, setItems] = useState<CleanupItem[]>(cachedItems);
-  const [loading, setLoading] = useState(cachedItems.length === 0);
+  const [loading, setLoading] = useState(!hasCachedItems);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const savingRef = useRef(false);
 
   const refresh = useCallback(async (options?: { showLoading?: boolean }) => {
     try {
-      if (options?.showLoading ?? items.length === 0) {
+      if (options?.showLoading ?? !hasCachedItems) {
         setLoading(true);
       }
       setError(null);
@@ -441,11 +480,11 @@ export function useCleanupValuationQueue(cleanupProjectId: string) {
     } finally {
       setLoading(false);
     }
-  }, [cacheKey, cleanupProjectId, items.length]);
+  }, [cacheKey, cleanupProjectId, hasCachedItems]);
 
   useEffect(() => {
-    void refresh({ showLoading: cachedItems.length === 0 });
-  }, [cachedItems.length, refresh]);
+    void refresh({ showLoading: !hasCachedItems });
+  }, [hasCachedItems, refresh]);
 
   const queueItems = useMemo(() => items.filter((item) => item.value === null || item.value === undefined), [items]);
   const currentItem = useMemo(() => queueItems[0] || null, [queueItems]);
@@ -485,13 +524,14 @@ export function useCleanupValuationQueue(cleanupProjectId: string) {
 
 export function useCleanupReport(cleanupProjectId: string) {
   const cachedReport = cleanupReportCache.get(cleanupProjectId) ?? null;
+  const hasCachedReport = cachedReport !== null;
   const [report, setReport] = useState<CleanupReportSummary | null>(cachedReport);
-  const [loading, setLoading] = useState(cachedReport === null);
+  const [loading, setLoading] = useState(!hasCachedReport);
   const [error, setError] = useState<string | null>(null);
 
   const refresh = useCallback(async (options?: { showLoading?: boolean }) => {
     try {
-      if (options?.showLoading ?? report === null) {
+      if (options?.showLoading ?? !hasCachedReport) {
         setLoading(true);
       }
       setError(null);
@@ -505,25 +545,26 @@ export function useCleanupReport(cleanupProjectId: string) {
     } finally {
       setLoading(false);
     }
-  }, [cleanupProjectId, report]);
+  }, [cleanupProjectId, hasCachedReport]);
 
   useEffect(() => {
-    void refresh({ showLoading: cachedReport === null });
-  }, [cachedReport, refresh]);
+    void refresh({ showLoading: !hasCachedReport });
+  }, [hasCachedReport, refresh]);
 
   return { report, loading, error, refresh };
 }
 
 export function useCleanupCosts(cleanupProjectId: string) {
   const cachedCosts = cleanupCostsCache.get(cleanupProjectId) ?? [];
+  const hasCachedCosts = cachedCosts.length > 0;
   const [costs, setCosts] = useState<CleanupCost[]>(cachedCosts);
-  const [loading, setLoading] = useState(cachedCosts.length === 0);
+  const [loading, setLoading] = useState(!hasCachedCosts);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   const refresh = useCallback(async (options?: { showLoading?: boolean }) => {
     try {
-      if (options?.showLoading ?? costs.length === 0) {
+      if (options?.showLoading ?? !hasCachedCosts) {
         setLoading(true);
       }
       setError(null);
@@ -535,11 +576,11 @@ export function useCleanupCosts(cleanupProjectId: string) {
     } finally {
       setLoading(false);
     }
-  }, [cleanupProjectId, costs.length]);
+  }, [cleanupProjectId, hasCachedCosts]);
 
   useEffect(() => {
-    void refresh({ showLoading: cachedCosts.length === 0 });
-  }, [cachedCosts.length, refresh]);
+    void refresh({ showLoading: !hasCachedCosts });
+  }, [hasCachedCosts, refresh]);
 
   const addCost = useCallback(
     async (input: CleanupCostCreateInput) => {
@@ -575,30 +616,142 @@ export function useCleanupFilters(items: CleanupItem[]) {
 
 export function useCleanupDocumentationEntries(cleanupProjectId: string) {
   const cachedEntries = cleanupDocumentationEntriesCache.get(cleanupProjectId) ?? [];
+  const hasCachedEntries = cachedEntries.length > 0;
   const [entries, setEntries] = useState<CleanupEvidenceEntry[]>(cachedEntries);
-  const [loading, setLoading] = useState(cachedEntries.length === 0);
+  const [loading, setLoading] = useState(!hasCachedEntries);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [backgroundUploading, setBackgroundUploading] = useState(false);
+  const [pendingUploads, setPendingUploads] = useState(0);
+  const [backgroundError, setBackgroundError] = useState<string | null>(null);
+  const uploadQueueRef = useRef<Array<{ entryId: string; index: number; image: { file: File; imageHash?: string | null } }>>([]);
+  const processingUploadsRef = useRef(false);
+
+  const upsertEntry = useCallback(
+    (entry: CleanupEvidenceEntry) => {
+      setEntries(() => upsertDocumentationEntryInCache(cleanupProjectId, entry));
+    },
+    [cleanupProjectId]
+  );
 
   const refresh = useCallback(async (options?: { showLoading?: boolean }) => {
+    const startedAt = typeof performance !== "undefined" ? performance.now() : Date.now();
     try {
-      if (options?.showLoading ?? entries.length === 0) {
+      // #region debug-point C:documentation-refresh-start
+      reportDebugEvent("C", "src/modules/rydderen/hooks/index.ts:useCleanupDocumentationEntries:refresh:start", "[DEBUG] Documentation refresh started", {
+        cleanupProjectId,
+        showLoading: options?.showLoading ?? !hasCachedEntries,
+        cachedEntries: cachedEntries.length,
+      });
+      // #endregion
+      if (options?.showLoading ?? !hasCachedEntries) {
         setLoading(true);
       }
       setError(null);
       const nextEntries = await cleanupApiClient.listDocumentationEntries(cleanupProjectId);
       cleanupDocumentationEntriesCache.set(cleanupProjectId, nextEntries);
       setEntries(nextEntries);
+      // #region debug-point C:documentation-refresh-success
+      reportDebugEvent("C", "src/modules/rydderen/hooks/index.ts:useCleanupDocumentationEntries:refresh:success", "[DEBUG] Documentation refresh completed", {
+        cleanupProjectId,
+        durationMs: Math.round((typeof performance !== "undefined" ? performance.now() : Date.now()) - startedAt),
+        entryCount: nextEntries.length,
+      });
+      // #endregion
     } catch (err) {
+      // #region debug-point C:documentation-refresh-error
+      reportDebugEvent("C", "src/modules/rydderen/hooks/index.ts:useCleanupDocumentationEntries:refresh:error", "[DEBUG] Documentation refresh failed", {
+        cleanupProjectId,
+        durationMs: Math.round((typeof performance !== "undefined" ? performance.now() : Date.now()) - startedAt),
+        error: err instanceof Error ? err.message : String(err),
+      });
+      // #endregion
       setError(err instanceof Error ? err.message : "Kunne ikke hente dokumentasjonsfunn");
     } finally {
       setLoading(false);
     }
-  }, [cleanupProjectId, entries.length]);
+  }, [cleanupProjectId, hasCachedEntries, cachedEntries.length]);
 
   useEffect(() => {
-    void refresh({ showLoading: cachedEntries.length === 0 });
-  }, [cachedEntries.length, refresh]);
+    void refresh({ showLoading: !hasCachedEntries });
+  }, [hasCachedEntries, refresh]);
+
+  const processUploadQueue = useCallback(async () => {
+    if (processingUploadsRef.current) {
+      return;
+    }
+
+    processingUploadsRef.current = true;
+    setBackgroundUploading(true);
+
+    try {
+      while (uploadQueueRef.current.length > 0) {
+        const nextUpload = uploadQueueRef.current.shift();
+        if (!nextUpload) {
+          continue;
+        }
+
+        const imageFormData = new FormData();
+        imageFormData.set("image", nextUpload.image.file);
+        imageFormData.set("sortOrder", String(nextUpload.index));
+        if (nextUpload.image.imageHash) {
+          imageFormData.set("imageHash", nextUpload.image.imageHash);
+        }
+        if (nextUpload.image.file.name) {
+          imageFormData.set("originalName", nextUpload.image.file.name);
+        }
+
+        const uploadStartedAt = typeof performance !== "undefined" ? performance.now() : Date.now();
+
+        try {
+          // #region debug-point B:queued-image-upload-start
+          reportDebugEvent("B", "src/modules/rydderen/hooks/index.ts:useCleanupDocumentationEntries:queue:image:start", "[DEBUG] Documentation background image upload started", {
+            cleanupProjectId,
+            entryId: nextUpload.entryId,
+            imageIndex: nextUpload.index,
+            imageName: nextUpload.image.file.name,
+            imageSize: nextUpload.image.file.size,
+            remainingQueue: uploadQueueRef.current.length,
+          });
+          // #endregion
+          const updatedEntry = await cleanupApiClient.uploadDocumentationEntryImage(cleanupProjectId, nextUpload.entryId, imageFormData);
+          upsertEntry(updatedEntry);
+          setBackgroundError(null);
+          // #region debug-point B:queued-image-upload-success
+          reportDebugEvent("B", "src/modules/rydderen/hooks/index.ts:useCleanupDocumentationEntries:queue:image:success", "[DEBUG] Documentation background image upload completed", {
+            cleanupProjectId,
+            entryId: nextUpload.entryId,
+            imageIndex: nextUpload.index,
+            imageCountAfterUpload: updatedEntry.imageCount,
+            durationMs: Math.round((typeof performance !== "undefined" ? performance.now() : Date.now()) - uploadStartedAt),
+            remainingQueue: uploadQueueRef.current.length,
+          });
+          // #endregion
+        } catch (uploadError) {
+          const message = uploadError instanceof Error ? uploadError.message : "Kunne ikke laste opp dokumentasjonsbilde";
+          setBackgroundError(message);
+          // #region debug-point B:queued-image-upload-error
+          reportDebugEvent("B", "src/modules/rydderen/hooks/index.ts:useCleanupDocumentationEntries:queue:image:error", "[DEBUG] Documentation background image upload failed", {
+            cleanupProjectId,
+            entryId: nextUpload.entryId,
+            imageIndex: nextUpload.index,
+            durationMs: Math.round((typeof performance !== "undefined" ? performance.now() : Date.now()) - uploadStartedAt),
+            error: message,
+            remainingQueue: uploadQueueRef.current.length,
+          });
+          // #endregion
+        } finally {
+          setPendingUploads((current) => Math.max(0, current - 1));
+        }
+      }
+    } finally {
+      processingUploadsRef.current = false;
+      setBackgroundUploading(uploadQueueRef.current.length > 0);
+      if (uploadQueueRef.current.length > 0) {
+        void processUploadQueue();
+      }
+    }
+  }, [cleanupProjectId, upsertEntry]);
 
   const createEntry = useCallback(
     async (payload: {
@@ -626,62 +779,86 @@ export function useCleanupDocumentationEntries(cleanupProjectId: string) {
       if (payload.createdDate) formData.set("createdDate", payload.createdDate);
       if (payload.createdTime) formData.set("createdTime", payload.createdTime);
 
+      const startedAt = typeof performance !== "undefined" ? performance.now() : Date.now();
       try {
+        // #region debug-point A:create-entry-start
+        reportDebugEvent("A", "src/modules/rydderen/hooks/index.ts:useCleanupDocumentationEntries:createEntry:start", "[DEBUG] Documentation createEntry started", {
+          cleanupProjectId,
+          entryType: payload.entryType,
+          imageCount: payload.images?.length || 0,
+        });
+        // #endregion
         setSaving(true);
         setError(null);
+        setBackgroundError(null);
         let created = await cleanupApiClient.createDocumentationEntry(cleanupProjectId, formData);
-        setEntries((current) => {
-          const nextEntries = [created, ...current];
-          cleanupDocumentationEntriesCache.set(cleanupProjectId, nextEntries);
-          return nextEntries;
+        upsertEntry(created);
+        // #region debug-point A:create-entry-metadata-created
+        reportDebugEvent("A", "src/modules/rydderen/hooks/index.ts:useCleanupDocumentationEntries:createEntry:metadata", "[DEBUG] Documentation metadata created", {
+          cleanupProjectId,
+          entryId: created.id,
+          imageCount: payload.images?.length || 0,
+          durationMs: Math.round((typeof performance !== "undefined" ? performance.now() : Date.now()) - startedAt),
         });
+        // #endregion
 
         for (let index = 0; index < (payload.images?.length || 0); index += 1) {
           const image = payload.images?.[index];
           if (!image) continue;
-
-          const imageFormData = new FormData();
-          imageFormData.set("image", image.file);
-          imageFormData.set("sortOrder", String(index));
-          if (image.imageHash) {
-            imageFormData.set("imageHash", image.imageHash);
-          }
-          if (image.file.name) {
-            imageFormData.set("originalName", image.file.name);
-          }
-
-          created = await cleanupApiClient.uploadDocumentationEntryImage(cleanupProjectId, created.id, imageFormData);
+          uploadQueueRef.current.push({
+            entryId: created.id,
+            index,
+            image,
+          });
+        }
+        setPendingUploads((current) => current + (payload.images?.length || 0));
+        if ((payload.images?.length || 0) > 0) {
+          void processUploadQueue();
         }
 
-        setEntries((current) => {
-          const nextEntries = [created, ...current.filter((entry) => entry.id !== created.id)];
-          cleanupDocumentationEntriesCache.set(cleanupProjectId, nextEntries);
-          return nextEntries;
+        // #region debug-point A:create-entry-finished
+        reportDebugEvent("A", "src/modules/rydderen/hooks/index.ts:useCleanupDocumentationEntries:createEntry:finished", "[DEBUG] Documentation createEntry finished", {
+          cleanupProjectId,
+          entryId: created.id,
+          finalImageCount: created.imageCount,
+          queuedImages: payload.images?.length || 0,
+          durationMs: Math.round((typeof performance !== "undefined" ? performance.now() : Date.now()) - startedAt),
         });
+        // #endregion
         return created;
       } catch (err) {
+        // #region debug-point B:create-entry-error
+        reportDebugEvent("B", "src/modules/rydderen/hooks/index.ts:useCleanupDocumentationEntries:createEntry:error", "[DEBUG] Documentation createEntry failed", {
+          cleanupProjectId,
+          entryType: payload.entryType,
+          imageCount: payload.images?.length || 0,
+          durationMs: Math.round((typeof performance !== "undefined" ? performance.now() : Date.now()) - startedAt),
+          error: err instanceof Error ? err.message : String(err),
+        });
+        // #endregion
         setError(err instanceof Error ? err.message : "Kunne ikke lagre dokumentasjonsfunn");
         throw err;
       } finally {
         setSaving(false);
       }
     },
-    [cleanupProjectId]
+    [cleanupProjectId, processUploadQueue, upsertEntry]
   );
 
-  return { entries, loading, saving, error, refresh, createEntry };
+  return { entries, loading, saving, error, backgroundUploading, pendingUploads, backgroundError, refresh, createEntry };
 }
 
 export function useCleanupDocumentationMap(cleanupProjectId: string) {
   const cachedMap = cleanupDocumentationMapCache.get(cleanupProjectId) ?? null;
+  const hasCachedMap = cachedMap !== null;
   const [map, setMap] = useState<CleanupEvidenceMap | null>(cachedMap);
-  const [loading, setLoading] = useState(cachedMap === null);
+  const [loading, setLoading] = useState(!hasCachedMap);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   const refresh = useCallback(async (options?: { showLoading?: boolean }) => {
     try {
-      if (options?.showLoading ?? map === null) {
+      if (options?.showLoading ?? !hasCachedMap) {
         setLoading(true);
       }
       setError(null);
@@ -693,11 +870,11 @@ export function useCleanupDocumentationMap(cleanupProjectId: string) {
     } finally {
       setLoading(false);
     }
-  }, [cleanupProjectId, map]);
+  }, [cleanupProjectId, hasCachedMap]);
 
   useEffect(() => {
-    void refresh({ showLoading: cachedMap === null });
-  }, [cachedMap, refresh]);
+    void refresh({ showLoading: !hasCachedMap });
+  }, [hasCachedMap, refresh]);
 
   const saveMap = useCallback(
     async (input: CleanupEvidenceMapUpsertInput) => {
