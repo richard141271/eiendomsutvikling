@@ -34,6 +34,29 @@ function chunkArray<T>(items: T[], size: number) {
   return chunks;
 }
 
+function DocumentationImageFrame(props: {
+  src?: string | null;
+  alt: string;
+  className?: string;
+  imageClassName?: string;
+  emptyIconClassName?: string;
+}) {
+  return (
+    <div className={`overflow-hidden rounded-[5mm] border border-slate-200 bg-slate-100 p-2 shadow-[inset_0_1px_0_rgba(255,255,255,0.75)] ${props.className || ""}`}>
+      <div className="flex h-full w-full items-center justify-center overflow-hidden rounded-[4mm] bg-white">
+        {props.src ? (
+          // eslint-disable-next-line @next/next/no-img-element
+          <img src={props.src} alt={props.alt} className={props.imageClassName || "h-full w-full object-contain"} />
+        ) : (
+          <div className="flex h-full w-full items-center justify-center text-slate-400">
+            <ImageIcon className={props.emptyIconClassName || "h-8 w-8"} />
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
 export function RydderenDocumentationMenu(props: {
   onSelectEntryType: (entryType: string) => void;
   onOpenMap: () => void;
@@ -336,16 +359,13 @@ function DocumentationEntryScreenCard(props: { entry: CleanupEvidenceEntry }) {
     <Card className="rounded-[18px] border bg-slate-50">
       <CardContent className="space-y-3 p-4">
         <div className="grid gap-3 md:grid-cols-[220px_minmax(0,1fr)]">
-          <div className="overflow-hidden rounded-[14px] bg-slate-200">
-            {props.entry.images[0]?.imageUrl ? (
-              // eslint-disable-next-line @next/next/no-img-element
-              <img src={props.entry.images[0].imageUrl || ""} alt={props.entry.entryNumber} className="h-52 w-full object-cover" />
-            ) : (
-              <div className="flex h-52 items-center justify-center text-slate-400">
-                <ImageIcon className="h-10 w-10" />
-              </div>
-            )}
-          </div>
+          <DocumentationImageFrame
+            src={props.entry.images[0]?.imageUrl || ""}
+            alt={props.entry.entryNumber}
+            className="h-52 rounded-[14px] p-2"
+            imageClassName="h-full w-full object-contain"
+            emptyIconClassName="h-10 w-10"
+          />
           <div className="space-y-2">
             <div className="flex flex-wrap items-center gap-2">
               <div className="text-lg font-bold">{props.entry.entryNumber}</div>
@@ -366,10 +386,14 @@ function DocumentationEntryScreenCard(props: { entry: CleanupEvidenceEntry }) {
         {props.entry.images.length > 1 ? (
           <div className="grid grid-cols-3 gap-2 md:grid-cols-6">
             {props.entry.images.slice(1).map((image) => (
-              <div key={image.id} className="overflow-hidden rounded-[12px] bg-slate-200">
-                {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img src={image.thumbnailUrl || image.imageUrl || ""} alt={props.entry.entryNumber} className="h-20 w-full object-cover" />
-              </div>
+              <DocumentationImageFrame
+                key={image.id}
+                src={image.thumbnailUrl || image.imageUrl || ""}
+                alt={props.entry.entryNumber}
+                className="h-20 rounded-[12px] p-1.5"
+                imageClassName="h-full w-full object-contain"
+                emptyIconClassName="h-6 w-6"
+              />
             ))}
           </div>
         ) : null}
@@ -452,16 +476,13 @@ function DocumentationPrintHeroPage(props: {
         </div>
 
         <div className="grid gap-4 lg:grid-cols-[1.15fr_0.85fr]">
-          <div className="flex min-h-[118mm] items-center justify-center overflow-hidden rounded-[5mm] border border-slate-200 bg-slate-100 p-3">
-            {heroImage?.imageUrl ? (
-              // eslint-disable-next-line @next/next/no-img-element
-              <img src={heroImage.imageUrl} alt={props.entry.entryNumber} className="max-h-[112mm] w-full object-contain" />
-            ) : (
-              <div className="flex h-[112mm] w-full items-center justify-center text-slate-400">
-                <ImageIcon className="h-12 w-12" />
-              </div>
-            )}
-          </div>
+          <DocumentationImageFrame
+            src={heroImage?.imageUrl}
+            alt={props.entry.entryNumber}
+            className="min-h-[118mm] p-3"
+            imageClassName="max-h-[110mm] w-full object-contain"
+            emptyIconClassName="h-12 w-12"
+          />
 
           <div className="grid content-start gap-3 rounded-[5mm] bg-slate-50 p-4">
             <div className="grid gap-1 text-[3.8mm] text-slate-700">
@@ -509,16 +530,14 @@ function DocumentationPrintGalleryPage(props: {
 
         <div className="grid flex-1 grid-cols-3 gap-[3mm]">
           {props.images.map((image) => (
-            <div key={image.id} className="flex min-h-[42mm] items-center justify-center overflow-hidden rounded-[4mm] border border-slate-200 bg-slate-100 p-2">
-              {image.imageUrl || image.thumbnailUrl ? (
-                // eslint-disable-next-line @next/next/no-img-element
-                <img src={image.imageUrl || image.thumbnailUrl || ""} alt={props.entry.entryNumber} className="h-full w-full object-contain" />
-              ) : (
-                <div className="text-slate-400">
-                  <ImageIcon className="h-8 w-8" />
-                </div>
-              )}
-            </div>
+            <DocumentationImageFrame
+              key={image.id}
+              src={image.imageUrl || image.thumbnailUrl || ""}
+              alt={props.entry.entryNumber}
+              className="min-h-[42mm] rounded-[4mm] p-1.5"
+              imageClassName="h-full w-full object-contain"
+              emptyIconClassName="h-8 w-8"
+            />
           ))}
         </div>
       </div>

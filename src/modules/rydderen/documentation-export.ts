@@ -340,15 +340,27 @@ export async function saveAllDocumentationImages(params: {
   }
 
   if (navigator.canShare && navigator.canShare({ files })) {
-    await navigator.share({
-      files,
-      title: "Dokumentasjonsbilder",
-      text: "Velg 'Lagre i Bilder' i delingsarket for a lagre originalene i bildebiblioteket.",
-    });
-    return;
+    try {
+      await navigator.share({
+        files,
+        title: "Dokumentasjonsbilder",
+        text: "Velg 'Lagre i Bilder' i delingsarket for a lagre originalene i bildebiblioteket.",
+      });
+      return;
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      const normalized = message.toLowerCase();
+      if (normalized.includes("notallowederror") || normalized.includes("not allowed") || normalized.includes("denied")) {
+        throw new Error("Denne mobilen tillot ikke a apne delingsarket her. Prov igjen direkte i Safari, eller bruk 'ZIP med bilder' i stedet.");
+      }
+      if (normalized.includes("aborterror") || normalized.includes("cancel")) {
+        return;
+      }
+      throw new Error("Kunne ikke apne delingsarket for bilder. Bruk 'ZIP med bilder' hvis dette fortsetter.");
+    }
   }
 
-  files.forEach((file) => downloadBlob(file, file.name));
+  throw new Error("Denne enheten stotter ikke 'Lagre i Bilder' her. Bruk 'ZIP med bilder' i stedet.");
 }
 
 export async function exportDocumentationDocx(params: {
