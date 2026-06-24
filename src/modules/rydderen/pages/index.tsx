@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { AlertTriangle, ArrowRight, Plus } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -621,15 +621,22 @@ export function RydderenDocumentationPage(props: { cleanupProjectId: string; bas
     };
   }, []);
 
+  const printDocumentationReport = useCallback(() => {
+    if (typeof window === "undefined") {
+      return;
+    }
+
+    window.history.replaceState({}, "", `${pathname}?view=report`);
+    window.setTimeout(() => window.print(), 120);
+  }, [pathname]);
+
   useEffect(() => {
     if (!shouldAutoPrint || view !== "report" || autoPrintTriggeredRef.current) {
       return;
     }
     autoPrintTriggeredRef.current = true;
-    window.history.replaceState({}, "", `${pathname}?view=report`);
-    const timeout = window.setTimeout(() => window.print(), 150);
-    return () => window.clearTimeout(timeout);
-  }, [pathname, shouldAutoPrint, view]);
+    printDocumentationReport();
+  }, [printDocumentationReport, shouldAutoPrint, view]);
 
   const resetDraft = (nextType = entryType) => {
     images.forEach((image) => URL.revokeObjectURL(image.previewUrl));
@@ -872,7 +879,8 @@ export function RydderenDocumentationPage(props: { cleanupProjectId: string; bas
             router.replace(pathname);
           }}
           onPrintPdf={() => {
-            router.push(`${props.basePath}/projects/${activeProject.id}/documentation?view=report&print=1`);
+            autoPrintTriggeredRef.current = true;
+            printDocumentationReport();
           }}
           onExportPages={() => {
             void (async () => {
