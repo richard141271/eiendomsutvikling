@@ -21,6 +21,7 @@ import { createClient } from "@/lib/supabase"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import { CheckCircle2 } from "lucide-react"
 import { fetchCityFromPostalCode } from "@/app/actions/postal-actions"
+import { normalizeStoredPassword } from "@/lib/auth-password"
 import {
   Select,
   SelectContent,
@@ -81,8 +82,7 @@ export function RegisterForm() {
     setError(null)
 
     try {
-      // Pad 4-digit PIN with "00" to satisfy Supabase 6-char requirement
-      const passwordToUse = values.password.length === 4 ? values.password + "00" : values.password;
+      const passwordToUse = normalizeStoredPassword(values.password);
 
       const supabase = createClient()
       const { data, error: authError } = await supabase.auth.signUp({
@@ -284,6 +284,12 @@ export function RegisterForm() {
               <Input
                 id="email"
                 placeholder="navn@eksempel.no"
+                type="email"
+                autoComplete="email"
+                inputMode="email"
+                autoCapitalize="none"
+                autoCorrect="off"
+                spellCheck={false}
                 {...form.register("email")}
               />
               {form.formState.errors.email && (
@@ -299,6 +305,7 @@ export function RegisterForm() {
                 id="password"
                 type="password"
                 placeholder="Minst 4 tegn"
+                autoComplete="new-password"
                 {...form.register("password")}
               />
               {form.formState.errors.password && (

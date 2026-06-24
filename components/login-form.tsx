@@ -18,6 +18,7 @@ import {
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { createClient } from "@/lib/supabase"
+import { getLoginPasswordCandidates } from "@/lib/auth-password"
 import { toast } from "sonner"
 import { Eye, EyeOff } from "lucide-react"
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog"
@@ -51,6 +52,17 @@ export function LoginForm() {
     },
   })
 
+  React.useEffect(() => {
+    if (typeof window === "undefined") {
+      return
+    }
+
+    const lastLoginEmail = window.localStorage.getItem("last-login-email")
+    if (lastLoginEmail && !form.getValues("email")) {
+      form.setValue("email", lastLoginEmail)
+    }
+  }, [form])
+
   async function onSubmit(values: z.infer<typeof formSchema>) {
     const startedAt = typeof performance !== "undefined" ? performance.now() : Date.now()
     setIsLoading(true)
@@ -62,12 +74,23 @@ export function LoginForm() {
     // #endregion
 
     try {
-      const passwordToUse = values.password.length === 4 ? values.password + "00" : values.password
       const supabase = createClient()
-      const { error } = await supabase.auth.signInWithPassword({
-        email: values.email,
-        password: passwordToUse,
-      })
+      const passwordCandidates = getLoginPasswordCandidates(values.password)
+      let error: Error | null = null
+
+      for (const password of passwordCandidates) {
+        const result = await supabase.auth.signInWithPassword({
+          email: values.email,
+          password,
+        })
+
+        if (!result.error) {
+          error = null
+          break
+        }
+
+        error = result.error
+      }
 
       if (error) {
         // #region debug-point D:login-error
@@ -94,6 +117,9 @@ export function LoginForm() {
         durationMs: Math.round((typeof performance !== "undefined" ? performance.now() : Date.now()) - startedAt),
       })
       // #endregion
+      if (typeof window !== "undefined") {
+        window.localStorage.setItem("last-login-email", values.email)
+      }
       router.push("/dashboard")
       router.refresh()
     } catch (err) {
@@ -151,7 +177,7 @@ export function LoginForm() {
                 id="email"
                 type="email"
                 placeholder="navn@eksempel.no"
-                autoComplete="username"
+                autoComplete="email"
                 inputMode="email"
                 autoCapitalize="none"
                 autoCorrect="off"

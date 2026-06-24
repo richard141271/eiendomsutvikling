@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { createClient } from "@/lib/supabase";
+import { normalizeStoredPassword } from "@/lib/auth-password";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -47,7 +48,7 @@ export default function ResetPasswordPage() {
       return;
     }
 
-    const passwordToSet = pw.length === 4 ? `${pw}00` : pw;
+    const passwordToSet = normalizeStoredPassword(pw);
 
     try {
       setSaving(true);
@@ -112,6 +113,7 @@ export default function ResetPasswordPage() {
                 onChange={(e) => setPassword(e.target.value)}
                 placeholder="Minst 4 tegn"
                 className="pr-10"
+                autoComplete="new-password"
               />
               <button
                 type="button"
@@ -132,6 +134,7 @@ export default function ResetPasswordPage() {
               value={confirm}
               onChange={(e) => setConfirm(e.target.value)}
               placeholder="Gjenta passord"
+              autoComplete="new-password"
             />
           </div>
         </CardContent>
@@ -147,4 +150,3 @@ export default function ResetPasswordPage() {
     </div>
   );
 }
-

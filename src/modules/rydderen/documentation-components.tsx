@@ -40,10 +40,24 @@ function DocumentationImageFrame(props: {
   className?: string;
   imageClassName?: string;
   emptyIconClassName?: string;
+  chrome?: "default" | "compact" | "none";
 }) {
+  const outerClassName =
+    props.chrome === "none"
+      ? "overflow-hidden bg-white"
+      : props.chrome === "compact"
+        ? "overflow-hidden rounded-[3mm] border border-slate-200 bg-white p-0.5"
+        : "overflow-hidden rounded-[5mm] border border-slate-200 bg-slate-100 p-2 shadow-[inset_0_1px_0_rgba(255,255,255,0.75)]";
+  const innerClassName =
+    props.chrome === "none"
+      ? "flex h-full w-full items-center justify-center overflow-hidden bg-white"
+      : props.chrome === "compact"
+        ? "flex h-full w-full items-center justify-center overflow-hidden rounded-[2.4mm] bg-white"
+        : "flex h-full w-full items-center justify-center overflow-hidden rounded-[4mm] bg-white";
+
   return (
-    <div className={`overflow-hidden rounded-[5mm] border border-slate-200 bg-slate-100 p-2 shadow-[inset_0_1px_0_rgba(255,255,255,0.75)] ${props.className || ""}`}>
-      <div className="flex h-full w-full items-center justify-center overflow-hidden rounded-[4mm] bg-white">
+    <div className={`${outerClassName} ${props.className || ""}`}>
+      <div className={innerClassName}>
         {props.src ? (
           // eslint-disable-next-line @next/next/no-img-element
           <img src={props.src} alt={props.alt} className={props.imageClassName || "h-full w-full object-contain"} />
@@ -424,8 +438,8 @@ function DocumentationPrintCoverPage(props: {
 }) {
   return (
     <DocumentationPrintPage breakAfter={props.breakAfter}>
-      <div className="flex h-full flex-1 flex-col overflow-hidden bg-white p-[10mm]">
-        <div className="flex h-full flex-1 flex-col overflow-hidden rounded-[6mm] border border-slate-200 bg-white p-[7mm]">
+      <div className="flex h-full flex-1 flex-col overflow-hidden bg-white p-[8mm]">
+        <div className="flex h-full flex-1 flex-col overflow-hidden rounded-[5mm] border border-slate-200 bg-white p-[6mm]">
         <div className="space-y-2 border-b border-slate-200 pb-4">
           <p className="text-[3.5mm] font-semibold uppercase tracking-[0.18em] text-slate-500">Dokumentasjonsrapport</p>
           <h1 className="break-words text-[6.6mm] font-bold leading-[1.05] text-slate-950">{props.projectName}</h1>
@@ -434,7 +448,7 @@ function DocumentationPrintCoverPage(props: {
           </p>
         </div>
 
-        <div className="mt-4 grid gap-3 print:grid-cols-2">
+        <div className="mt-4 grid gap-3 print:grid-cols-2 print:content-start">
           <div className="rounded-[5mm] bg-slate-50 p-3.5">
             <h2 className="mb-2 text-[4.1mm] font-bold text-slate-900">Oversikt</h2>
             <div className="grid gap-1 text-[3.4mm] text-slate-700">
@@ -466,8 +480,8 @@ function DocumentationPrintHeroPage(props: {
 
   return (
     <DocumentationPrintPage breakAfter={props.breakAfter}>
-      <div className="flex h-full flex-1 flex-col overflow-hidden bg-white p-[10mm]">
-        <div className="flex h-full flex-1 flex-col overflow-hidden rounded-[6mm] border border-slate-200 bg-white p-[5mm]">
+      <div className="flex h-full flex-1 flex-col overflow-hidden bg-white p-[8mm]">
+        <div className="flex h-full flex-1 flex-col overflow-hidden rounded-[5mm] border border-slate-200 bg-white p-[4mm]">
         <div className="mb-2.5 flex items-start justify-between gap-4">
           <div>
             <h2 className="text-[4.8mm] font-bold text-slate-950">{props.entry.entryNumber}</h2>
@@ -482,7 +496,8 @@ function DocumentationPrintHeroPage(props: {
           <DocumentationImageFrame
             src={heroImage?.imageUrl}
             alt={props.entry.entryNumber}
-            className="min-h-0 print:h-[132mm] p-2.5"
+            chrome="compact"
+            className="min-h-0 print:h-[126mm]"
             imageClassName="h-full w-full object-contain"
             emptyIconClassName="h-12 w-12"
           />
@@ -523,8 +538,8 @@ function DocumentationPrintGalleryPage(props: {
 }) {
   return (
     <DocumentationPrintPage breakAfter={props.breakAfter}>
-      <div className="flex h-full flex-1 flex-col overflow-hidden bg-white p-[10mm]">
-        <div className="flex h-full flex-1 flex-col overflow-hidden rounded-[6mm] border border-slate-200 bg-white p-[5mm]">
+      <div className="flex h-full flex-1 flex-col overflow-hidden bg-white p-[8mm]">
+        <div className="flex h-full flex-1 flex-col overflow-hidden rounded-[5mm] border border-slate-200 bg-white p-[4mm]">
         <div className="mb-2.5 flex items-end justify-between gap-4 border-b border-slate-200 pb-2">
           <div>
             <h3 className="text-[4.4mm] font-bold text-slate-950">{props.entry.entryNumber}</h3>
@@ -533,14 +548,15 @@ function DocumentationPrintGalleryPage(props: {
           <p className="text-[3mm] text-slate-500">{props.images.length} bilder på denne siden</p>
         </div>
 
-        <div className="grid flex-1 auto-rows-[44mm] grid-cols-3 gap-[2mm] content-start">
+        <div className="grid flex-1 auto-rows-[32mm] grid-cols-4 gap-[1.5mm] content-start">
           {props.images.map((image) => (
             <DocumentationImageFrame
               key={image.id}
               src={image.imageUrl || image.thumbnailUrl || ""}
               alt={props.entry.entryNumber}
-              className="min-h-0 rounded-[4mm] p-1"
-              imageClassName="h-full w-full object-contain"
+              chrome="compact"
+              className="min-h-0"
+              imageClassName="h-full w-full object-cover"
               emptyIconClassName="h-8 w-8"
             />
           ))}
@@ -678,7 +694,7 @@ export function RydderenDocumentationReportView(props: {
         breakAfter={hasEntries}
       />
       {filteredEntries.map((entry, entryIndex) => {
-        const galleryChunks = chunkArray(entry.images.slice(1), 9);
+        const galleryChunks = chunkArray(entry.images.slice(1), 12);
         const isLastEntry = entryIndex === filteredEntries.length - 1;
 
         return (

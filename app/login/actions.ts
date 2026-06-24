@@ -2,6 +2,7 @@
 
 import { revalidatePath } from 'next/cache'
 import { redirect } from 'next/navigation'
+import { getLoginPasswordCandidates } from '@/lib/auth-password'
 import { createClient } from '@/lib/supabase-server'
 
 export async function login(formData: FormData) {
@@ -12,16 +13,22 @@ export async function login(formData: FormData) {
     return { error: 'Mangler e-post eller passord' }
   }
 
-  // Pad logic - keeping this for backward compatibility with 4-digit users
-  // If user types 4 digits, we add "00". If they type 6, we use as is.
-  const passwordToUse = password.length === 4 ? password + "00" : password;
-
   const supabase = createClient()
+  let error: Error | null = null
 
-  const { error } = await supabase.auth.signInWithPassword({
-    email,
-    password: passwordToUse,
-  })
+  for (const candidate of getLoginPasswordCandidates(password)) {
+    const result = await supabase.auth.signInWithPassword({
+      email,
+      password: candidate,
+    })
+
+    if (!result.error) {
+      error = null
+      break
+    }
+
+    error = result.error
+  }
 
   if (error) {
     console.error("Login error:", error.message);
