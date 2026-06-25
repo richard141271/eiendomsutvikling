@@ -41,7 +41,6 @@ import {
   useCleanupReport,
   useCleanupValuationQueue,
 } from "@/src/modules/rydderen/hooks";
-import { cleanupApiClient } from "@/src/modules/rydderen/api/client";
 import type { CleanupContextOptions, CleanupCost, CleanupItem, CleanupProject, CleanupProjectContextType } from "@/src/modules/rydderen/types";
 import {
   CLEANUP_DOCUMENTATION_CATEGORIES,
@@ -631,34 +630,15 @@ export function RydderenDocumentationPage(props: { cleanupProjectId: string; bas
     if (typeof window === "undefined") {
       return;
     }
-
-    const popup = window.open("", "_blank", "noopener,noreferrer");
-    if (popup) {
-      popup.document.title = "Genererer PDF...";
-      popup.document.body.innerHTML = "<p style=\"font-family: sans-serif; padding: 24px;\">Genererer PDF-rapport...</p>";
+    setExporting(true);
+    const params = new URLSearchParams();
+    if (search.trim()) {
+      params.set("search", search.trim());
     }
-
-    void (async () => {
-      try {
-        setExporting(true);
-        const data = await cleanupApiClient.generateDocumentationReport(props.cleanupProjectId, {
-          search: search.trim() || undefined,
-        });
-
-        if (popup) {
-          popup.location.href = data.url;
-        } else {
-          window.open(data.url, "_blank", "noopener,noreferrer");
-        }
-      } catch (exportError) {
-        if (popup) {
-          popup.close();
-        }
-        window.alert(`PDF-eksport feilet: ${exportError instanceof Error ? exportError.message : String(exportError)}`);
-      } finally {
-        setExporting(false);
-      }
-    })();
+    const suffix = params.toString() ? `?${params.toString()}` : "";
+    const reportUrl = `/api/rydderen/projects/${props.cleanupProjectId}/documentation/report${suffix}`;
+    window.open(reportUrl, "_blank");
+    window.setTimeout(() => setExporting(false), 1200);
   }, [props.cleanupProjectId, search]);
 
   const resetDraft = (nextType = entryType) => {

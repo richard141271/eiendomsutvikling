@@ -14,88 +14,108 @@ function getStatusCode(error: unknown) {
   return 500;
 }
 
-export async function POST(request: Request, { params }: { params: { cleanupProjectId: string } }) {
-  try {
-    const payload = await request.json().catch(() => ({}));
-    const search = typeof payload?.search === "string" ? payload.search : "";
+async function generateDocumentationReport(cleanupProjectId: string, search: string) {
+  const [project, map, entries] = await Promise.all([
+    getCleanupProject(cleanupProjectId),
+    getCleanupEvidenceMap(cleanupProjectId),
+    listCleanupEvidenceEntries(cleanupProjectId),
+  ]);
 
-    const [project, map, entries] = await Promise.all([
-      getCleanupProject(params.cleanupProjectId),
-      getCleanupEvidenceMap(params.cleanupProjectId),
-      listCleanupEvidenceEntries(params.cleanupProjectId),
-    ]);
+  const reportDocument = mapCleanupDocumentationToReport({
+    project,
+    map,
+    entries,
+    search,
+  });
 
-    const reportDocument = mapCleanupDocumentationToReport({
-      project,
-      map,
-      entries,
-      search,
+  const renderer = new PdfReportRenderer();
+  const pkg = await renderer.renderPackage(reportDocument);
+
+  const adminSupabase = createAdminClient();
+  const bucketName = "reports-v3";
+  await ensureBucketExists(bucketName);
+
+  const timestamp = Date.now();
+  const safeSlug = (project.slug || project.name || project.id)
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "")
+    .slice(0, 80) || project.id;
+
+  const basePath = `reports/rydderen-documentation/${project.id}/${timestamp}-${safeSlug}`;
+  const mainFileName = `${basePath}-main.pdf`;
+
+  const { error: uploadError } = await adminSupabase.storage
+    .from(bucketName)
+    .upload(mainFileName, Buffer.from(pkg.main), {
+      contentType: "application/pdf",
+      upsert: true,
     });
 
-    const renderer = new PdfReportRenderer();
-    const pkg = await renderer.renderPackage(reportDocument);
+  if (uploadError) {
+    throw new Error(`Kunne ikke laste opp PDF: ${uploadError.message}`);
+  }
 
-    const adminSupabase = createAdminClient();
-    const bucketName = "reports-v3";
-    await ensureBucketExists(bucketName);
+  const {
+    data: { publicUrl: mainUrl },
+  } = adminSupabase.storage.from(bucketName).getPublicUrl(mainFileName);
 
-    const timestamp = Date.now();
-    const safeSlug = (project.slug || project.name || project.id)
-      .toLowerCase()
-      .replace(/[^a-z0-9]+/g, "-")
-      .replace(/^-+|-+$/g, "")
-      .slice(0, 80) || project.id;
+  const attachments: { title: string; url: string }[] = [];
 
-    const basePath = `reports/rydderen-documentation/${project.id}/${timestamp}-${safeSlug}`;
-    const mainFileName = `${basePath}-main.pdf`;
+  for (let index = 0; index < pkg.parts.length; index += 1) {
+    const part = pkg.parts[index];
+    const partFileName = `${basePath}-part-${index + 1}.pdf`;
 
-    const { error: uploadError } = await adminSupabase.storage
+    const { error: partUploadError } = await adminSupabase.storage
       .from(bucketName)
-      .upload(mainFileName, Buffer.from(pkg.main), {
+      .upload(partFileName, Buffer.from(part.data), {
         contentType: "application/pdf",
         upsert: true,
       });
 
-    if (uploadError) {
-      throw new Error(`Kunne ikke laste opp PDF: ${uploadError.message}`);
+    if (partUploadError) {
+      throw new Error(`Kunne ikke laste opp vedlegg ${index + 1}: ${partUploadError.message}`);
     }
 
     const {
-      data: { publicUrl: mainUrl },
-    } = adminSupabase.storage.from(bucketName).getPublicUrl(mainFileName);
+      data: { publicUrl: partUrl },
+    } = adminSupabase.storage.from(bucketName).getPublicUrl(partFileName);
 
-    const attachments: { title: string; url: string }[] = [];
-
-    for (let index = 0; index < pkg.parts.length; index += 1) {
-      const part = pkg.parts[index];
-      const partFileName = `${basePath}-part-${index + 1}.pdf`;
-
-      const { error: partUploadError } = await adminSupabase.storage
-        .from(bucketName)
-        .upload(partFileName, Buffer.from(part.data), {
-          contentType: "application/pdf",
-          upsert: true,
-        });
-
-      if (partUploadError) {
-        throw new Error(`Kunne ikke laste opp vedlegg ${index + 1}: ${partUploadError.message}`);
-      }
-
-      const {
-        data: { publicUrl: partUrl },
-      } = adminSupabase.storage.from(bucketName).getPublicUrl(partFileName);
-
-      attachments.push({
-        title: part.name,
-        url: partUrl,
-      });
-    }
-
-    return NextResponse.json({
-      url: mainUrl,
-      fileName: mainFileName.split("/").pop(),
-      attachments,
+    attachments.push({
+      title: part.name,
+      url: partUrl,
     });
+  }
+
+  return {
+    url: mainUrl,
+    fileName: mainFileName.split("/").pop(),
+    attachments,
+  };
+}
+
+export async function GET(request: Request, { params }: { params: { cleanupProjectId: string } }) {
+  try {
+    const { searchParams } = new URL(request.url);
+    const search = searchParams.get("search") || "";
+    const result = await generateDocumentationReport(params.cleanupProjectId, search);
+    return NextResponse.redirect(result.url);
+  } catch (error) {
+    return NextResponse.json(
+      {
+        error: error instanceof Error ? error.message : "Kunne ikke generere dokumentasjonsrapport",
+      },
+      { status: getStatusCode(error) }
+    );
+  }
+}
+
+export async function POST(request: Request, { params }: { params: { cleanupProjectId: string } }) {
+  try {
+    const payload = await request.json().catch(() => ({}));
+    const search = typeof payload?.search === "string" ? payload.search : "";
+    const result = await generateDocumentationReport(params.cleanupProjectId, search);
+    return NextResponse.json(result);
   } catch (error) {
     return NextResponse.json(
       {
