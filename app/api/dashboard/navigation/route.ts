@@ -5,6 +5,7 @@ import { getDevNotesCounts } from "@/app/actions/dev-notes";
 import { getMaintenanceCounts } from "@/app/actions/maintenance";
 
 export const runtime = "nodejs";
+export const dynamic = "force-dynamic";
 
 type NavigationPayload = {
   isAdmin: boolean;
@@ -96,12 +97,12 @@ export async function GET() {
     return NextResponse.json(
       {
         isAdmin: false,
-        isTenant: true,
+        isTenant: false,
         unresolvedNotesCount: 0,
         maintenanceCount: 0,
         error: error instanceof Error ? error.message : "Kunne ikke laste menydata",
       },
-      { status: 200 }
+      { status: 500 }
     );
   }
 }

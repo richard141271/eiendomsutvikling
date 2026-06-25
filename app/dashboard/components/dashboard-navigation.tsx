@@ -19,7 +19,7 @@ type NavigationState = {
 
 const initialState: NavigationState = {
   isAdmin: false,
-  isTenant: true,
+  isTenant: false,
   unresolvedNotesCount: 0,
   maintenanceCount: 0,
 };
@@ -41,7 +41,13 @@ function useDashboardNavigationState() {
           credentials: "include",
           cache: "no-store",
         });
+        if (!response.ok) {
+          throw new Error("Kunne ikke laste menydata");
+        }
         const payload = await response.json();
+        if (payload?.error) {
+          throw new Error(String(payload.error));
+        }
         if (!cancelled) {
           logClientPerformance("dashboard-navigation", (typeof performance !== "undefined" ? performance.now() : Date.now()) - startedAt, {
             success: true,
