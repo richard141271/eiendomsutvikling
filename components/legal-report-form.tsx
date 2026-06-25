@@ -11,9 +11,12 @@ import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
+import { AsyncState } from "@/components/ui/async-state";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
 import { Separator } from "@/components/ui/separator";
+import { pollReportJob, type ReportJobClientState } from "@/lib/reporting/report-job-client";
+import { logClientPerformance } from "@/lib/performance/client";
 
 interface EvidenceItem {
   id: string;
@@ -36,6 +39,7 @@ export function LegalReportDraftForm({ projectId, initialData, evidenceItems, on
   const [formData, setFormData] = useState(initialData || {});
   const [isSaving, setIsSaving] = useState(false);
   const [isGenerating, setIsGenerating] = useState(false);
+  const [jobState, setJobState] = useState<ReportJobClientState | null>(null);
   const [debouncedFormData] = useDebounce(formData, 1000);
   const [evidenceSelection, setEvidenceSelection] = useState<Record<string, boolean>>(
     evidenceItems.reduce((acc, item) => ({ ...acc, [item.id]: item.includeInReport }), {})
@@ -67,24 +71,26 @@ export function LegalReportDraftForm({ projectId, initialData, evidenceItems, on
   }, [debouncedFormData, handleSave]);
 
   const handleGenerateClick = async () => {
+    const startedAt = typeof performance !== "undefined" ? performance.now() : Date.now();
     setIsGenerating(true);
+    setJobState({
+      id: "preparing",
+      state: "running",
+      phase: "Oppretter rapport",
+      message: "Lagrer siste endringer og oppretter rapportgrunnlag.",
+      progress: 10,
+    });
     
     // Ensure we save the latest changes before generating
     try {
         toast.info("Lagrer siste endringer...");
         await upsertLegalReportDraft(projectId, formData);
     } catch (e) {
-        console.error("Failed to save draft before generation:", e);
-        // Continue anyway? Or stop? Better to continue but warn.
-        // But if save fails, report might be empty.
+        toast.error("Kunne ikke lagre siste endringer. Fortsetter med siste lagrede versjon.");
     }
 
-    toast.info("Genererer rapport... Dette kan ta litt tid.");
     try {
-        // Step 1: Create report version and snapshot in database
         const result: any = await generateLegalReport(projectId);
-        
-        // Step 2: Call API route to generate PDFs using renderPackage
         const response = await fetch(`/api/reports/${result.reportId}/generate`, {
             method: 'POST',
         });
@@ -95,29 +101,46 @@ export function LegalReportDraftForm({ projectId, initialData, evidenceItems, on
         }
 
         const data = await response.json();
-        
-        if (!data.success) {
-             throw new Error(data.error || "Ukjent feil ved generering");
+        if (!data.jobId) {
+             throw new Error(data.error || "Mangler jobb-ID for generering");
         }
 
+        const completedJob = await pollReportJob(data.jobId, (nextState) => {
+          setJobState(nextState);
+        });
+
         toast.success(`Juridisk rapport v${result.versionNumber} generert!`);
+        logClientPerformance("legal-report-generation", (typeof performance !== "undefined" ? performance.now() : Date.now()) - startedAt, {
+          success: true,
+        });
         
-        if (data.url) {
-            window.open(data.url, '_blank');
+        if (completedJob.url) {
+            window.open(completedJob.url, '_blank');
         }
         
-        if (data.attachments && data.attachments.length > 0) {
-             toast.info(`Laster ned ${data.attachments.length} vedlegg...`);
-             // Open attachments in new tabs
-             data.attachments.forEach((att: { url: string }) => window.open(att.url, '_blank'));
+        if (completedJob.attachments && completedJob.attachments.length > 0) {
+             toast.info(`Apner ${completedJob.attachments.length} vedlegg...`);
+             completedJob.attachments.forEach((att: { url: string }) => window.open(att.url, '_blank'));
         }
 
         if (onGenerateReport) {
-            await onGenerateReport();
+            onGenerateReport();
         }
     } catch (error) {
-        console.error("Report generation error:", error);
-        toast.error(error instanceof Error ? error.message : "Kunne ikke generere rapport");
+        const message = error instanceof Error ? error.message : "Kunne ikke generere rapport";
+        setJobState({
+          id: "error",
+          state: "error",
+          phase: "Feil",
+          message,
+          progress: 100,
+          error: message,
+        });
+        toast.error(message);
+        logClientPerformance("legal-report-generation", (typeof performance !== "undefined" ? performance.now() : Date.now()) - startedAt, {
+          success: false,
+          error: message,
+        });
     } finally {
         setIsGenerating(false);
     }
@@ -140,6 +163,16 @@ export function LegalReportDraftForm({ projectId, initialData, evidenceItems, on
 
   return (
     <div className="space-y-8 max-w-4xl mx-auto pb-20">
+      {jobState && jobState.state !== "success" ? (
+        <AsyncState
+          mode={jobState.state === "error" ? "error" : "loading"}
+          title={jobState.phase}
+          description={jobState.message}
+          progress={jobState.state === "error" ? null : jobState.progress}
+          actionLabel={jobState.state === "error" ? "Prov igjen" : undefined}
+          onAction={jobState.state === "error" ? () => void handleGenerateClick() : undefined}
+        />
+      ) : null}
       
       {/* 0. Status Sammendrag (Sammendragsboks) */}
       <Card className={`border-l-4 ${missingLinks > 0 ? "border-l-red-500" : isReady ? "border-l-emerald-500" : "border-l-amber-500"}`}>

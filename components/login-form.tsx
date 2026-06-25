@@ -22,6 +22,7 @@ import { getLoginPasswordCandidates } from "@/lib/auth-password"
 import { toast } from "sonner"
 import { Eye, EyeOff } from "lucide-react"
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog"
+import { logClientPerformance } from "@/lib/performance/client"
 
 function reportDebugEvent(hypothesisId: "A" | "B" | "C" | "D" | "E", location: string, msg: string, data: Record<string, unknown>) {
   void hypothesisId
@@ -106,6 +107,9 @@ export function LoginForm() {
         durationMs: Math.round((typeof performance !== "undefined" ? performance.now() : Date.now()) - startedAt),
       })
       // #endregion
+      logClientPerformance("login", (typeof performance !== "undefined" ? performance.now() : Date.now()) - startedAt, {
+        success: true,
+      })
       router.push("/dashboard")
       router.refresh()
     } catch (err) {
@@ -116,6 +120,10 @@ export function LoginForm() {
         error: err instanceof Error ? err.message : String(err),
       })
       // #endregion
+      logClientPerformance("login", (typeof performance !== "undefined" ? performance.now() : Date.now()) - startedAt, {
+        success: false,
+        error: err instanceof Error ? err.message : String(err),
+      })
       setError(err instanceof Error ? `Feil ved innlogging: ${err.message}` : "En uventet feil oppstod")
       setIsLoading(false)
     }

@@ -3,10 +3,22 @@
 import { useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { useCleanupProjects } from "@/src/modules/rydderen/hooks";
+import { AsyncState } from "@/components/ui/async-state";
+import { logClientPerformance } from "@/lib/performance/client";
 
 export default function RydderenEntryRoute() {
   const router = useRouter();
-  const { projects, loading } = useCleanupProjects();
+  const { projects, loading, error, refresh } = useCleanupProjects();
+
+  useEffect(() => {
+    const startedAt = typeof performance !== "undefined" ? performance.now() : Date.now();
+    return () => {
+      logClientPerformance("rydderen-entry", (typeof performance !== "undefined" ? performance.now() : Date.now()) - startedAt, {
+        projectCount: projects.length,
+        hadError: Boolean(error),
+      });
+    };
+  }, [error, projects.length]);
 
   useEffect(() => {
     if (loading) {
@@ -24,6 +36,28 @@ export default function RydderenEntryRoute() {
     router.replace(`/dashboard/rydderen/projects/${preferred}/register`);
   }, [loading, projects, router]);
 
-  return null;
-}
+  if (error) {
+    return (
+      <div className="mx-auto w-full max-w-2xl">
+        <AsyncState
+          mode="error"
+          title="Kunne ikke apne Rydder'n"
+          description={error}
+          actionLabel="Prov igjen"
+          onAction={() => void refresh({ showLoading: true })}
+        />
+      </div>
+    );
+  }
 
+  return (
+    <div className="mx-auto w-full max-w-2xl">
+      <AsyncState
+        mode="loading"
+        title="Apner Rydder'n"
+        description={loading ? "Henter prosjekt og klargjor arbeidsflaten." : "Sender deg videre til riktig prosjekt."}
+        progress={loading ? 45 : 85}
+      />
+    </div>
+  );
+}

@@ -6,10 +6,14 @@ import { regenerateReport } from "@/app/actions/reports";
 import { generateDamageReport, generateLegalReport } from "@/app/actions/generate-report";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { AsyncState } from "@/components/ui/async-state";
 import { Archive, FileText, Download, Loader2, Paperclip, Gavel, RefreshCw } from "lucide-react";
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
+import { toast } from "sonner";
+import { pollReportJob, type ReportJobClientState } from "@/lib/reporting/report-job-client";
+import { logClientPerformance } from "@/lib/performance/client";
 import ConvertProjectDialog from "./convert-project-dialog";
 
 interface ProjectOverviewProps {
@@ -20,6 +24,7 @@ export default function ProjectOverview({ project }: ProjectOverviewProps) {
   const router = useRouter();
   const [generating, setGenerating] = useState(false);
   const [regeneratingId, setRegeneratingId] = useState<string | null>(null);
+  const [jobState, setJobState] = useState<ReportJobClientState | null>(null);
 
   async function handleArchive() {
     if (confirm("Er du sikker på at du vil arkivere prosjektet? Det vil bli låst for endringer.")) {
@@ -29,62 +34,80 @@ export default function ProjectOverview({ project }: ProjectOverviewProps) {
   }
 
   async function handleGenerateReport() {
+    const startedAt = typeof performance !== "undefined" ? performance.now() : Date.now();
     setGenerating(true);
+    setJobState({
+      id: "preparing",
+      state: "running",
+      phase: "Oppretter rapport",
+      message: "Klargjor rapportgrunnlaget.",
+      progress: 10,
+    });
     try {
-      let data: any = null;
+      let statusResponse: Response;
 
       if (project.reportType === "DAMAGE") {
         const result: any = await generateDamageReport(project.id);
-        const response = await fetch(`/api/reports/${result.reportId}/generate`, { method: "POST" });
-        if (!response.ok) {
-          const errorText = await response.text();
-          throw new Error(errorText || response.statusText);
-        }
-        data = await response.json();
-        if (!data.success) throw new Error(data.error || "Ukjent feil ved generering");
+        statusResponse = await fetch(`/api/reports/${result.reportId}/generate`, { method: "POST" });
       } else if (project.reportType === "LEGAL") {
         const result: any = await generateLegalReport(project.id);
-        const response = await fetch(`/api/reports/${result.reportId}/generate`, { method: "POST" });
-        if (!response.ok) {
-          const errorText = await response.text();
-          throw new Error(errorText || response.statusText);
-        }
-        data = await response.json();
-        if (!data.success) throw new Error(data.error || "Ukjent feil ved generering");
+        statusResponse = await fetch(`/api/reports/${result.reportId}/generate`, { method: "POST" });
       } else {
-        const res = await fetch(`/api/projects/${project.id}/report-v2`, {
+        statusResponse = await fetch(`/api/projects/${project.id}/report-v2/job`, {
           method: "POST",
         });
-
-        if (!res.ok) {
-          const errorText = await res.text();
-          throw new Error(errorText || "Generering feilet");
-        }
-
-        data = await res.json();
-      }
-      
-      // Open main report
-      if (data.url) {
-        window.open(data.url, "_blank");
-      } else {
-        throw new Error("Kunne ikke hente rapport-URL");
       }
 
-      // Open attachments (if any)
-      if (data.attachments && Array.isArray(data.attachments)) {
-        // Add a small delay for popups
-        setTimeout(() => {
-          data.attachments.forEach((att: { url: string }) => {
-            if (att.url) window.open(att.url, "_blank");
+      if (!statusResponse.ok) {
+        const errorText = await statusResponse.text();
+        throw new Error(errorText || "Generering feilet");
+      }
+
+      const jobPayload = await statusResponse.json();
+      if (!jobPayload.jobId) {
+        throw new Error(jobPayload.error || "Mangler jobb-ID for rapporten");
+      }
+
+      const completedJob = await pollReportJob(jobPayload.jobId, (nextState) => {
+        setJobState(nextState);
+      });
+
+      if (completedJob.url) {
+        window.open(completedJob.url, "_blank");
+      }
+
+      if (completedJob.attachments && Array.isArray(completedJob.attachments)) {
+        window.setTimeout(() => {
+          completedJob.attachments?.forEach((attachment) => {
+            if (attachment.url) {
+              window.open(attachment.url, "_blank");
+            }
           });
-        }, 500);
+        }, 400);
       }
-      
+
+      toast.success("Rapporten er ferdig generert");
+      logClientPerformance("project-report-generation", (typeof performance !== "undefined" ? performance.now() : Date.now()) - startedAt, {
+        success: true,
+        reportType: project.reportType,
+      });
       router.refresh();
     } catch (error) {
-      console.error("Report Generation Error:", error);
-      alert(`Kunne ikke generere rapport: ${error instanceof Error ? error.message : String(error)}`);
+      const message = error instanceof Error ? error.message : "Kunne ikke generere rapport";
+      setJobState({
+        id: "error",
+        state: "error",
+        phase: "Feil",
+        message,
+        progress: 100,
+        error: message,
+      });
+      toast.error(message);
+      logClientPerformance("project-report-generation", (typeof performance !== "undefined" ? performance.now() : Date.now()) - startedAt, {
+        success: false,
+        reportType: project.reportType,
+        error: message,
+      });
     } finally {
       setGenerating(false);
     }
@@ -94,11 +117,14 @@ export default function ProjectOverview({ project }: ProjectOverviewProps) {
     if (!confirm("Vil du forsøke å generere PDF på nytt?")) return;
     setRegeneratingId(reportId);
     try {
-        await regenerateReport(reportId);
+        const result = await regenerateReport(reportId);
+        if (result.url) {
+          window.open(result.url, "_blank");
+        }
+        toast.success("Rapporten er generert pa nytt");
         router.refresh();
     } catch (error) {
-        console.error(error);
-        alert("Feilet: " + (error instanceof Error ? error.message : String(error)));
+        toast.error(error instanceof Error ? error.message : "Kunne ikke generere rapport pa nytt");
     } finally {
         setRegeneratingId(null);
     }
@@ -149,6 +175,16 @@ export default function ProjectOverview({ project }: ProjectOverviewProps) {
           <CardTitle>Rapporter</CardTitle>
         </CardHeader>
         <CardContent className="space-y-4">
+          {jobState && jobState.state !== "success" ? (
+            <AsyncState
+              mode={jobState.state === "error" ? "error" : "loading"}
+              title={jobState.phase}
+              description={jobState.message}
+              progress={jobState.state === "error" ? null : jobState.progress}
+              actionLabel={jobState.state === "error" ? "Prov igjen" : undefined}
+              onAction={jobState.state === "error" ? () => void handleGenerateReport() : undefined}
+            />
+          ) : null}
           <Button onClick={handleGenerateReport} disabled={generating} className="w-full bg-slate-900 text-white hover:bg-slate-800">
             {generating ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : <FileText className="w-4 h-4 mr-2" />}
             {project.reportType === "DAMAGE"

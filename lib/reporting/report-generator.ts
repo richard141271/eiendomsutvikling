@@ -6,7 +6,9 @@ import { mapDamageDraftToReport } from "@/lib/reporting/damage-report-mapper";
 import { PdfReportRenderer } from "@/lib/reporting/pdf-renderer";
 import { ClaimItem, EvidenceItem } from "@/lib/reporting/report-types";
 
-export async function generateLegalReportPdf(reportId: string) {
+type ProgressCallback = (state: { phase: string; message: string; progress: number }) => void;
+
+export async function generateLegalReportPdf(reportId: string, onProgress?: ProgressCallback) {
   console.log(`Starting PDF generation for report ${reportId}`);
 
   // 1. Fetch Report with Snapshots and Project
@@ -40,6 +42,11 @@ export async function generateLegalReportPdf(reportId: string) {
   // 2. Prepare Data for Mapper
   let snapshots = report.snapshots;
   console.log(`Processing ${snapshots.length} snapshots for report ${reportId}`);
+  onProgress?.({
+    phase: "Henter bilder",
+    message: "Klargjor dokumentasjon og signerer bildeadresser.",
+    progress: 25,
+  });
 
   // SORTING LOGIC (User Requirement: Chronological Ascending)
   // Primary: legalDate (Hendelsesdato)
@@ -193,6 +200,11 @@ export async function generateLegalReportPdf(reportId: string) {
   );
 
   // 4. Generate PDF Package
+  onProgress?.({
+    phase: "Bygger PDF",
+    message: "Setter sammen juridisk rapport.",
+    progress: 60,
+  });
   const renderer = new PdfReportRenderer();
   const pkg = await renderer.renderPackage(reportDoc);
 
@@ -201,6 +213,11 @@ export async function generateLegalReportPdf(reportId: string) {
   const mainBuffer = Buffer.from(pkg.main);
   
   // Upload Main Report
+  onProgress?.({
+    phase: "Laster opp",
+    message: "Lagrer hovedrapport og vedlegg.",
+    progress: 85,
+  });
   const { error: uploadError } = await adminSupabase.storage
     .from(bucketName)
     .upload(mainFileName, mainBuffer, {
@@ -272,7 +289,7 @@ export async function generateLegalReportPdf(reportId: string) {
   };
 }
 
-export async function generateDamageReportPdf(reportId: string) {
+export async function generateDamageReportPdf(reportId: string, onProgress?: ProgressCallback) {
   const report = await (prisma as any).reportInstance.findUnique({
     where: { id: reportId },
     include: {
@@ -304,6 +321,11 @@ export async function generateDamageReportPdf(reportId: string) {
   }
 
   let snapshots = report.snapshots;
+  onProgress?.({
+    phase: "Henter bilder",
+    message: "Klargjor dokumentasjon og signerer bildeadresser.",
+    progress: 25,
+  });
   snapshots.sort((a: any, b: any) => {
     const getTime = (item: any) => {
       if (item.evidenceItem?.legalDate) return new Date(item.evidenceItem.legalDate).getTime();
@@ -401,6 +423,11 @@ export async function generateDamageReportPdf(reportId: string) {
 
   const reportDoc = mapDamageDraftToReport(report.project as any, snapshot, evidenceItems, report.versionNumber);
 
+  onProgress?.({
+    phase: "Bygger PDF",
+    message: "Setter sammen skaderapport.",
+    progress: 60,
+  });
   const renderer = new PdfReportRenderer();
   const pkg = await renderer.renderPackage(reportDoc);
 
@@ -408,6 +435,11 @@ export async function generateDamageReportPdf(reportId: string) {
   const mainFileName = `reports/damage/${report.project.id}/${report.versionNumber}-${timestamp}-main.pdf`;
   const mainBuffer = Buffer.from(pkg.main);
 
+  onProgress?.({
+    phase: "Laster opp",
+    message: "Lagrer hovedrapport og vedlegg.",
+    progress: 85,
+  });
   const { error: uploadError } = await adminSupabase.storage.from(bucketName).upload(mainFileName, mainBuffer, {
     contentType: "application/pdf",
     upsert: true,
@@ -468,7 +500,7 @@ export async function generateDamageReportPdf(reportId: string) {
   };
 }
 
-export async function generateReportPdf(reportId: string) {
+export async function generateReportPdf(reportId: string, onProgress?: ProgressCallback) {
   const report = await (prisma as any).reportInstance.findUnique({
     where: { id: reportId },
     select: { reportType: true }
@@ -479,11 +511,11 @@ export async function generateReportPdf(reportId: string) {
   }
 
   if (report.reportType === "LEGAL") {
-    return generateLegalReportPdf(reportId);
+    return generateLegalReportPdf(reportId, onProgress);
   }
 
   if (report.reportType === "DAMAGE") {
-    return generateDamageReportPdf(reportId);
+    return generateDamageReportPdf(reportId, onProgress);
   }
 
   throw new Error("Rapporttype støttes ikke");

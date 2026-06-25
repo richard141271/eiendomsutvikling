@@ -4,6 +4,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { useDebounce } from "use-debounce";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
+import { AsyncState } from "@/components/ui/async-state";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
@@ -19,6 +20,8 @@ import { upsertDamageReportDraft } from "@/app/actions/report-draft";
 import { createEvent, linkEvidenceToEvent, setEventEvidence, updateEvent } from "@/app/actions/events";
 import { generateDamageReport } from "@/app/actions/generate-report";
 import { useRouter } from "next/navigation";
+import { pollReportJob, type ReportJobClientState } from "@/lib/reporting/report-job-client";
+import { logClientPerformance } from "@/lib/performance/client";
 
 interface EvidenceItem {
   id: string;
@@ -122,6 +125,7 @@ export function DamageReportDraftForm({ projectId, initialData, evidenceItems, i
   const [formData, setFormData] = useState(() => normalizeDraft(initialData || {}));
   const [isSaving, setIsSaving] = useState(false);
   const [isGenerating, setIsGenerating] = useState(false);
+  const [jobState, setJobState] = useState<ReportJobClientState | null>(null);
   const [debouncedFormData] = useDebounce(formData, 1000);
 
   const [events, setEvents] = useState<TimelineEvent[]>(initialEvents || []);
@@ -360,15 +364,22 @@ export function DamageReportDraftForm({ projectId, initialData, evidenceItems, i
   };
 
   const handleGenerateClick = async () => {
+    const startedAt = typeof performance !== "undefined" ? performance.now() : Date.now();
     setIsGenerating(true);
+    setJobState({
+      id: "preparing",
+      state: "running",
+      phase: "Oppretter rapport",
+      message: "Lagrer siste endringer og oppretter rapportgrunnlag.",
+      progress: 10,
+    });
     try {
       toast.info("Lagrer siste endringer...");
       await upsertDamageReportDraft(projectId, formData);
     } catch (e) {
-      console.error(e);
+      toast.error("Kunne ikke lagre siste endringer. Fortsetter med siste lagrede versjon.");
     }
 
-    toast.info("Genererer rapport... Dette kan ta litt tid.");
     try {
       const result: any = await generateDamageReport(projectId);
       const response = await fetch(`/api/reports/${result.reportId}/generate`, { method: "POST" });
@@ -377,21 +388,40 @@ export function DamageReportDraftForm({ projectId, initialData, evidenceItems, i
         throw new Error(errorText || response.statusText);
       }
       const data = await response.json();
-      if (!data.success) throw new Error(data.error || "Ukjent feil ved generering");
+      if (!data.jobId) throw new Error(data.error || "Mangler jobb-ID for generering");
+
+      const completedJob = await pollReportJob(data.jobId, (nextState) => {
+        setJobState(nextState);
+      });
 
       toast.success(`Skaderapport v${result.versionNumber} generert!`);
-      if (data.url) {
-        window.open(data.url, "_blank");
+      logClientPerformance("damage-report-generation", (typeof performance !== "undefined" ? performance.now() : Date.now()) - startedAt, {
+        success: true,
+      });
+      if (completedJob.url) {
+        window.open(completedJob.url, "_blank");
       }
-      if (data.attachments && data.attachments.length > 0) {
-        data.attachments.forEach((att: { url: string }) => window.open(att.url, "_blank"));
+      if (completedJob.attachments && completedJob.attachments.length > 0) {
+        completedJob.attachments.forEach((att: { url: string }) => window.open(att.url, "_blank"));
       }
       if (onGenerateReport) {
-        await onGenerateReport();
+        onGenerateReport();
       }
     } catch (error) {
-      console.error(error);
-      toast.error(error instanceof Error ? error.message : "Kunne ikke generere rapport");
+      const message = error instanceof Error ? error.message : "Kunne ikke generere rapport";
+      setJobState({
+        id: "error",
+        state: "error",
+        phase: "Feil",
+        message,
+        progress: 100,
+        error: message,
+      });
+      toast.error(message);
+      logClientPerformance("damage-report-generation", (typeof performance !== "undefined" ? performance.now() : Date.now()) - startedAt, {
+        success: false,
+        error: message,
+      });
     } finally {
       setIsGenerating(false);
     }
@@ -399,6 +429,16 @@ export function DamageReportDraftForm({ projectId, initialData, evidenceItems, i
 
   return (
     <div className="space-y-8 max-w-5xl mx-auto pb-20">
+      {jobState && jobState.state !== "success" ? (
+        <AsyncState
+          mode={jobState.state === "error" ? "error" : "loading"}
+          title={jobState.phase}
+          description={jobState.message}
+          progress={jobState.state === "error" ? null : jobState.progress}
+          actionLabel={jobState.state === "error" ? "Prov igjen" : undefined}
+          onAction={jobState.state === "error" ? () => void handleGenerateClick() : undefined}
+        />
+      ) : null}
       <Card className="border-l-4 border-l-amber-500">
         <CardHeader className="pb-2">
           <CardTitle className="flex items-center justify-between">

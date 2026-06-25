@@ -1,18 +1,13 @@
-
-import { createClient } from "@/lib/supabase-server";
 import { NextResponse } from "next/server";
-import { generateReportPdf } from "@/lib/reporting/report-generator";
+import { createClient } from "@/lib/supabase-server";
 import { queueReportJob } from "@/lib/reporting/report-job-store";
+import { generateProjectReportPdf } from "@/lib/reporting/project-report-generator";
 
 export const runtime = "nodejs";
-export const maxDuration = 300; // 5 minutes
+export const maxDuration = 300;
 
-export async function POST(
-  _request: Request,
-  { params }: { params: { id: string } }
-) {
+export async function POST(_request: Request, { params }: { params: { id: string } }) {
   try {
-    const reportId = params.id;
     const supabase = createClient();
     const {
       data: { user },
@@ -22,8 +17,8 @@ export async function POST(
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    const job = queueReportJob(`report:${reportId}`, async ({ update }) => {
-      return generateReportPdf(reportId, (progress) => {
+    const job = queueReportJob(`project-report:${params.id}`, async ({ update }) => {
+      return generateProjectReportPdf(params.id, (progress) => {
         update({
           state: "running",
           phase: progress.phase,
@@ -38,11 +33,12 @@ export async function POST(
       jobId: job.id,
       statusUrl: `/api/report-jobs/${job.id}`,
     });
-
-  } catch (error: any) {
-    console.error("PDF generation error:", error);
+  } catch (error) {
     return NextResponse.json(
-      { success: false, error: error.message || "Failed to generate PDF" },
+      {
+        success: false,
+        error: error instanceof Error ? error.message : "Kunne ikke starte rapportjobben",
+      },
       { status: 500 }
     );
   }

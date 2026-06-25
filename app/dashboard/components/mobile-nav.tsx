@@ -13,9 +13,16 @@ interface MobileNavProps {
   maintenanceCount?: number;
   isAdmin?: boolean;
   isTenant?: boolean;
+  isLoading?: boolean;
 }
 
-export function MobileNav({ unresolvedNotesCount = 0, maintenanceCount = 0, isAdmin = false, isTenant = false }: MobileNavProps) {
+export function MobileNav({
+  unresolvedNotesCount = 0,
+  maintenanceCount = 0,
+  isAdmin = false,
+  isTenant = false,
+  isLoading = false,
+}: MobileNavProps) {
   const [isOpen, setIsOpen] = useState(false)
 
   return (
@@ -129,6 +136,9 @@ export function MobileNav({ unresolvedNotesCount = 0, maintenanceCount = 0, isAd
                   </Badge>
                 )}
               </Link>
+              {isLoading && (
+                <div className="text-sm text-muted-foreground">Laster resten av menyen...</div>
+              )}
             </nav>
           </div>
         </div>
