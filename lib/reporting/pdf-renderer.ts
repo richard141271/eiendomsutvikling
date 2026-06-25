@@ -377,9 +377,14 @@ export class PdfReportRenderer implements ReportRenderer {
               const image = await mainPdf.embedJpg(thumbBytes).catch(() => mainPdf.embedPng(thumbBytes).catch(() => null));
               if (image) {
                 const dims = image.scale(1);
-                const aspect = dims.width / dims.height;
-                const thumbHeight = 80;
-                const thumbWidth = thumbHeight * aspect;
+                const maxThumbHeight = 160;
+                const maxThumbWidth = 240;
+                let thumbScale = maxThumbHeight / Math.max(dims.height, 1);
+                if (dims.width * thumbScale > maxThumbWidth) {
+                  thumbScale = maxThumbWidth / Math.max(dims.width, 1);
+                }
+                const thumbWidth = dims.width * thumbScale;
+                const thumbHeight = dims.height * thumbScale;
                 
                 // CRITICAL FIX: Check space for image specifically to prevent it going off-page
                 if (y - thumbHeight < 50) {
