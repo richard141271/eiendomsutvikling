@@ -1,5 +1,5 @@
 import { PDFDocument, StandardFonts, rgb } from "pdf-lib";
-import { ReportDocument, Section, ContentBlock, EvidenceItem } from "./report-types";
+import { ReportDocument } from "./report-types";
 
 // Dynamic import for sharp to avoid build/runtime crashes if missing
 let sharp: any;
@@ -284,7 +284,7 @@ export class PdfReportRenderer implements ReportRenderer {
     let { pdf: partPdf, font: partFont, bold: partBold } = await initPart();
 
     // Batch processing configuration
-    const BATCH_SIZE = 1; // Strictly sequential for maximum stability
+    const BATCH_SIZE = 4; // Small parallelism cuts wait time without exploding memory
     
     if (document.evidenceIndex.length > 0) {
       page = mainPdf.addPage();
@@ -294,7 +294,7 @@ export class PdfReportRenderer implements ReportRenderer {
       for (let i = 0; i < document.evidenceIndex.length; i += BATCH_SIZE) {
         const batch = document.evidenceIndex.slice(i, i + BATCH_SIZE);
         
-        // Process batch sequentially (effectively) due to BATCH_SIZE=1
+        // Process a few images at a time to reduce wait without blowing memory
         const processedBatch = await Promise.all(batch.map(async (item, batchIdx) => {
           const globalIdx = i + batchIdx;
           // Calculate part index dynamically based on MAX_PART_IMAGES
@@ -353,17 +353,50 @@ export class PdfReportRenderer implements ReportRenderer {
         for (const result of processedBatch) {
           const { item, partIndex, imgBytes, thumbBytes, error } = result;
           
-          // --- Main Report: Evidence Item Entry ---
-          // Don't rely on a big ensureSpace upfront for the whole block, 
-          // because text length is unknown. Just ensure enough for the first line of text.
-          ensureSpace(20); 
-          
-          // Text info
           const titleText = `${item.evidenceCode} - ${item.title}`;
-          drawWrappedText(titleText, 12, mainBoldFont);
-          
+          const titleLines = wordWrap(titleText, mainBoldFont, 12, width - 100);
+          const metadataLineCount = 1 + (item.date ? 1 : 0) + (item.linkedEvidenceNumber ? 1 : 0);
+          const textBlockHeight = titleLines.length * (12 + 6) + metadataLineCount * (10 + 6);
+
+          let mainThumbImage: any = null;
+          let thumbWidth = 0;
+          let thumbHeight = 0;
+          let blockExtraHeight = 20;
+
+          if (thumbBytes) {
+            try {
+              mainThumbImage = await mainPdf.embedJpg(thumbBytes).catch(() => mainPdf.embedPng(thumbBytes).catch(() => null));
+              if (mainThumbImage) {
+                const dims = mainThumbImage.scale(1);
+                const maxThumbHeight = 160;
+                const maxThumbWidth = 240;
+                let thumbScale = maxThumbHeight / Math.max(dims.height, 1);
+                if (dims.width * thumbScale > maxThumbWidth) {
+                  thumbScale = maxThumbWidth / Math.max(dims.width, 1);
+                }
+                thumbWidth = dims.width * thumbScale;
+                thumbHeight = dims.height * thumbScale;
+                blockExtraHeight = thumbHeight + 10;
+              }
+            } catch (e) {
+              console.error("Thumbnail embedding failed:", e);
+              blockExtraHeight = 22;
+            }
+          } else if (error) {
+            blockExtraHeight = 26;
+          } else if (item.sourceType) {
+            blockExtraHeight = 30;
+          }
+
+          // Keep title, metadata and thumbnail together so text can never belong to the wrong image.
+          ensureSpace(textBlockHeight + blockExtraHeight + 12);
+
+          for (const line of titleLines) {
+            drawLine(line, 12, mainBoldFont);
+          }
+
           if (item.date) drawLine(`Dato: ${item.date.toLocaleDateString("no-NO")}`, 10);
-          
+
           if (item.linkedEvidenceNumber) {
              drawLine(`Refererer til: Bevis B-${String(item.linkedEvidenceNumber).padStart(3, '0')}`, 10, mainFont, 50, rgb(0, 0.4, 0.8));
           }
@@ -372,37 +405,14 @@ export class PdfReportRenderer implements ReportRenderer {
           drawLine(`Se Vedlegg Del ${partIndex}`, 10, mainFont);
 
           // 1. Add Thumbnail to Main Report
-          if (thumbBytes) {
-            try {
-              const image = await mainPdf.embedJpg(thumbBytes).catch(() => mainPdf.embedPng(thumbBytes).catch(() => null));
-              if (image) {
-                const dims = image.scale(1);
-                const maxThumbHeight = 160;
-                const maxThumbWidth = 240;
-                let thumbScale = maxThumbHeight / Math.max(dims.height, 1);
-                if (dims.width * thumbScale > maxThumbWidth) {
-                  thumbScale = maxThumbWidth / Math.max(dims.width, 1);
-                }
-                const thumbWidth = dims.width * thumbScale;
-                const thumbHeight = dims.height * thumbScale;
-                
-                // CRITICAL FIX: Check space for image specifically to prevent it going off-page
-                if (y - thumbHeight < 50) {
-                    page = mainPdf.addPage();
-                    y = height - 50;
-                }
-
-                page.drawImage(image, {
-                  x: 50,
-                  y: y - thumbHeight,
-                  width: thumbWidth,
-                  height: thumbHeight
-                });
-                y -= thumbHeight + 10;
-              }
-            } catch (e) {
-              console.error("Thumbnail embedding failed:", e);
-            }
+          if (mainThumbImage) {
+            page.drawImage(mainThumbImage, {
+              x: 50,
+              y: y - thumbHeight,
+              width: thumbWidth,
+              height: thumbHeight
+            });
+            y -= thumbHeight + 10;
           } else if (error) {
              drawLine(`[Feil ved bildehenting: ${error}]`, 10, mainFont);
              y -= 10;

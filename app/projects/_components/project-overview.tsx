@@ -14,6 +14,7 @@ import Link from "next/link";
 import { toast } from "sonner";
 import { pollReportJob, type ReportJobClientState } from "@/lib/reporting/report-job-client";
 import { logClientPerformance } from "@/lib/performance/client";
+import { finalizeReportStatusWindow, openReportStatusWindow, updateReportStatusWindow } from "@/lib/reporting/report-status-window";
 import ConvertProjectDialog from "./convert-project-dialog";
 
 interface ProjectOverviewProps {
@@ -35,6 +36,12 @@ export default function ProjectOverview({ project }: ProjectOverviewProps) {
 
   async function handleGenerateReport() {
     const startedAt = typeof performance !== "undefined" ? performance.now() : Date.now();
+    const reportWindow = openReportStatusWindow("Prosjektrapport", {
+      state: "running",
+      phase: "Oppretter rapport",
+      message: "Klargjor rapportgrunnlaget.",
+      progress: 10,
+    });
     setGenerating(true);
     setJobState({
       id: "preparing",
@@ -70,10 +77,11 @@ export default function ProjectOverview({ project }: ProjectOverviewProps) {
 
       const completedJob = await pollReportJob(jobPayload.jobId, (nextState) => {
         setJobState(nextState);
+        updateReportStatusWindow(reportWindow, "Prosjektrapport", nextState);
       });
 
       if (completedJob.url) {
-        window.open(completedJob.url, "_blank");
+        finalizeReportStatusWindow(reportWindow, completedJob.url);
       }
 
       if (completedJob.attachments && Array.isArray(completedJob.attachments)) {
@@ -101,6 +109,12 @@ export default function ProjectOverview({ project }: ProjectOverviewProps) {
         message,
         progress: 100,
         error: message,
+      });
+      updateReportStatusWindow(reportWindow, "Prosjektrapport", {
+        state: "error",
+        phase: "Feil",
+        message,
+        progress: 100,
       });
       toast.error(message);
       logClientPerformance("project-report-generation", (typeof performance !== "undefined" ? performance.now() : Date.now()) - startedAt, {

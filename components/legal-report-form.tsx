@@ -13,10 +13,9 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { AsyncState } from "@/components/ui/async-state";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
-import { Separator } from "@/components/ui/separator";
 import { pollReportJob, type ReportJobClientState } from "@/lib/reporting/report-job-client";
 import { logClientPerformance } from "@/lib/performance/client";
+import { finalizeReportStatusWindow, openReportStatusWindow, updateReportStatusWindow } from "@/lib/reporting/report-status-window";
 
 interface EvidenceItem {
   id: string;
@@ -72,6 +71,12 @@ export function LegalReportDraftForm({ projectId, initialData, evidenceItems, on
 
   const handleGenerateClick = async () => {
     const startedAt = typeof performance !== "undefined" ? performance.now() : Date.now();
+    const reportWindow = openReportStatusWindow("Juridisk rapport", {
+      state: "running",
+      phase: "Oppretter rapport",
+      message: "Lagrer siste endringer og oppretter rapportgrunnlag.",
+      progress: 10,
+    });
     setIsGenerating(true);
     setJobState({
       id: "preparing",
@@ -107,6 +112,7 @@ export function LegalReportDraftForm({ projectId, initialData, evidenceItems, on
 
         const completedJob = await pollReportJob(data.jobId, (nextState) => {
           setJobState(nextState);
+          updateReportStatusWindow(reportWindow, "Juridisk rapport", nextState);
         });
 
         toast.success(`Juridisk rapport v${result.versionNumber} generert!`);
@@ -115,7 +121,7 @@ export function LegalReportDraftForm({ projectId, initialData, evidenceItems, on
         });
         
         if (completedJob.url) {
-            window.open(completedJob.url, '_blank');
+            finalizeReportStatusWindow(reportWindow, completedJob.url);
         }
         
         if (completedJob.attachments && completedJob.attachments.length > 0) {
@@ -135,6 +141,12 @@ export function LegalReportDraftForm({ projectId, initialData, evidenceItems, on
           message,
           progress: 100,
           error: message,
+        });
+        updateReportStatusWindow(reportWindow, "Juridisk rapport", {
+          state: "error",
+          phase: "Feil",
+          message,
+          progress: 100,
         });
         toast.error(message);
         logClientPerformance("legal-report-generation", (typeof performance !== "undefined" ? performance.now() : Date.now()) - startedAt, {

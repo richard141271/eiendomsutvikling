@@ -22,6 +22,7 @@ import { generateDamageReport } from "@/app/actions/generate-report";
 import { useRouter } from "next/navigation";
 import { pollReportJob, type ReportJobClientState } from "@/lib/reporting/report-job-client";
 import { logClientPerformance } from "@/lib/performance/client";
+import { finalizeReportStatusWindow, openReportStatusWindow, updateReportStatusWindow } from "@/lib/reporting/report-status-window";
 
 interface EvidenceItem {
   id: string;
@@ -365,6 +366,12 @@ export function DamageReportDraftForm({ projectId, initialData, evidenceItems, i
 
   const handleGenerateClick = async () => {
     const startedAt = typeof performance !== "undefined" ? performance.now() : Date.now();
+    const reportWindow = openReportStatusWindow("Skaderapport", {
+      state: "running",
+      phase: "Oppretter rapport",
+      message: "Lagrer siste endringer og oppretter rapportgrunnlag.",
+      progress: 10,
+    });
     setIsGenerating(true);
     setJobState({
       id: "preparing",
@@ -392,6 +399,7 @@ export function DamageReportDraftForm({ projectId, initialData, evidenceItems, i
 
       const completedJob = await pollReportJob(data.jobId, (nextState) => {
         setJobState(nextState);
+        updateReportStatusWindow(reportWindow, "Skaderapport", nextState);
       });
 
       toast.success(`Skaderapport v${result.versionNumber} generert!`);
@@ -399,7 +407,7 @@ export function DamageReportDraftForm({ projectId, initialData, evidenceItems, i
         success: true,
       });
       if (completedJob.url) {
-        window.open(completedJob.url, "_blank");
+        finalizeReportStatusWindow(reportWindow, completedJob.url);
       }
       if (completedJob.attachments && completedJob.attachments.length > 0) {
         completedJob.attachments.forEach((att: { url: string }) => window.open(att.url, "_blank"));
@@ -416,6 +424,12 @@ export function DamageReportDraftForm({ projectId, initialData, evidenceItems, i
         message,
         progress: 100,
         error: message,
+      });
+      updateReportStatusWindow(reportWindow, "Skaderapport", {
+        state: "error",
+        phase: "Feil",
+        message,
+        progress: 100,
       });
       toast.error(message);
       logClientPerformance("damage-report-generation", (typeof performance !== "undefined" ? performance.now() : Date.now()) - startedAt, {
