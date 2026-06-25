@@ -114,6 +114,15 @@ export const cleanupApiClient = {
   getDocumentationMap(cleanupProjectId: string) {
     return request<CleanupEvidenceMap | null>(`/api/rydderen/projects/${cleanupProjectId}/documentation/map`);
   },
+  generateDocumentationReport(cleanupProjectId: string, body?: { search?: string }) {
+    return request<{ url: string; fileName?: string; attachments?: Array<{ title: string; url: string }> }>(
+      `/api/rydderen/projects/${cleanupProjectId}/documentation/report`,
+      {
+        method: "POST",
+        body: JSON.stringify(body || {}),
+      }
+    );
+  },
   upsertDocumentationMap(cleanupProjectId: string, body: CleanupEvidenceMapUpsertInput) {
     return request<CleanupEvidenceMap>(`/api/rydderen/projects/${cleanupProjectId}/documentation/map`, {
       method: "PUT",

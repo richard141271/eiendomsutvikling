@@ -41,6 +41,7 @@ import {
   useCleanupReport,
   useCleanupValuationQueue,
 } from "@/src/modules/rydderen/hooks";
+import { cleanupApiClient } from "@/src/modules/rydderen/api/client";
 import type { CleanupContextOptions, CleanupCost, CleanupItem, CleanupProject, CleanupProjectContextType } from "@/src/modules/rydderen/types";
 import {
   CLEANUP_DOCUMENTATION_CATEGORIES,
@@ -573,7 +574,6 @@ export function RydderenDocumentationPage(props: { cleanupProjectId: string; bas
   const pathname = usePathname();
   const searchParams = useSearchParams();
   const requestedView = searchParams.get("view");
-  const shouldAutoPrint = searchParams.get("print") === "1";
   const { project, loading, error } = useCleanupProject(props.cleanupProjectId);
   const { projects } = useCleanupProjects();
   const entriesState = useCleanupDocumentationEntries(props.cleanupProjectId);
@@ -598,7 +598,6 @@ export function RydderenDocumentationPage(props: { cleanupProjectId: string; bas
   const [exporting, setExporting] = useState(false);
   const cameraInputRef = useRef<HTMLInputElement | null>(null);
   const galleryInputRef = useRef<HTMLInputElement | null>(null);
-  const autoPrintTriggeredRef = useRef(false);
   const latestImagesRef = useRef<CleanupDocumentationDraftImage[]>([]);
 
   const zoneOptions = mapState.map?.zones?.length ? mapState.map.zones : buildCleanupZones(3, 3);
@@ -628,22 +627,39 @@ export function RydderenDocumentationPage(props: { cleanupProjectId: string; bas
     };
   }, []);
 
-  const printDocumentationReport = useCallback(() => {
+  const openDocumentationPdf = useCallback(() => {
     if (typeof window === "undefined") {
       return;
     }
 
-    window.history.replaceState({}, "", `${pathname}?view=report`);
-    window.setTimeout(() => window.print(), 120);
-  }, [pathname]);
-
-  useEffect(() => {
-    if (!shouldAutoPrint || view !== "report" || autoPrintTriggeredRef.current) {
-      return;
+    const popup = window.open("", "_blank", "noopener,noreferrer");
+    if (popup) {
+      popup.document.title = "Genererer PDF...";
+      popup.document.body.innerHTML = "<p style=\"font-family: sans-serif; padding: 24px;\">Genererer PDF-rapport...</p>";
     }
-    autoPrintTriggeredRef.current = true;
-    printDocumentationReport();
-  }, [printDocumentationReport, shouldAutoPrint, view]);
+
+    void (async () => {
+      try {
+        setExporting(true);
+        const data = await cleanupApiClient.generateDocumentationReport(props.cleanupProjectId, {
+          search: search.trim() || undefined,
+        });
+
+        if (popup) {
+          popup.location.href = data.url;
+        } else {
+          window.open(data.url, "_blank", "noopener,noreferrer");
+        }
+      } catch (exportError) {
+        if (popup) {
+          popup.close();
+        }
+        window.alert(`PDF-eksport feilet: ${exportError instanceof Error ? exportError.message : String(exportError)}`);
+      } finally {
+        setExporting(false);
+      }
+    })();
+  }, [props.cleanupProjectId, search]);
 
   const resetDraft = (nextType = entryType) => {
     images.forEach((image) => URL.revokeObjectURL(image.previewUrl));
@@ -928,8 +944,7 @@ export function RydderenDocumentationPage(props: { cleanupProjectId: string; bas
             router.replace(pathname);
           }}
           onPrintPdf={() => {
-            autoPrintTriggeredRef.current = true;
-            printDocumentationReport();
+            openDocumentationPdf();
           }}
           onExportPages={() => {
             void (async () => {

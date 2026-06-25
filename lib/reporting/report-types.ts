@@ -1,4 +1,4 @@
-export type DocumentType = "PROJECT" | "LEGAL_CASE" | "DAMAGE_REPORT" | "SHOWCASE" | "RENTAL" | "PROSJEKTRAPPORT";
+export type DocumentType = "PROJECT" | "LEGAL_CASE" | "DAMAGE_REPORT" | "SHOWCASE" | "RENTAL" | "PROSJEKTRAPPORT" | "DOKUMENTASJONSRAPPORT";
 
 export interface Party {
   role: "OWNER" | "TENANT" | "CONTRACTOR" | "OTHER";
