@@ -24,7 +24,7 @@ const initialState: NavigationState = {
   maintenanceCount: 0,
 };
 
-export function DashboardNavigation() {
+function useDashboardNavigationState() {
   const [state, setState] = useState<NavigationState>(initialState);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -109,68 +109,79 @@ export function DashboardNavigation() {
     });
   }, [state.isAdmin, state.isTenant, state.maintenanceCount, state.unresolvedNotesCount]);
 
+  return { state, loading, error, desktopLinks };
+}
+
+export function DashboardSidebar() {
+  const { loading, error, desktopLinks } = useDashboardNavigationState();
+
   return (
-    <>
-      <div className="hidden w-64 flex-col border-r bg-gray-100/40 lg:flex dark:bg-gray-800/40 print:hidden">
-        <div className="flex h-14 items-center border-b px-6">
-          <Link href="/dashboard" className="flex items-center gap-2 font-semibold">
-            <Image src="/logo.png" alt="Logo" width={32} height={32} className="rounded-lg" />
-            <span>Eiendomssystem</span>
-          </Link>
-        </div>
-        <nav className="flex-1 overflow-auto py-4">
-          <div className="grid items-start gap-1 px-4 text-sm font-medium">
-            {desktopLinks.map((link) => (
-              <Link
-                key={link.href}
-                href={link.href}
-                className="flex items-center justify-between gap-3 rounded-lg px-3 py-2 text-gray-500 transition-all hover:text-gray-900 dark:text-gray-400 dark:hover:text-gray-50"
-              >
-                <span className="flex items-center gap-3">
-                  {link.icon}
-                  {link.label}
-                </span>
-                {link.badge ? (
-                  <Badge variant="destructive" className="rounded-full px-2 h-5 min-w-5 flex items-center justify-center">
-                    {link.badge}
-                  </Badge>
-                ) : null}
-              </Link>
-            ))}
-            {loading ? (
-              <div className="px-3 pt-2">
-                <AsyncState
-                  mode="loading"
-                  compact
-                  title="Laster meny"
-                  description="Ekstra snarveier og badge-tall kommer straks."
-                />
-              </div>
-            ) : null}
-            {!loading && error ? (
-              <div className="px-3 pt-2">
-                <AsyncState
-                  mode="error"
-                  compact
-                  title="Kunne ikke laste alt i menyen"
-                  description="Grunnmenyen virker fortsatt. Ekstra lenker og badge-tall kan mangle midlertidig."
-                />
-              </div>
-            ) : null}
-          </div>
-        </nav>
+    <div className="hidden w-64 flex-col border-r bg-gray-100/40 lg:flex dark:bg-gray-800/40 print:hidden">
+      <div className="flex h-14 items-center border-b px-6">
+        <Link href="/dashboard" className="flex items-center gap-2 font-semibold">
+          <Image src="/logo.png" alt="Logo" width={32} height={32} className="rounded-lg" />
+          <span>Eiendomssystem</span>
+        </Link>
       </div>
-      <header className="flex h-14 items-center gap-4 border-b bg-gray-100/40 px-6 dark:bg-gray-800/40 print:hidden">
-        <MobileNav
-          unresolvedNotesCount={state.unresolvedNotesCount}
-          maintenanceCount={state.maintenanceCount}
-          isAdmin={state.isAdmin}
-          isTenant={state.isTenant}
-          isLoading={loading}
-        />
-        <div className="w-full flex-1" />
-        <UserNav />
-      </header>
-    </>
+      <nav className="flex-1 overflow-auto py-4">
+        <div className="grid items-start gap-1 px-4 text-sm font-medium">
+          {desktopLinks.map((link) => (
+            <Link
+              key={link.href}
+              href={link.href}
+              className="flex items-center justify-between gap-3 rounded-lg px-3 py-2 text-gray-500 transition-all hover:text-gray-900 dark:text-gray-400 dark:hover:text-gray-50"
+            >
+              <span className="flex items-center gap-3">
+                {link.icon}
+                {link.label}
+              </span>
+              {link.badge ? (
+                <Badge variant="destructive" className="rounded-full px-2 h-5 min-w-5 flex items-center justify-center">
+                  {link.badge}
+                </Badge>
+              ) : null}
+            </Link>
+          ))}
+          {loading ? (
+            <div className="px-3 pt-2">
+              <AsyncState
+                mode="loading"
+                compact
+                title="Laster meny"
+                description="Ekstra snarveier og badge-tall kommer straks."
+              />
+            </div>
+          ) : null}
+          {!loading && error ? (
+            <div className="px-3 pt-2">
+              <AsyncState
+                mode="error"
+                compact
+                title="Kunne ikke laste alt i menyen"
+                description="Grunnmenyen virker fortsatt. Ekstra lenker og badge-tall kan mangle midlertidig."
+              />
+            </div>
+          ) : null}
+        </div>
+      </nav>
+    </div>
+  );
+}
+
+export function DashboardTopbar() {
+  const { state, loading } = useDashboardNavigationState();
+
+  return (
+    <header className="flex h-14 w-full items-center gap-4 border-b bg-gray-100/40 px-4 md:px-6 dark:bg-gray-800/40 print:hidden">
+      <MobileNav
+        unresolvedNotesCount={state.unresolvedNotesCount}
+        maintenanceCount={state.maintenanceCount}
+        isAdmin={state.isAdmin}
+        isTenant={state.isTenant}
+        isLoading={loading}
+      />
+      <div className="min-w-0 flex-1" />
+      <UserNav />
+    </header>
   );
 }
