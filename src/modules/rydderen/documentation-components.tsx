@@ -416,12 +416,10 @@ function DocumentationEntryScreenCard(props: { entry: CleanupEvidenceEntry }) {
   );
 }
 
-function DocumentationPrintPage(props: { children: React.ReactNode; startOnNewPage?: boolean }) {
+function DocumentationPrintPage(props: { children: React.ReactNode }) {
   return (
     <section
-      className={`hidden print:mx-auto print:flex print:h-[234mm] print:w-[166mm] print:break-inside-avoid print:flex-col print:overflow-hidden print:bg-white print:box-border ${
-        props.startOnNewPage ? "print:[break-before:page]" : ""
-      }`}
+      className="hidden print:mx-auto print:mb-0 print:flex print:h-[237mm] print:w-[166mm] print:break-inside-avoid print:flex-col print:overflow-hidden print:bg-white print:box-border"
     >
       {props.children}
     </section>
@@ -434,10 +432,9 @@ function DocumentationPrintCoverPage(props: {
   filteredEntries: CleanupEvidenceEntry[];
   totalImages: number;
   categories: string;
-  startOnNewPage?: boolean;
 }) {
   return (
-    <DocumentationPrintPage startOnNewPage={props.startOnNewPage}>
+    <DocumentationPrintPage>
       <div className="flex h-full flex-1 flex-col overflow-hidden bg-white p-[2mm]">
         <div className="flex h-full flex-1 flex-col overflow-hidden rounded-[1.5mm] border border-slate-200 bg-white p-[2mm]">
         <div className="space-y-1 border-b border-slate-200 pb-2">
@@ -473,13 +470,12 @@ function DocumentationPrintCoverPage(props: {
 
 function DocumentationPrintHeroPage(props: {
   entry: CleanupEvidenceEntry;
-  startOnNewPage?: boolean;
 }) {
   const type = getCleanupDocumentationTypeConfig(props.entry.entryType);
   const heroImage = props.entry.images[0];
 
   return (
-    <DocumentationPrintPage startOnNewPage={props.startOnNewPage}>
+    <DocumentationPrintPage>
       <div className="flex h-full flex-1 flex-col overflow-hidden bg-white p-[2mm]">
         <div className="flex h-full flex-1 flex-col overflow-hidden rounded-[1.5mm] border border-slate-200 bg-white p-[1.75mm]">
         <div className="mb-0.75 flex items-start justify-between gap-1.5">
@@ -534,10 +530,9 @@ function DocumentationPrintGalleryPage(props: {
   images: CleanupEvidenceEntry["images"];
   pageNumber: number;
   totalPages: number;
-  startOnNewPage?: boolean;
 }) {
   return (
-    <DocumentationPrintPage startOnNewPage={props.startOnNewPage}>
+    <DocumentationPrintPage>
       <div className="flex h-full flex-1 flex-col overflow-hidden bg-white p-[2mm]">
         <div className="flex h-full flex-1 flex-col overflow-hidden rounded-[1.5mm] border border-slate-200 bg-white p-[1mm]">
         <div className="mb-0.25 flex items-end justify-between gap-1.25 border-b border-slate-200 pb-0">
@@ -548,7 +543,7 @@ function DocumentationPrintGalleryPage(props: {
           <p className="text-[1.9mm] text-slate-500">{props.images.length} bilder</p>
         </div>
 
-        <div className="grid h-full flex-[1.12] grid-cols-3 grid-rows-5 gap-[1mm] content-stretch">
+        <div className="grid h-full flex-[1.18] grid-cols-3 grid-rows-5 gap-[1mm] content-stretch">
           {props.images.map((image) => (
             <DocumentationImageFrame
               key={image.id}
@@ -697,38 +692,35 @@ export function RydderenDocumentationReportView(props: {
         )}
         </div>
       </div>
-      <DocumentationPrintCoverPage
-        projectName={props.projectName}
-        map={props.map}
-        filteredEntries={filteredEntries}
-        totalImages={totalImages}
-        categories={categories}
-        startOnNewPage={false}
-      />
-      {filteredEntries.map((entry) => {
-        const galleryChunks = chunkArray(entry.images.slice(1), 15);
+      <div className="hidden print:block">
+        <DocumentationPrintCoverPage
+          projectName={props.projectName}
+          map={props.map}
+          filteredEntries={filteredEntries}
+          totalImages={totalImages}
+          categories={categories}
+        />
+        {filteredEntries.map((entry) => {
+          const galleryChunks = chunkArray(entry.images.slice(1), 15);
 
-        return (
-          <Fragment key={`print-${entry.id}`}>
-            <DocumentationPrintHeroPage
-              entry={entry}
-              startOnNewPage={true}
-            />
-            {galleryChunks.map((chunk, chunkIndex) => {
-              return (
-                <DocumentationPrintGalleryPage
-                  key={`${entry.id}-gallery-${chunkIndex}`}
-                  entry={entry}
-                  images={chunk}
-                  pageNumber={chunkIndex + 1}
-                  totalPages={galleryChunks.length}
-                  startOnNewPage={true}
-                />
-              );
-            })}
-          </Fragment>
-        );
-      })}
+          return (
+            <Fragment key={`print-${entry.id}`}>
+              <DocumentationPrintHeroPage entry={entry} />
+              {galleryChunks.map((chunk, chunkIndex) => {
+                return (
+                  <DocumentationPrintGalleryPage
+                    key={`${entry.id}-gallery-${chunkIndex}`}
+                    entry={entry}
+                    images={chunk}
+                    pageNumber={chunkIndex + 1}
+                    totalPages={galleryChunks.length}
+                  />
+                );
+              })}
+            </Fragment>
+          );
+        })}
+      </div>
     </>
   );
 }
