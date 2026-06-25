@@ -419,7 +419,7 @@ function DocumentationEntryScreenCard(props: { entry: CleanupEvidenceEntry }) {
 function DocumentationPrintPage(props: { children: React.ReactNode; breakAfter?: boolean }) {
   return (
     <section
-      className={`hidden print:mx-auto print:flex print:h-[232mm] print:w-[166mm] print:break-inside-avoid print:flex-col print:overflow-hidden print:bg-white print:box-border ${
+      className={`hidden print:mx-auto print:flex print:h-[234mm] print:w-[166mm] print:break-inside-avoid print:flex-col print:overflow-hidden print:bg-white print:box-border ${
         props.breakAfter === false ? "" : "print:[break-after:page]"
       }`}
     >
@@ -539,16 +539,16 @@ function DocumentationPrintGalleryPage(props: {
   return (
     <DocumentationPrintPage breakAfter={props.breakAfter}>
       <div className="flex h-full flex-1 flex-col overflow-hidden bg-white p-[2mm]">
-        <div className="flex h-full flex-1 flex-col overflow-hidden rounded-[1.5mm] border border-slate-200 bg-white p-[1.75mm]">
-        <div className="mb-0.75 flex items-end justify-between gap-1.5 border-b border-slate-200 pb-0.5">
+        <div className="flex h-full flex-1 flex-col overflow-hidden rounded-[1.5mm] border border-slate-200 bg-white p-[1.5mm]">
+        <div className="mb-0.5 flex items-end justify-between gap-1.5 border-b border-slate-200 pb-0.25">
           <div>
-            <h3 className="text-[3.1mm] font-bold text-slate-950">{props.entry.entryNumber}</h3>
-            <p className="text-[2.15mm] text-slate-600">Bildeflate {props.pageNumber} av {props.totalPages}</p>
+            <h3 className="text-[3mm] font-bold text-slate-950">{props.entry.entryNumber}</h3>
+            <p className="text-[2.05mm] text-slate-600">Bildeflate {props.pageNumber} av {props.totalPages}</p>
           </div>
-          <p className="text-[2.05mm] text-slate-500">{props.images.length} bilder</p>
+          <p className="text-[1.95mm] text-slate-500">{props.images.length} bilder</p>
         </div>
 
-        <div className="grid h-full flex-1 grid-cols-3 grid-rows-5 gap-[0.8mm] content-stretch">
+        <div className="grid h-full flex-[1.04] grid-cols-3 grid-rows-5 gap-[0.8mm] content-stretch">
           {props.images.map((image) => (
             <DocumentationImageFrame
               key={image.id}
@@ -583,10 +583,9 @@ export function RydderenDocumentationReportView(props: {
 }) {
   const filteredEntries = useMemo(() => {
     const search = props.search.trim().toLowerCase();
-    if (!search) {
-      return props.entries;
-    }
-    return props.entries.filter((entry) =>
+    const matchingEntries = !search
+      ? props.entries
+      : props.entries.filter((entry) =>
       [
         entry.entryNumber,
         entry.category,
@@ -600,6 +599,21 @@ export function RydderenDocumentationReportView(props: {
         .toLowerCase()
         .includes(search)
     );
+
+    // Show the earliest numbered observations/findings first in reports.
+    return [...matchingEntries].sort((left, right) => {
+      if (left.sequence !== right.sequence) {
+        return left.sequence - right.sequence;
+      }
+
+      const leftTime = new Date(left.createdAt).getTime();
+      const rightTime = new Date(right.createdAt).getTime();
+      if (leftTime !== rightTime) {
+        return leftTime - rightTime;
+      }
+
+      return left.entryNumber.localeCompare(right.entryNumber);
+    });
   }, [props.entries, props.search]);
 
   const totalImages = filteredEntries.reduce((sum, entry) => sum + (entry.imageCount || entry.images.length), 0);
