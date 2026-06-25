@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useRef } from "react";
+import { Fragment, useMemo, useRef } from "react";
 import { Camera, FileArchive, FileText, Image as ImageIcon, Search, Upload, X } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -539,23 +539,23 @@ function DocumentationPrintGalleryPage(props: {
   return (
     <DocumentationPrintPage breakAfter={props.breakAfter}>
       <div className="flex h-full flex-1 flex-col overflow-hidden bg-white p-[2mm]">
-        <div className="flex h-full flex-1 flex-col overflow-hidden rounded-[1.5mm] border border-slate-200 bg-white p-[1.5mm]">
-        <div className="mb-0.5 flex items-end justify-between gap-1.5 border-b border-slate-200 pb-0.25">
+        <div className="flex h-full flex-1 flex-col overflow-hidden rounded-[1.5mm] border border-slate-200 bg-white p-[1mm]">
+        <div className="mb-0.25 flex items-end justify-between gap-1.25 border-b border-slate-200 pb-0">
           <div>
-            <h3 className="text-[3mm] font-bold text-slate-950">{props.entry.entryNumber}</h3>
-            <p className="text-[2.05mm] text-slate-600">Bildeflate {props.pageNumber} av {props.totalPages}</p>
+            <h3 className="text-[2.9mm] font-bold text-slate-950">{props.entry.entryNumber}</h3>
+            <p className="text-[1.95mm] text-slate-600">Bildeflate {props.pageNumber} av {props.totalPages}</p>
           </div>
-          <p className="text-[1.95mm] text-slate-500">{props.images.length} bilder</p>
+          <p className="text-[1.9mm] text-slate-500">{props.images.length} bilder</p>
         </div>
 
-        <div className="grid h-full flex-[1.04] grid-cols-3 grid-rows-5 gap-[0.8mm] content-stretch">
+        <div className="grid h-full flex-[1.08] grid-cols-3 grid-rows-5 gap-[1mm] content-stretch">
           {props.images.map((image) => (
             <DocumentationImageFrame
               key={image.id}
               src={image.imageUrl || image.thumbnailUrl || ""}
               alt={props.entry.entryNumber}
               chrome="none"
-              className="min-h-0 rounded-[1mm] border border-slate-200 bg-white p-0.5"
+              className="min-h-0 rounded-[1mm] border border-slate-200 bg-white p-[0.5mm]"
               imageClassName="h-full w-full object-contain"
               emptyIconClassName="h-8 w-8"
             />
@@ -712,7 +712,7 @@ export function RydderenDocumentationReportView(props: {
         const isLastEntry = entryIndex === filteredEntries.length - 1;
 
         return (
-          <div key={`print-${entry.id}`}>
+          <Fragment key={`print-${entry.id}`}>
             <DocumentationPrintHeroPage
               entry={entry}
               breakAfter={!isLastEntry || galleryChunks.length > 0}
@@ -730,7 +730,7 @@ export function RydderenDocumentationReportView(props: {
                 />
               );
             })}
-          </div>
+          </Fragment>
         );
       })}
     </>
