@@ -774,12 +774,15 @@ export function RydderenDocumentationPage(props: { cleanupProjectId: string; bas
       {mapState.error ? <div className="rounded-xl bg-red-50 p-3 text-sm text-red-700">{mapState.error}</div> : null}
       {entriesState.backgroundUploading ? (
         <div className="rounded-xl bg-blue-50 p-3 text-sm text-blue-700">
-          Laster opp {entriesState.pendingUploads} bilde{entriesState.pendingUploads === 1 ? "" : "r"} i bakgrunnen. Du kan jobbe videre imens.
+          Laster opp {entriesState.pendingUploads} bilde{entriesState.pendingUploads === 1 ? "" : "r"} i bakgrunnen. Ikke lukk appen for opplastingen er ferdig.
         </div>
       ) : null}
       {entriesState.backgroundError ? (
         <div className="rounded-xl bg-amber-50 p-3 text-sm text-amber-800">
-          Noen bilder ble ikke lastet opp i bakgrunnen: {entriesState.backgroundError}
+          Noen bilder ble ikke lastet opp i bakgrunnen: {entriesState.backgroundError}{" "}
+          <Button type="button" variant="outline" className="ml-2 h-8 rounded-lg px-3" onClick={() => void entriesState.retryPendingUploads()}>
+            Prøv igjen
+          </Button>
         </div>
       ) : null}
 

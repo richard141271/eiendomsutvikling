@@ -24,6 +24,78 @@ const cleanupCostsCache = new Map<string, CleanupCost[]>();
 const cleanupDocumentationEntriesCache = new Map<string, CleanupEvidenceEntry[]>();
 const cleanupDocumentationMapCache = new Map<string, CleanupEvidenceMap | null>();
 
+type PendingDocumentationImageRecord = {
+  key: string;
+  cleanupProjectId: string;
+  entryId: string;
+  index: number;
+  file: File;
+  imageHash?: string | null;
+  originalName?: string | null;
+  createdAt: number;
+};
+
+let documentationUploadDbPromise: Promise<IDBDatabase> | null = null;
+
+function openDocumentationUploadDb(): Promise<IDBDatabase> {
+  if (documentationUploadDbPromise) {
+    return documentationUploadDbPromise;
+  }
+
+  documentationUploadDbPromise = new Promise((resolve, reject) => {
+    const request = indexedDB.open("rydderen-doc-upload-v1", 1);
+    request.onupgradeneeded = () => {
+      const db = request.result;
+      if (!db.objectStoreNames.contains("pending")) {
+        const store = db.createObjectStore("pending", { keyPath: "key" });
+        store.createIndex("byProject", "cleanupProjectId", { unique: false });
+        store.createIndex("byEntry", "entryId", { unique: false });
+      }
+    };
+    request.onsuccess = () => resolve(request.result);
+    request.onerror = () => reject(request.error || new Error("Kunne ikke apne lokal lagring"));
+  });
+
+  return documentationUploadDbPromise;
+}
+
+async function putPendingDocumentationImage(record: PendingDocumentationImageRecord) {
+  const db = await openDocumentationUploadDb();
+  await new Promise<void>((resolve, reject) => {
+    const tx = db.transaction("pending", "readwrite");
+    tx.oncomplete = () => resolve();
+    tx.onerror = () => reject(tx.error || new Error("Kunne ikke lagre bilde lokalt"));
+    tx.objectStore("pending").put(record);
+  });
+}
+
+async function deletePendingDocumentationImage(key: string) {
+  const db = await openDocumentationUploadDb();
+  await new Promise<void>((resolve, reject) => {
+    const tx = db.transaction("pending", "readwrite");
+    tx.oncomplete = () => resolve();
+    tx.onerror = () => reject(tx.error || new Error("Kunne ikke oppdatere lokal lagring"));
+    tx.objectStore("pending").delete(key);
+  });
+}
+
+async function listPendingDocumentationImages(cleanupProjectId: string) {
+  const db = await openDocumentationUploadDb();
+  return new Promise<PendingDocumentationImageRecord[]>((resolve, reject) => {
+    const tx = db.transaction("pending", "readonly");
+    const store = tx.objectStore("pending");
+    const index = store.index("byProject");
+    const request = index.getAll(cleanupProjectId);
+    request.onsuccess = () => resolve((request.result || []) as PendingDocumentationImageRecord[]);
+    request.onerror = () => reject(request.error || new Error("Kunne ikke lese lokal lagring"));
+  });
+}
+
+function buildPendingDocumentationImageKey(input: { cleanupProjectId: string; entryId: string; index: number; file: File; imageHash?: string | null }) {
+  const hashPart = input.imageHash || "";
+  return `${input.cleanupProjectId}:${input.entryId}:${input.index}:${hashPart || `${input.file.name}:${input.file.size}:${input.file.lastModified}`}`;
+}
+
 function reportDebugEvent(hypothesisId: "A" | "B" | "C" | "D" | "E", location: string, msg: string, data: Record<string, unknown>) {
   // #region debug-point C:rydderen-report
   if (typeof window === "undefined") {
@@ -677,6 +749,7 @@ export function useCleanupFilters(items: CleanupItem[]) {
 
 export function useCleanupDocumentationEntries(cleanupProjectId: string) {
   const MAX_BACKGROUND_UPLOADS = 3;
+  const MAX_UPLOAD_RETRIES = 6;
   const cachedEntries = cleanupDocumentationEntriesCache.get(cleanupProjectId) ?? [];
   const hasCachedEntries = cachedEntries.length > 0;
   const [entries, setEntries] = useState<CleanupEvidenceEntry[]>(cachedEntries);
@@ -686,8 +759,19 @@ export function useCleanupDocumentationEntries(cleanupProjectId: string) {
   const [backgroundUploading, setBackgroundUploading] = useState(false);
   const [pendingUploads, setPendingUploads] = useState(0);
   const [backgroundError, setBackgroundError] = useState<string | null>(null);
-  const uploadQueueRef = useRef<Array<{ entryId: string; index: number; image: { file: File; imageHash?: string | null } }>>([]);
+  const uploadQueueRef = useRef<
+    Array<{
+      key: string;
+      entryId: string;
+      index: number;
+      attempt: number;
+      nextAttemptAt: number;
+      image: { file: File; imageHash?: string | null; originalName?: string | null };
+    }>
+  >([]);
   const activeUploadCountRef = useRef(0);
+  const processUploadQueueRef = useRef<(() => void) | null>(null);
+  const retryTimeoutRef = useRef<number | null>(null);
 
   const upsertEntry = useCallback(
     (entry: CleanupEvidenceEntry) => {
@@ -738,6 +822,62 @@ export function useCleanupDocumentationEntries(cleanupProjectId: string) {
     void refresh({ showLoading: !hasCachedEntries });
   }, [hasCachedEntries, refresh]);
 
+  useEffect(() => {
+    let cancelled = false;
+    void (async () => {
+      try {
+        const pending = await listPendingDocumentationImages(cleanupProjectId);
+        if (cancelled || pending.length === 0) {
+          return;
+        }
+
+        const existingKeys = new Set(uploadQueueRef.current.map((item) => item.key));
+        let added = 0;
+        for (const record of pending) {
+          if (existingKeys.has(record.key)) {
+            continue;
+          }
+          uploadQueueRef.current.push({
+            key: record.key,
+            entryId: record.entryId,
+            index: record.index,
+            attempt: 0,
+            nextAttemptAt: 0,
+            image: { file: record.file, imageHash: record.imageHash, originalName: record.originalName },
+          });
+          existingKeys.add(record.key);
+          added += 1;
+        }
+        if (added > 0) {
+          setPendingUploads((current) => current + added);
+          setBackgroundUploading(true);
+        }
+      } catch (err) {
+        const message = err instanceof Error ? err.message : "Kunne ikke lese lokal opplastingsko";
+        setBackgroundError(message);
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [cleanupProjectId]);
+
+  const scheduleRetry = useCallback((delayMs: number) => {
+    if (typeof window === "undefined") {
+      return;
+    }
+
+    const safeDelay = Math.max(50, Math.min(60_000, Math.round(delayMs)));
+    if (retryTimeoutRef.current) {
+      window.clearTimeout(retryTimeoutRef.current);
+    }
+    retryTimeoutRef.current = window.setTimeout(() => {
+      retryTimeoutRef.current = null;
+      processUploadQueueRef.current?.();
+    }, safeDelay);
+  }, []);
+
   const processUploadQueue = useCallback(() => {
     if (uploadQueueRef.current.length === 0 && activeUploadCountRef.current === 0) {
       setBackgroundUploading(false);
@@ -750,6 +890,13 @@ export function useCleanupDocumentationEntries(cleanupProjectId: string) {
       const nextUpload = uploadQueueRef.current.shift();
       if (!nextUpload) {
         continue;
+      }
+
+      const now = Date.now();
+      if (nextUpload.nextAttemptAt > now) {
+        uploadQueueRef.current.unshift(nextUpload);
+        scheduleRetry(nextUpload.nextAttemptAt - now);
+        break;
       }
 
       activeUploadCountRef.current += 1;
@@ -781,6 +928,8 @@ export function useCleanupDocumentationEntries(cleanupProjectId: string) {
           const updatedEntry = await cleanupApiClient.uploadDocumentationEntryImage(cleanupProjectId, nextUpload.entryId, imageFormData);
           upsertEntry(updatedEntry);
           setBackgroundError(null);
+          void deletePendingDocumentationImage(nextUpload.key);
+          setPendingUploads((current) => Math.max(0, current - 1));
           // #region debug-point B:queued-image-upload-success
           reportDebugEvent("B", "src/modules/rydderen/hooks/index.ts:useCleanupDocumentationEntries:queue:image:success", "[DEBUG] Documentation background image upload completed", {
             cleanupProjectId,
@@ -794,7 +943,24 @@ export function useCleanupDocumentationEntries(cleanupProjectId: string) {
           // #endregion
         } catch (uploadError) {
           const message = uploadError instanceof Error ? uploadError.message : "Kunne ikke laste opp dokumentasjonsbilde";
-          setBackgroundError(message);
+          if (message.toLowerCase().includes("allerede registrert")) {
+            void deletePendingDocumentationImage(nextUpload.key);
+            setPendingUploads((current) => Math.max(0, current - 1));
+            setBackgroundError(null);
+          } else {
+            const attempt = nextUpload.attempt + 1;
+            if (attempt <= MAX_UPLOAD_RETRIES) {
+              const baseDelay = Math.min(30_000, 800 * Math.pow(2, Math.min(6, attempt)));
+              const jitter = Math.round(baseDelay * (0.15 * Math.random()));
+              nextUpload.attempt = attempt;
+              nextUpload.nextAttemptAt = Date.now() + baseDelay + jitter;
+              uploadQueueRef.current.push(nextUpload);
+              scheduleRetry(baseDelay + jitter);
+              setBackgroundError(message);
+            } else {
+              setBackgroundError(message);
+            }
+          }
           // #region debug-point B:queued-image-upload-error
           reportDebugEvent("B", "src/modules/rydderen/hooks/index.ts:useCleanupDocumentationEntries:queue:image:error", "[DEBUG] Documentation background image upload failed", {
             cleanupProjectId,
@@ -808,7 +974,6 @@ export function useCleanupDocumentationEntries(cleanupProjectId: string) {
           // #endregion
         } finally {
           activeUploadCountRef.current = Math.max(0, activeUploadCountRef.current - 1);
-          setPendingUploads((current) => Math.max(0, current - 1));
           if (uploadQueueRef.current.length > 0 || activeUploadCountRef.current > 0) {
             processUploadQueue();
           } else {
@@ -817,7 +982,26 @@ export function useCleanupDocumentationEntries(cleanupProjectId: string) {
         }
       })();
     }
-  }, [cleanupProjectId, upsertEntry]);
+  }, [cleanupProjectId, scheduleRetry, upsertEntry]);
+
+  useEffect(() => {
+    processUploadQueueRef.current = processUploadQueue;
+  }, [processUploadQueue]);
+
+  useEffect(() => {
+    const handleVisibility = () => {
+      if (document.visibilityState === "visible") {
+        processUploadQueue();
+      }
+    };
+
+    window.addEventListener("online", processUploadQueue);
+    document.addEventListener("visibilitychange", handleVisibility);
+    return () => {
+      window.removeEventListener("online", processUploadQueue);
+      document.removeEventListener("visibilitychange", handleVisibility);
+    };
+  }, [processUploadQueue]);
 
   const createEntry = useCallback(
     async (payload: {
@@ -868,17 +1052,39 @@ export function useCleanupDocumentationEntries(cleanupProjectId: string) {
         });
         // #endregion
 
-        for (let index = 0; index < (payload.images?.length || 0); index += 1) {
-          const image = payload.images?.[index];
-          if (!image) continue;
-          uploadQueueRef.current.push({
-            entryId: created.id,
-            index,
-            image,
-          });
-        }
-        setPendingUploads((current) => current + (payload.images?.length || 0));
-        if ((payload.images?.length || 0) > 0) {
+        const imagesToQueue = payload.images || [];
+        if (imagesToQueue.length > 0) {
+          await Promise.all(
+            imagesToQueue.map(async (image, index) => {
+              const key = buildPendingDocumentationImageKey({
+                cleanupProjectId,
+                entryId: created.id,
+                index,
+                file: image.file,
+                imageHash: image.imageHash ?? null,
+              });
+              await putPendingDocumentationImage({
+                key,
+                cleanupProjectId,
+                entryId: created.id,
+                index,
+                file: image.file,
+                imageHash: image.imageHash ?? null,
+                originalName: image.file.name || null,
+                createdAt: Date.now(),
+              });
+              uploadQueueRef.current.push({
+                key,
+                entryId: created.id,
+                index,
+                attempt: 0,
+                nextAttemptAt: 0,
+                image,
+              });
+            })
+          );
+
+          setPendingUploads((current) => current + imagesToQueue.length);
           void processUploadQueue();
         }
 
@@ -911,7 +1117,42 @@ export function useCleanupDocumentationEntries(cleanupProjectId: string) {
     [cleanupProjectId, processUploadQueue, upsertEntry]
   );
 
-  return { entries, loading, saving, error, backgroundUploading, pendingUploads, backgroundError, refresh, createEntry };
+  const retryPendingUploads = useCallback(async () => {
+    try {
+      setBackgroundError(null);
+      const pending = await listPendingDocumentationImages(cleanupProjectId);
+      if (pending.length === 0) {
+        return;
+      }
+
+      const existingKeys = new Set(uploadQueueRef.current.map((item) => item.key));
+      let added = 0;
+      for (const record of pending) {
+        if (existingKeys.has(record.key)) {
+          continue;
+        }
+        uploadQueueRef.current.push({
+          key: record.key,
+          entryId: record.entryId,
+          index: record.index,
+          attempt: 0,
+          nextAttemptAt: 0,
+          image: { file: record.file, imageHash: record.imageHash, originalName: record.originalName },
+        });
+        existingKeys.add(record.key);
+        added += 1;
+      }
+
+      if (added > 0) {
+        setPendingUploads((current) => current + added);
+      }
+      void processUploadQueue();
+    } catch (err) {
+      setBackgroundError(err instanceof Error ? err.message : "Kunne ikke starte opplasting pa nytt");
+    }
+  }, [cleanupProjectId, processUploadQueue]);
+
+  return { entries, loading, saving, error, backgroundUploading, pendingUploads, backgroundError, refresh, createEntry, retryPendingUploads };
 }
 
 export function useCleanupDocumentationMap(cleanupProjectId: string) {
