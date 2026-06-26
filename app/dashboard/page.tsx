@@ -6,12 +6,38 @@ import { TenantDashboard } from "./_components/tenant-dashboard"
 
 export const dynamic = "force-dynamic";
 
+async function reportDebugEvent(hypothesisId: "A" | "B" | "C" | "D" | "E", location: string, msg: string, data: Record<string, unknown>) {
+  // #region debug-point B:dashboard-report
+  try {
+    const fs = await import("fs/promises")
+    const envText = await fs.readFile(".dbg/app-speed-lag.env", "utf8").catch(() => "")
+    const debugUrl = envText.match(/DEBUG_SERVER_URL=(.+)/)?.[1] || "http://127.0.0.1:7777/event"
+    const sessionId = envText.match(/DEBUG_SESSION_ID=(.+)/)?.[1] || "app-speed-lag"
+    await fetch(debugUrl, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ sessionId, runId: "pre-fix", hypothesisId, location, msg, data, ts: Date.now() }),
+      cache: "no-store",
+    }).catch(() => undefined)
+  } catch {}
+  // #endregion
+}
+
 export default async function DashboardPage() {
+  const startedAt = Date.now()
   const supabase = createClient();
+  const authStartedAt = Date.now()
   const { data: { user: authUser } } = await supabase.auth.getUser();
+  // #region debug-point A:dashboard-auth
+  await reportDebugEvent("A", "app/dashboard/page.tsx:auth:getUser", "[DEBUG] Dashboard auth resolved", {
+    durationMs: Date.now() - authStartedAt,
+    hasUser: Boolean(authUser),
+  })
+  // #endregion
 
   let dbUser = null;
   if (authUser) {
+    const userLookupStartedAt = Date.now()
     dbUser = await prisma.user.findUnique({
       where: { authId: authUser.id },
       include: {
@@ -26,6 +52,12 @@ export default async function DashboardPage() {
         }
       }
     });
+    // #region debug-point B:dashboard-db-user
+    await reportDebugEvent("B", "app/dashboard/page.tsx:dbUser:findUnique", "[DEBUG] Dashboard dbUser lookup finished", {
+      durationMs: Date.now() - userLookupStartedAt,
+      role: dbUser?.role ?? null,
+    })
+    // #endregion
   }
 
   // Show Tenant Dashboard for Tenants
@@ -78,6 +110,7 @@ export default async function DashboardPage() {
   }
 
   // Admin/Owner Dashboard
+  const adminDataStartedAt = Date.now()
   const propertyCount = await prisma.property.count();
   const unitCount = await prisma.unit.count();
   const activeContractCount = await prisma.leaseContract.count({
@@ -112,6 +145,16 @@ export default async function DashboardPage() {
     orderBy: { createdAt: 'desc' },
     select: { id: true, name: true, createdAt: true, address: true }
   });
+
+  // #region debug-point B:dashboard-admin-data
+  await reportDebugEvent("B", "app/dashboard/page.tsx:adminData", "[DEBUG] Dashboard admin data finished", {
+    durationMs: Date.now() - adminDataStartedAt,
+    totalDurationMs: Date.now() - startedAt,
+    propertyCount,
+    unitCount,
+    activeProjectCount,
+  })
+  // #endregion
 
   return (
     <div className="flex flex-col gap-4">

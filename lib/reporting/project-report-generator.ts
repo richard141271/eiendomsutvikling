@@ -5,7 +5,25 @@ import { PdfReportRenderer } from "@/lib/reporting/pdf-renderer";
 
 type ProgressCallback = (state: { phase: string; message: string; progress: number }) => void;
 
+async function reportDebugEvent(hypothesisId: "A" | "B" | "C" | "D" | "E", location: string, msg: string, data: Record<string, unknown>) {
+  // #region debug-point E:project-report-report
+  try {
+    const fs = await import("fs/promises")
+    const envText = await fs.readFile(".dbg/app-speed-lag.env", "utf8").catch(() => "")
+    const debugUrl = envText.match(/DEBUG_SERVER_URL=(.+)/)?.[1] || "http://127.0.0.1:7777/event"
+    const sessionId = envText.match(/DEBUG_SESSION_ID=(.+)/)?.[1] || "app-speed-lag"
+    await fetch(debugUrl, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ sessionId, runId: "pre-fix", hypothesisId, location, msg, data, ts: Date.now() }),
+      cache: "no-store",
+    }).catch(() => undefined)
+  } catch {}
+  // #endregion
+}
+
 export async function generateProjectReportPdf(projectId: string, onProgress?: ProgressCallback) {
+  const startedAt = Date.now()
   const adminSupabase = createAdminClient();
   const bucketName = "reports-v3";
 
@@ -17,6 +35,7 @@ export async function generateProjectReportPdf(projectId: string, onProgress?: P
 
   await ensureBucketExists(bucketName);
 
+  const projectLookupStartedAt = Date.now()
   const project = await (prisma as any).project.findUnique({
     where: { id: projectId },
     include: {
@@ -45,6 +64,15 @@ export async function generateProjectReportPdf(projectId: string, onProgress?: P
     throw new Error("Prosjekt ikke funnet");
   }
 
+  // #region debug-point E:project-report-project
+  await reportDebugEvent("E", "lib/reporting/project-report-generator.ts:project:findUnique", "[DEBUG] Project report base data loaded", {
+    projectId,
+    durationMs: Date.now() - projectLookupStartedAt,
+    entryCount: project.entries.length,
+  })
+  // #endregion
+
+  const signedUrlStartedAt = Date.now()
   const entriesWithTransformedUrls = await Promise.all(
     project.entries.map(async (entry: any) => {
       if (!entry.imageUrl) return entry;
@@ -78,6 +106,14 @@ export async function generateProjectReportPdf(projectId: string, onProgress?: P
     })
   );
 
+  // #region debug-point E:project-report-signed-urls
+  await reportDebugEvent("E", "lib/reporting/project-report-generator.ts:signedUrls", "[DEBUG] Project report signed URL phase finished", {
+    projectId,
+    durationMs: Date.now() - signedUrlStartedAt,
+    imageEntryCount: entriesWithTransformedUrls.filter((entry: any) => Boolean(entry.imageUrl)).length,
+  })
+  // #endregion
+
   onProgress?.({
     phase: "Bygger PDF",
     message: "Setter sammen rapporten.",
@@ -91,7 +127,17 @@ export async function generateProjectReportPdf(projectId: string, onProgress?: P
 
   const reportDocument = mapProjectToReport(projectForReport);
   const renderer = new PdfReportRenderer();
+  const renderStartedAt = Date.now()
   const pkg = await renderer.renderPackage(reportDocument);
+
+  // #region debug-point E:project-report-render
+  await reportDebugEvent("E", "lib/reporting/project-report-generator.ts:renderPackage", "[DEBUG] Project report render finished", {
+    projectId,
+    durationMs: Date.now() - renderStartedAt,
+    partCount: pkg.parts.length,
+    totalDurationMs: Date.now() - startedAt,
+  })
+  // #endregion
 
   onProgress?.({
     phase: "Laster opp",
@@ -103,6 +149,7 @@ export async function generateProjectReportPdf(projectId: string, onProgress?: P
   const mainFileName = `project-report-v3-${project.id}-${timestamp}-main.pdf`;
   const mainBuffer = Buffer.from(pkg.main);
 
+  const uploadStartedAt = Date.now()
   const { error: uploadError } = await adminSupabase.storage.from(bucketName).upload(`reports/${mainFileName}`, mainBuffer, {
     contentType: "application/pdf",
     upsert: true,
@@ -142,6 +189,15 @@ export async function generateProjectReportPdf(projectId: string, onProgress?: P
       url: partUrl,
     });
   }
+
+  // #region debug-point E:project-report-upload
+  await reportDebugEvent("E", "lib/reporting/project-report-generator.ts:upload", "[DEBUG] Project report upload finished", {
+    projectId,
+    durationMs: Date.now() - uploadStartedAt,
+    attachmentCount: attachments.length,
+    totalDurationMs: Date.now() - startedAt,
+  })
+  // #endregion
 
   await prisma.projectReport.create({
     data: {

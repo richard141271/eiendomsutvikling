@@ -25,10 +25,14 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { logClientPerformance } from "@/lib/performance/client"
 
 function reportDebugEvent(hypothesisId: "A" | "B" | "C" | "D" | "E", location: string, msg: string, data: Record<string, unknown>) {
-  void hypothesisId
-  void location
-  void msg
-  void data
+  // #region debug-point A:login-report
+  fetch("http://192.168.0.35:7777/event", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ sessionId: "app-speed-lag", runId: "pre-fix", hypothesisId, location, msg, data, ts: Date.now() }),
+    keepalive: true,
+  }).catch(() => {})
+  // #endregion
 }
 
 const formSchema = z.object({
@@ -69,10 +73,19 @@ export function LoginForm() {
       let error: Error | null = null
 
       for (const password of passwordCandidates) {
+        const authAttemptStartedAt = typeof performance !== "undefined" ? performance.now() : Date.now()
         const result = await supabase.auth.signInWithPassword({
           email: values.email,
           password,
         })
+
+        // #region debug-point A:login-auth-attempt
+        reportDebugEvent("A", "components/login-form.tsx:onSubmit:authAttempt", "[DEBUG] Login auth attempt finished", {
+          email: values.email,
+          durationMs: Math.round((typeof performance !== "undefined" ? performance.now() : Date.now()) - authAttemptStartedAt),
+          success: !result.error,
+        })
+        // #endregion
 
         if (!result.error) {
           error = null
@@ -110,6 +123,12 @@ export function LoginForm() {
       logClientPerformance("login", (typeof performance !== "undefined" ? performance.now() : Date.now()) - startedAt, {
         success: true,
       })
+      // #region debug-point B:login-router-push
+      reportDebugEvent("B", "components/login-form.tsx:onSubmit:beforePush", "[DEBUG] Login succeeded and client navigation begins", {
+        email: values.email,
+        durationMs: Math.round((typeof performance !== "undefined" ? performance.now() : Date.now()) - startedAt),
+      })
+      // #endregion
       router.push("/dashboard")
       router.refresh()
     } catch (err) {

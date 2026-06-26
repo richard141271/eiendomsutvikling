@@ -25,10 +25,14 @@ const cleanupDocumentationEntriesCache = new Map<string, CleanupEvidenceEntry[]>
 const cleanupDocumentationMapCache = new Map<string, CleanupEvidenceMap | null>();
 
 function reportDebugEvent(hypothesisId: "A" | "B" | "C" | "D" | "E", location: string, msg: string, data: Record<string, unknown>) {
-  void hypothesisId;
-  void location;
-  void msg;
-  void data;
+  // #region debug-point C:rydderen-report
+  fetch("http://192.168.0.35:7777/event", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ sessionId: "app-speed-lag", runId: "pre-fix", hypothesisId, location, msg, data, ts: Date.now() }),
+    keepalive: true,
+  }).catch(() => undefined);
+  // #endregion
 }
 
 function getProjectListCacheKey(filters?: { contextType?: string | null; contextId?: string | null }) {
@@ -107,7 +111,17 @@ export function useCleanupProjects(filters?: { contextType?: string | null; cont
   const contextId = filters?.contextId ?? null;
 
   const refresh = useCallback(async (options?: { showLoading?: boolean }) => {
+    const startedAt = typeof performance !== "undefined" ? performance.now() : Date.now();
     try {
+      // #region debug-point C:projects-refresh-start
+      reportDebugEvent("C", "src/modules/rydderen/hooks/index.ts:useCleanupProjects:refresh:start", "[DEBUG] Cleanup projects refresh started", {
+        cacheKey,
+        contextType,
+        contextId,
+        showLoading: options?.showLoading ?? !hasCachedProjects,
+        hasCachedProjects,
+      });
+      // #endregion
       if (options?.showLoading ?? !hasCachedProjects) {
         setLoading(true);
       }
@@ -116,8 +130,22 @@ export function useCleanupProjects(filters?: { contextType?: string | null; cont
       cleanupProjectListCache.set(cacheKey, nextProjects);
       primeProjectCache(nextProjects);
       setProjects(nextProjects);
+      // #region debug-point C:projects-refresh-success
+      reportDebugEvent("C", "src/modules/rydderen/hooks/index.ts:useCleanupProjects:refresh:success", "[DEBUG] Cleanup projects refresh finished", {
+        cacheKey,
+        projectCount: nextProjects.length,
+        durationMs: Math.round((typeof performance !== "undefined" ? performance.now() : Date.now()) - startedAt),
+      });
+      // #endregion
     } catch (err) {
       setError(err instanceof Error ? err.message : "Kunne ikke hente ryddeprosjekter");
+      // #region debug-point C:projects-refresh-error
+      reportDebugEvent("C", "src/modules/rydderen/hooks/index.ts:useCleanupProjects:refresh:error", "[DEBUG] Cleanup projects refresh failed", {
+        cacheKey,
+        durationMs: Math.round((typeof performance !== "undefined" ? performance.now() : Date.now()) - startedAt),
+        error: err instanceof Error ? err.message : String(err),
+      });
+      // #endregion
     } finally {
       setLoading(false);
     }
