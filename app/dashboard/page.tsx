@@ -35,27 +35,39 @@ export default async function DashboardPage() {
   })
   // #endregion
 
-  let dbUser = null;
+  let dbUser: any = null;
   if (authUser) {
     const userLookupStartedAt = Date.now()
-    dbUser = await prisma.user.findUnique({
+    const minimalUser = await prisma.user.findUnique({
       where: { authId: authUser.id },
-      include: {
-        receivedCertificates: {
-          orderBy: { createdAt: 'desc' },
-          take: 1
-        },
-        leaseContracts: {
-          where: { status: 'SIGNED' },
-          include: { unit: { include: { property: true } } },
-          take: 1
-        }
-      }
+      select: {
+        id: true,
+        role: true,
+      },
     });
+
+    if (minimalUser?.role === "TENANT") {
+      dbUser = await prisma.user.findUnique({
+        where: { id: minimalUser.id },
+        include: {
+          receivedCertificates: {
+            orderBy: { createdAt: "desc" },
+            take: 1,
+          },
+          leaseContracts: {
+            where: { status: "SIGNED" },
+            include: { unit: { include: { property: true } } },
+            take: 1,
+          },
+        },
+      });
+    } else {
+      dbUser = minimalUser;
+    }
     // #region debug-point B:dashboard-db-user
     await reportDebugEvent("B", "app/dashboard/page.tsx:dbUser:findUnique", "[DEBUG] Dashboard dbUser lookup finished", {
       durationMs: Date.now() - userLookupStartedAt,
-      role: dbUser?.role ?? null,
+      role: (dbUser as any)?.role ?? null,
     })
     // #endregion
   }
