@@ -20,6 +20,45 @@ async function reportDebugEvent(hypothesisId: "A" | "B" | "C" | "D" | "E", locat
 
 export async function middleware(request: NextRequest) {
   const startedAt = Date.now()
+  const pathname = request.nextUrl.pathname
+
+  const cookieNames = request.cookies.getAll().map((c) => c.name)
+  const hasSupabaseCookie = cookieNames.some((name) => name.startsWith("sb-") || name.includes("supabase"))
+
+  if (!hasSupabaseCookie) {
+    // #region debug-point A:middleware-skip-no-cookie
+    await reportDebugEvent("A", "middleware.ts:skip", "[DEBUG] Middleware skipped (no supabase cookies)", {
+      pathname,
+      totalDurationMs: Date.now() - startedAt,
+    })
+    // #endregion
+    return NextResponse.next({
+      request: {
+        headers: request.headers,
+      },
+    })
+  }
+
+  const shouldRefreshSession =
+    pathname.startsWith("/dashboard") ||
+    pathname.startsWith("/projects") ||
+    pathname.startsWith("/tasks") ||
+    pathname.startsWith("/rydderen")
+
+  if (!shouldRefreshSession) {
+    // #region debug-point A:middleware-skip-path
+    await reportDebugEvent("A", "middleware.ts:skip", "[DEBUG] Middleware skipped (path not in refresh list)", {
+      pathname,
+      totalDurationMs: Date.now() - startedAt,
+    })
+    // #endregion
+    return NextResponse.next({
+      request: {
+        headers: request.headers,
+      },
+    })
+  }
+
   let response = NextResponse.next({
     request: {
       headers: request.headers,
@@ -67,7 +106,7 @@ export async function middleware(request: NextRequest) {
 
   // #region debug-point A:middleware-auth-finished
   await reportDebugEvent("A", "middleware.ts:auth:getUser", "[DEBUG] Middleware auth resolved", {
-    pathname: request.nextUrl.pathname,
+    pathname,
     durationMs: Date.now() - authStartedAt,
     hasUser: Boolean(user),
     totalDurationMs: Date.now() - startedAt,
@@ -87,6 +126,6 @@ export const config = {
      * - api/ (API routes - optional, usually we want auth there too, but maybe not refresh logic on every API call? Keeping it for safety)
      * Feel free to modify this pattern to include more paths.
      */
-    '/((?!_next/static|_next/image|favicon.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)',
+    '/((?!api/|_next/static|_next/image|favicon.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)',
   ],
 }

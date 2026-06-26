@@ -111,40 +111,48 @@ export default async function DashboardPage() {
 
   // Admin/Owner Dashboard
   const adminDataStartedAt = Date.now()
-  const propertyCount = await prisma.property.count();
-  const unitCount = await prisma.unit.count();
-  const activeContractCount = await prisma.leaseContract.count({
-    where: {
-      status: "SIGNED"
-    }
-  });
-  const pendingMaintenanceCount = await prisma.maintenanceRequest.count({
-    where: {
-      status: {
-        in: ["REPORTED", "IN_PROGRESS"]
+  const [
+    propertyCount,
+    unitCount,
+    activeContractCount,
+    pendingMaintenanceCount,
+    activeProjectCount,
+    pendingLocationTaskCount,
+    recentProjects,
+    recentProperties,
+  ] = await Promise.all([
+    prisma.property.count(),
+    prisma.unit.count(),
+    prisma.leaseContract.count({
+      where: {
+        status: "SIGNED"
       }
-    }
-  });
-
-  const activeProjectCount = await prisma.project.count({
-    where: { status: "ACTIVE" }
-  });
-  const pendingLocationTaskCount = await prisma.locationTask.count({
-    where: { done: false }
-  });
-
-  const recentProjects = await prisma.project.findMany({
-    take: 5,
-    orderBy: { updatedAt: 'desc' },
-    where: { status: "ACTIVE" },
-    include: { property: true }
-  });
-
-  const recentProperties = await prisma.property.findMany({
-    take: 5,
-    orderBy: { createdAt: 'desc' },
-    select: { id: true, name: true, createdAt: true, address: true }
-  });
+    }),
+    prisma.maintenanceRequest.count({
+      where: {
+        status: {
+          in: ["REPORTED", "IN_PROGRESS"]
+        }
+      }
+    }),
+    prisma.project.count({
+      where: { status: "ACTIVE" }
+    }),
+    prisma.locationTask.count({
+      where: { done: false }
+    }),
+    prisma.project.findMany({
+      take: 5,
+      orderBy: { updatedAt: 'desc' },
+      where: { status: "ACTIVE" },
+      include: { property: true }
+    }),
+    prisma.property.findMany({
+      take: 5,
+      orderBy: { createdAt: 'desc' },
+      select: { id: true, name: true, createdAt: true, address: true }
+    }),
+  ]);
 
   // #region debug-point B:dashboard-admin-data
   await reportDebugEvent("B", "app/dashboard/page.tsx:adminData", "[DEBUG] Dashboard admin data finished", {

@@ -130,7 +130,6 @@ export function LoginForm() {
       })
       // #endregion
       router.push("/dashboard")
-      router.refresh()
     } catch (err) {
       // #region debug-point D:login-catch
       reportDebugEvent("D", "components/login-form.tsx:onSubmit:catch", "[DEBUG] Login threw unexpected error", {
