@@ -3,11 +3,12 @@ import { NextResponse, type NextRequest } from 'next/server'
 
 async function reportDebugEvent(hypothesisId: "A" | "B" | "C" | "D" | "E", location: string, msg: string, data: Record<string, unknown>) {
   // #region debug-point A:middleware-report
+  if (process.env.TRAE_DEBUG !== "1") {
+    return
+  }
   try {
-    const fs = await import("fs/promises")
-    const envText = await fs.readFile(".dbg/app-speed-lag.env", "utf8").catch(() => "")
-    const debugUrl = envText.match(/DEBUG_SERVER_URL=(.+)/)?.[1] || "http://127.0.0.1:7777/event"
-    const sessionId = envText.match(/DEBUG_SESSION_ID=(.+)/)?.[1] || "app-speed-lag"
+    const debugUrl = process.env.TRAE_DEBUG_URL || "http://127.0.0.1:7777/event"
+    const sessionId = process.env.TRAE_DEBUG_SESSION || "app-speed-lag"
     await fetch(debugUrl, {
       method: "POST",
       headers: { "Content-Type": "application/json" },

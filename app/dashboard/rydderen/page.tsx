@@ -34,20 +34,22 @@ export default function RydderenEntryRoute() {
     const preferred = stored && projects.some((project) => project.id === stored) ? stored : projects[0].id;
     window.localStorage.setItem("rydderen-activeProjectId", preferred);
     // #region debug-point C:rydderen-entry-ready
-    fetch("http://192.168.0.35:7777/event", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        sessionId: "app-speed-lag",
-        runId: "pre-fix",
-        hypothesisId: "C",
-        location: "app/dashboard/rydderen/page.tsx:router:replace",
-        msg: "[DEBUG] Rydderen entry resolved and redirecting",
-        data: { projectCount: projects.length, preferredProjectId: preferred, tsDeltaMs: Date.now() },
-        ts: Date.now(),
-      }),
-      keepalive: true,
-    }).catch(() => undefined);
+    if (window.localStorage.getItem("trae-debug") === "1") {
+      fetch(window.localStorage.getItem("trae-debug-url") || "http://127.0.0.1:7777/event", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          sessionId: "app-speed-lag",
+          runId: "pre-fix",
+          hypothesisId: "C",
+          location: "app/dashboard/rydderen/page.tsx:router:replace",
+          msg: "[DEBUG] Rydderen entry resolved and redirecting",
+          data: { projectCount: projects.length, preferredProjectId: preferred, tsDeltaMs: Date.now() },
+          ts: Date.now(),
+        }),
+        keepalive: true,
+      }).catch(() => undefined);
+    }
     // #endregion
     router.replace(`/dashboard/rydderen/projects/${preferred}/register`);
   }, [loading, projects, router]);

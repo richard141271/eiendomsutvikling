@@ -26,7 +26,15 @@ import { logClientPerformance } from "@/lib/performance/client"
 
 function reportDebugEvent(hypothesisId: "A" | "B" | "C" | "D" | "E", location: string, msg: string, data: Record<string, unknown>) {
   // #region debug-point A:login-report
-  fetch("http://192.168.0.35:7777/event", {
+  if (typeof window === "undefined") {
+    return
+  }
+
+  if (window.localStorage.getItem("trae-debug") !== "1") {
+    return
+  }
+
+  fetch(window.localStorage.getItem("trae-debug-url") || "http://127.0.0.1:7777/event", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ sessionId: "app-speed-lag", runId: "pre-fix", hypothesisId, location, msg, data, ts: Date.now() }),
