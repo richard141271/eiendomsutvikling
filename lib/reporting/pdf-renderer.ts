@@ -1,5 +1,6 @@
+import { readFile } from "fs/promises";
 import { PDFDocument, StandardFonts, rgb } from "pdf-lib";
-import { ReportDocument } from "./report-types";
+import { DocumentationEntryMetadata, ReportDocument } from "./report-types";
 
 // Dynamic import for sharp to avoid build/runtime crashes if missing
 let sharp: any;
@@ -48,6 +49,466 @@ const wordWrap = (text: string, font: any, size: number, maxWidth: number): stri
   return lines;
 };
 
+async function fetchImageBytes(url: string) {
+  const response = await fetch(url, { cache: "no-store" });
+  if (!response.ok) {
+    throw new Error(`Status ${response.status}`);
+  }
+  return new Uint8Array(await response.arrayBuffer());
+}
+
+async function embedImage(pdf: PDFDocument, bytes: Uint8Array) {
+  return pdf.embedJpg(bytes).catch(() => pdf.embedPng(bytes));
+}
+
+async function tryLoadLogo(pdf: PDFDocument, logoPath?: string) {
+  if (!logoPath) {
+    return null;
+  }
+
+  try {
+    const bytes = new Uint8Array(await readFile(logoPath));
+    return embedImage(pdf, bytes);
+  } catch {
+    return null;
+  }
+}
+
+async function renderDocumentationReportPackage(document: ReportDocument): Promise<ReportPackage> {
+  const documentation = document.metadata.documentationReport;
+  if (!documentation) {
+    throw new Error("Mangler dokumentasjonsdata for PDF-rendering");
+  }
+
+  const pdf = await PDFDocument.create();
+  const font = await pdf.embedFont(StandardFonts.Helvetica);
+  const bold = await pdf.embedFont(StandardFonts.HelveticaBold);
+  const logo = await tryLoadLogo(pdf, documentation.logoPath);
+
+  const colors = {
+    ink: rgb(0.1, 0.15, 0.23),
+    muted: rgb(0.42, 0.47, 0.56),
+    line: rgb(0.84, 0.87, 0.9),
+    panel: rgb(0.96, 0.97, 0.985),
+    blue: rgb(0.13, 0.27, 0.52),
+    blueSoft: rgb(0.9, 0.94, 0.99),
+    greenSoft: rgb(0.91, 0.97, 0.94),
+    amberSoft: rgb(0.99, 0.96, 0.89),
+  };
+
+  const pagesNeedingChrome: number[] = [];
+
+  const newPage = () => {
+    const page = pdf.addPage();
+    const { width, height } = page.getSize();
+    return { page, width, height };
+  };
+
+  const cover = newPage();
+  {
+    const { page, width, height } = cover;
+    page.drawRectangle({ x: 0, y: 0, width, height, color: rgb(1, 1, 1) });
+    page.drawRectangle({ x: 0, y: height - 130, width, height: 130, color: colors.blue });
+
+    if (logo) {
+      const dims = logo.scale(1);
+      const logoScale = Math.min(120 / Math.max(dims.width, 1), 44 / Math.max(dims.height, 1));
+      page.drawImage(logo, {
+        x: 52,
+        y: height - 84,
+        width: dims.width * logoScale,
+        height: dims.height * logoScale,
+      });
+    } else {
+      page.drawText("RYDDER'N", { x: 52, y: height - 70, size: 20, font: bold, color: rgb(1, 1, 1) });
+    }
+
+    page.drawText(documentation.title, { x: 52, y: height - 190, size: 28, font: bold, color: colors.ink });
+    if (documentation.subtitle) {
+      page.drawText(documentation.subtitle, { x: 52, y: height - 216, size: 13, font, color: colors.muted });
+    }
+
+    page.drawText(documentation.projectName, { x: 52, y: height - 270, size: 24, font: bold, color: colors.ink });
+    page.drawText(documentation.address, { x: 52, y: height - 298, size: 13, font, color: colors.muted });
+
+    const infoTop = height - 360;
+    const info = [
+      ["Saksnummer", documentation.caseNumber],
+      ["Prosjektnavn", documentation.projectName],
+      ["Adresse", documentation.address],
+      ["Saksnavn", documentation.caseName],
+      ["Dato", documentation.dateLabel],
+      ["Opprettet tidspunkt", documentation.createdAtLabel],
+      ["Ansvarlig person", documentation.responsibleLabel],
+      ["Totalt antall funn", String(documentation.totalFindings)],
+      ["Totalt antall bilder", String(documentation.totalImages)],
+    ];
+
+    let y = infoTop;
+    for (let i = 0; i < info.length; i += 1) {
+      const [label, value] = info[i];
+      const isRight = i % 2 === 1;
+      const x = isRight ? width / 2 + 12 : 52;
+      if (!isRight && i > 0) {
+        y -= 56;
+      }
+
+      page.drawRectangle({
+        x,
+        y: y - 30,
+        width: width / 2 - 64,
+        height: 42,
+        color: colors.panel,
+        borderColor: colors.line,
+        borderWidth: 1,
+      });
+      page.drawText(label, { x: x + 12, y: y - 10, size: 9, font: bold, color: colors.muted });
+      page.drawText(sanitizeText(value), { x: x + 12, y: y - 25, size: 11, font, color: colors.ink });
+    }
+
+    page.drawText("Generert av Eiendomsutvikling", {
+      x: 52,
+      y: 34,
+      size: 10,
+      font,
+      color: colors.muted,
+    });
+  }
+
+  const drawChrome = (pageIndex: number, pageObj: { page: any; width: number; height: number }) => {
+    const { page, width, height } = pageObj;
+    page.drawLine({
+      start: { x: 48, y: height - 34 },
+      end: { x: width - 48, y: height - 34 },
+      thickness: 1,
+      color: colors.line,
+    });
+    page.drawText("RYDDER'N | Dokumentasjonsrapport", {
+      x: 48,
+      y: height - 24,
+      size: 10,
+      font: bold,
+      color: colors.muted,
+    });
+    page.drawLine({
+      start: { x: 48, y: 34 },
+      end: { x: width - 48, y: 34 },
+      thickness: 1,
+      color: colors.line,
+    });
+    page.drawText(`Side ${pageIndex + 1} av ${pdf.getPageCount()}`, {
+      x: 48,
+      y: 20,
+      size: 10,
+      font,
+      color: colors.muted,
+    });
+    const footerText = `Saksnummer: ${documentation.caseNumber}`;
+    const footerWidth = font.widthOfTextAtSize(footerText, 10);
+    page.drawText(footerText, {
+      x: width - 48 - footerWidth,
+      y: 20,
+      size: 10,
+      font,
+      color: colors.muted,
+    });
+  };
+
+  const summary = newPage();
+  pagesNeedingChrome.push(pdf.getPageCount() - 1);
+  {
+    const { page, width, height } = summary;
+    let y = height - 72;
+    page.drawText("Sammendrag", { x: 48, y, size: 22, font: bold, color: colors.ink });
+    y -= 28;
+    page.drawText("Rapportsammendrag og nøkkeltall", { x: 48, y, size: 11, font, color: colors.muted });
+    y -= 34;
+
+    const cardWidth = (width - 48 * 2 - 16) / 2;
+    const cardHeight = 86;
+    documentation.summaryCards.forEach((card, index) => {
+      const row = Math.floor(index / 2);
+      const col = index % 2;
+      const x = 48 + col * (cardWidth + 16);
+      const boxY = y - row * (cardHeight + 14);
+      const cardColor = card.tone === "primary" ? colors.blueSoft : card.tone === "success" ? colors.greenSoft : card.tone === "warning" ? colors.amberSoft : colors.panel;
+      page.drawRectangle({
+        x,
+        y: boxY - cardHeight,
+        width: cardWidth,
+        height: cardHeight,
+        color: cardColor,
+        borderColor: colors.line,
+        borderWidth: 1,
+      });
+      page.drawText(card.value, { x: x + 16, y: boxY - 34, size: 26, font: bold, color: colors.ink });
+      page.drawText(card.label.toUpperCase(), { x: x + 16, y: boxY - 56, size: 10, font: bold, color: colors.muted });
+    });
+
+    let tableY = y - 2 * (cardHeight + 14) - 28;
+    page.drawText("Fordeling per kategori", { x: 48, y: tableY, size: 15, font: bold, color: colors.ink });
+    tableY -= 22;
+    const colX = [48, 280, 410, 490];
+    const headers = ["Kategori", "Funn", "Bilder"];
+    headers.forEach((header, index) => {
+      page.drawText(header, { x: colX[index], y: tableY, size: 10, font: bold, color: colors.muted });
+    });
+    tableY -= 12;
+    page.drawLine({ start: { x: 48, y: tableY }, end: { x: width - 48, y: tableY }, thickness: 1, color: colors.line });
+    tableY -= 18;
+    documentation.categoryBreakdown.slice(0, 12).forEach((row) => {
+      page.drawText(sanitizeText(row.label), { x: colX[0], y: tableY, size: 11, font, color: colors.ink });
+      page.drawText(String(row.findings), { x: colX[1], y: tableY, size: 11, font, color: colors.ink });
+      page.drawText(String(row.images), { x: colX[2], y: tableY, size: 11, font, color: colors.ink });
+      tableY -= 18;
+    });
+  }
+
+  if (documentation.zoneRows.length > 0) {
+    const zonePage = newPage();
+    pagesNeedingChrome.push(pdf.getPageCount() - 1);
+    const { page, width, height } = zonePage;
+    let y = height - 72;
+    page.drawText("Soneoversikt", { x: 48, y, size: 22, font: bold, color: colors.ink });
+    y -= 24;
+    page.drawText("Dokumenterte soner med antall funn og bilder", { x: 48, y, size: 11, font, color: colors.muted });
+    y -= 32;
+
+    const columnCount = Math.max(...documentation.zoneRows.map((row) => row.length));
+    const gap = 10;
+    const cellWidth = (width - 96 - gap * (columnCount - 1)) / Math.max(columnCount, 1);
+    const cellHeight = 72;
+
+    documentation.zoneRows.forEach((row, rowIndex) => {
+      const cellY = y - rowIndex * (cellHeight + 12);
+      row.forEach((zone, colIndex) => {
+        const x = 48 + colIndex * (cellWidth + gap);
+        page.drawRectangle({
+          x,
+          y: cellY - cellHeight,
+          width: cellWidth,
+          height: cellHeight,
+          color: zone.documented ? colors.greenSoft : colors.panel,
+          borderColor: zone.documented ? colors.blue : colors.line,
+          borderWidth: 1,
+        });
+        page.drawText(zone.zone, { x: x + 12, y: cellY - 18, size: 16, font: bold, color: colors.ink });
+        page.drawText(zone.documented ? "Dokumentert" : "Ikke dokumentert", { x: x + 12, y: cellY - 36, size: 9, font, color: colors.muted });
+        page.drawText(`Funn: ${zone.findings}`, { x: x + 12, y: cellY - 50, size: 9, font, color: colors.ink });
+        page.drawText(`Bilder: ${zone.images}`, { x: x + 12, y: cellY - 62, size: 9, font, color: colors.ink });
+      });
+    });
+  }
+
+  const entryImageCache = new Map<string, Uint8Array | null>();
+  const loadEntryImage = async (url: string) => {
+    if (entryImageCache.has(url)) {
+      return entryImageCache.get(url) || null;
+    }
+    try {
+      const bytes = await fetchImageBytes(url);
+      entryImageCache.set(url, bytes);
+      return bytes;
+    } catch {
+      entryImageCache.set(url, null);
+      return null;
+    }
+  };
+
+  const renderEntryPage = async (entry: DocumentationEntryMetadata, imageOffset: number) => {
+    const pageObj = newPage();
+    pagesNeedingChrome.push(pdf.getPageCount() - 1);
+    const { page, width, height } = pageObj;
+    let y = height - 74;
+
+    page.drawText(entry.entryNumber, { x: 48, y, size: 22, font: bold, color: colors.ink });
+    const badgeText = `${entry.typeLabel} | ${entry.category}`;
+    const badgeWidth = bold.widthOfTextAtSize(badgeText, 10) + 18;
+    page.drawRectangle({ x: width - 48 - badgeWidth, y: y - 2, width: badgeWidth, height: 18, color: colors.blueSoft });
+    page.drawText(badgeText, { x: width - 48 - badgeWidth + 9, y: y + 4, size: 10, font: bold, color: colors.blue });
+    y -= 28;
+
+    const infoRows = [
+      ["Kategori", entry.category],
+      ["Sone", entry.zone],
+      ["Dato", entry.dateLabel],
+      ["Tid", entry.timeLabel],
+      ["Risiko", entry.risk],
+      ["Antall bilder", String(entry.imageCount)],
+    ];
+    const infoWidth = (width - 96 - 14) / 2;
+    for (let i = 0; i < infoRows.length; i += 2) {
+      const boxY = y;
+      [infoRows[i], infoRows[i + 1]].forEach((item, column) => {
+        if (!item) {
+          return;
+        }
+        const [label, value] = item;
+        const x = 48 + column * (infoWidth + 14);
+        page.drawRectangle({
+          x,
+          y: boxY - 32,
+          width: infoWidth,
+          height: 40,
+          color: colors.panel,
+          borderColor: colors.line,
+          borderWidth: 1,
+        });
+        page.drawText(label, { x: x + 10, y: boxY - 10, size: 9, font: bold, color: colors.muted });
+        page.drawText(sanitizeText(value), { x: x + 10, y: boxY - 24, size: 11, font, color: colors.ink });
+      });
+      y -= 48;
+    }
+
+    const drawTextPanel = (title: string, text: string, panelHeight: number) => {
+      page.drawRectangle({
+        x: 48,
+        y: y - panelHeight,
+        width: width - 96,
+        height: panelHeight,
+        color: rgb(1, 1, 1),
+        borderColor: colors.line,
+        borderWidth: 1,
+      });
+      page.drawText(title, { x: 60, y: y - 18, size: 11, font: bold, color: colors.ink });
+      const lines = wordWrap(text, font, 11, width - 120);
+      let textY = y - 34;
+      lines.slice(0, Math.max(1, Math.floor((panelHeight - 28) / 14))).forEach((line) => {
+        page.drawText(line, { x: 60, y: textY, size: 11, font, color: colors.ink });
+        textY -= 14;
+      });
+      y -= panelHeight + 14;
+    };
+
+    const descriptionHeight = Math.max(60, Math.min(110, wordWrap(entry.description, font, 11, width - 120).length * 14 + 30));
+    drawTextPanel("Beskrivelse", entry.description, descriptionHeight);
+    const commentHeight = Math.max(52, Math.min(90, wordWrap(entry.comment, font, 11, width - 120).length * 14 + 30));
+    drawTextPanel("Kommentar", entry.comment, commentHeight);
+
+    page.drawText("Bilder", { x: 48, y, size: 15, font: bold, color: colors.ink });
+    y -= 18;
+
+    const remainingImages = entry.images.slice(imageOffset);
+    if (remainingImages.length === 0) {
+      page.drawText("Ingen bilder registrert.", { x: 48, y: y - 8, size: 11, font, color: colors.muted });
+      return entry.images.length;
+    }
+
+    const columns = remainingImages.length >= 10 ? 4 : 2;
+    const gap = 10;
+    const captionHeight = 24;
+    const imageAreaBottom = 56;
+    const cellWidth = (width - 96 - gap * (columns - 1)) / columns;
+    const imageHeight = columns === 4 ? 80 : 140;
+    const rowHeight = imageHeight + captionHeight + 12;
+    const rowsAvailable = Math.max(1, Math.floor((y - imageAreaBottom) / rowHeight));
+    const capacity = Math.max(1, rowsAvailable * columns);
+    const imagesForPage = remainingImages.slice(0, capacity);
+
+    const loadedImages = await Promise.all(
+      imagesForPage.map(async (image) => ({
+        meta: image,
+        bytes: await loadEntryImage(image.imageUrl),
+      }))
+    );
+
+    loadedImages.forEach(({ bytes }, index) => {
+      const row = Math.floor(index / columns);
+      const col = index % columns;
+      const cellX = 48 + col * (cellWidth + gap);
+      const cellTop = y - row * rowHeight;
+      page.drawRectangle({
+        x: cellX,
+        y: cellTop - imageHeight,
+        width: cellWidth,
+        height: imageHeight,
+        borderColor: colors.line,
+        borderWidth: 1,
+        color: colors.panel,
+      });
+
+      if (bytes) {
+        void bytes;
+      }
+    });
+
+    for (let index = 0; index < loadedImages.length; index += 1) {
+      const { meta, bytes } = loadedImages[index];
+      const row = Math.floor(index / columns);
+      const col = index % columns;
+      const cellX = 48 + col * (cellWidth + gap);
+      const cellTop = y - row * rowHeight;
+
+      if (bytes) {
+        try {
+          const image = await embedImage(pdf, bytes);
+          const dims = image.scale(1);
+          const scale = Math.min(cellWidth / Math.max(dims.width, 1), imageHeight / Math.max(dims.height, 1));
+          const drawWidth = dims.width * scale;
+          const drawHeight = dims.height * scale;
+          page.drawImage(image, {
+            x: cellX + (cellWidth - drawWidth) / 2,
+            y: cellTop - imageHeight + (imageHeight - drawHeight) / 2,
+            width: drawWidth,
+            height: drawHeight,
+          });
+        } catch {
+          page.drawText("Kunne ikke vise bilde", { x: cellX + 8, y: cellTop - 34, size: 9, font, color: colors.muted });
+        }
+      } else {
+        page.drawText("Kunne ikke vise bilde", { x: cellX + 8, y: cellTop - 34, size: 9, font, color: colors.muted });
+      }
+
+      page.drawText(meta.code, { x: cellX, y: cellTop - imageHeight - 12, size: 9, font: bold, color: colors.ink });
+      page.drawText(meta.dateLabel, { x: cellX, y: cellTop - imageHeight - 23, size: 8, font, color: colors.muted });
+    }
+
+    return imageOffset + imagesForPage.length;
+  };
+
+  for (const entry of documentation.entries) {
+    let offset = 0;
+    do {
+      offset = await renderEntryPage(entry, offset);
+    } while (offset < entry.images.length);
+  }
+
+  const conclusion = newPage();
+  pagesNeedingChrome.push(pdf.getPageCount() - 1);
+  {
+    const { page, height } = conclusion;
+    let y = height - 72;
+    page.drawText("Konklusjon", { x: 48, y, size: 24, font: bold, color: colors.ink });
+    y -= 34;
+    const lines = [
+      "Denne rapporten omfatter:",
+      `- totalt ${documentation.totalFindings} funn`,
+      `- totalt ${documentation.totalImages} bilder`,
+      `- dokumenterte soner: ${documentation.conclusionZones.join(", ") || "-"}`,
+      "",
+      "Alt materiale er lagret digitalt og kan spores tilbake til opprinnelig registrering i databasen.",
+      "",
+      `Dato: ${documentation.dateLabel}`,
+      `Ansvarlig: ${documentation.responsibleLabel}`,
+    ];
+    lines.forEach((line) => {
+      page.drawText(sanitizeText(line), { x: 48, y, size: line === "Denne rapporten omfatter:" ? 13 : 12, font: line === "Denne rapporten omfatter:" ? bold : font, color: colors.ink });
+      y -= line ? 20 : 14;
+    });
+  }
+
+  pagesNeedingChrome.forEach((pageIndex) => {
+    const page = pdf.getPage(pageIndex);
+    const { width, height } = page.getSize();
+    drawChrome(pageIndex, { page, width, height });
+  });
+
+  return {
+    main: await pdf.save(),
+    parts: [],
+  };
+}
+
 export interface ReportPackage {
   main: Uint8Array;
   parts: { name: string; data: Uint8Array }[];
@@ -60,6 +521,10 @@ export interface ReportRenderer {
 
 export class PdfReportRenderer implements ReportRenderer {
   async renderPackage(document: ReportDocument): Promise<ReportPackage> {
+    if (document.metadata.documentType === "DOKUMENTASJONSRAPPORT" && document.metadata.documentationReport) {
+      return renderDocumentationReportPackage(document);
+    }
+
     // --- 1. Generate Main Report ---
     const mainPdf = await PDFDocument.create();
     const mainFont = await mainPdf.embedFont(StandardFonts.Helvetica);
@@ -628,6 +1093,11 @@ export class PdfReportRenderer implements ReportRenderer {
   }
 
   async render(document: ReportDocument): Promise<Uint8Array> {
+    if (document.metadata.documentType === "DOKUMENTASJONSRAPPORT" && document.metadata.documentationReport) {
+      const pkg = await renderDocumentationReportPackage(document);
+      return pkg.main;
+    }
+
     const pdfDoc = await PDFDocument.create();
     const font = await pdfDoc.embedFont(StandardFonts.Helvetica);
     const bold = await pdfDoc.embedFont(StandardFonts.HelveticaBold);

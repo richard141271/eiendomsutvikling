@@ -15,6 +15,70 @@ export interface DocumentMetadata {
   parties: Party[];
   status: string;
   referenceId: string;
+  documentationReport?: DocumentationReportMetadata;
+}
+
+export interface DocumentationSummaryCard {
+  label: string;
+  value: string;
+  tone?: "neutral" | "primary" | "success" | "warning";
+}
+
+export interface DocumentationCategoryBreakdown {
+  label: string;
+  findings: number;
+  images: number;
+}
+
+export interface DocumentationZoneCell {
+  zone: string;
+  documented: boolean;
+  findings: number;
+  images: number;
+}
+
+export interface DocumentationEntryImageMetadata {
+  id: string;
+  code: string;
+  dateLabel: string;
+  imageUrl: string;
+  sortOrder: number;
+}
+
+export interface DocumentationEntryMetadata {
+  id: string;
+  entryNumber: string;
+  typeLabel: string;
+  category: string;
+  zone: string;
+  dateLabel: string;
+  timeLabel: string;
+  risk: string;
+  description: string;
+  comment: string;
+  imageCount: number;
+  images: DocumentationEntryImageMetadata[];
+}
+
+export interface DocumentationReportMetadata {
+  title: string;
+  subtitle?: string;
+  logoPath?: string;
+  projectName: string;
+  address: string;
+  caseName: string;
+  caseNumber: string;
+  dateLabel: string;
+  createdAtLabel: string;
+  responsibleLabel: string;
+  totalFindings: number;
+  totalImages: number;
+  totalCategories: number;
+  summaryCards: DocumentationSummaryCard[];
+  categoryBreakdown: DocumentationCategoryBreakdown[];
+  zoneRows: DocumentationZoneCell[][];
+  entries: DocumentationEntryMetadata[];
+  conclusionZones: string[];
 }
 
 export type ContentBlockKind =
@@ -94,6 +158,7 @@ export interface EvidenceItem {
   missingLinkNote?: string;
   missingLinkResolved?: boolean;
   linkedEvidenceNumber?: number;
+  metadata?: Record<string, unknown>;
 }
 
 export interface EconomyLine {
