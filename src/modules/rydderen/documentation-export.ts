@@ -21,6 +21,7 @@ const IMAGE_FETCH_CONCURRENCY = 6;
 const SHARE_IMAGE_MAX_WIDTH = 1600;
 const SHARE_IMAGE_MAX_HEIGHT = 1600;
 const SHARE_IMAGE_QUALITY = 0.8;
+export const MAX_GUIDED_SHARE_FILES = 25;
 
 export type DocumentationExportProgress = {
   phase: "preparing" | "sharing" | "downloading";
@@ -29,16 +30,20 @@ export type DocumentationExportProgress = {
   message: string;
 };
 
-export type SaveImagesResult =
-  | {
-      mode: "share";
-      fileCount: number;
-    }
-  | {
-      mode: "zip";
-      fileCount: number;
-      zipFilename: string;
-    };
+export type SaveImagesResult = {
+  mode: "share";
+  fileCount: number;
+  sharedCount: number;
+  nextIndex: number;
+  remainingCount: number;
+  totalCount: number;
+};
+
+type DocumentationImageTask = {
+  entry: CleanupEvidenceEntry;
+  image: CleanupEvidenceEntryImage;
+  index: number;
+};
 
 function reportDebugEvent(
   hypothesisId: "A" | "B" | "C" | "D" | "E",
@@ -367,27 +372,34 @@ async function fetchEntryImageBlobs(entry: CleanupEvidenceEntry, traceId: string
   return result;
 }
 
-async function collectDocumentationImageFiles(params: {
-  project: CleanupProject;
-  entries: CleanupEvidenceEntry[];
-  traceId: string;
-  onProgress?: (progress: DocumentationExportProgress) => void;
-  optimizeForShare?: boolean;
-}) {
-  const tasks = params.entries.flatMap((entry) =>
+function getDocumentationImageTasks(entries: CleanupEvidenceEntry[]): DocumentationImageTask[] {
+  return entries.flatMap((entry) =>
     entry.images
       .filter((image) => Boolean(image.imageUrl))
       .map((image, index) => ({ entry, image, index }))
   );
+}
 
+export function countDocumentationImages(entries: CleanupEvidenceEntry[]) {
+  return getDocumentationImageTasks(entries).length;
+}
+
+async function collectDocumentationImageFiles(params: {
+  project: CleanupProject;
+  tasks: DocumentationImageTask[];
+  traceId: string;
+  onProgress?: (progress: DocumentationExportProgress) => void;
+  optimizeForShare?: boolean;
+  progressPrefix?: string;
+}) {
   params.onProgress?.({
     phase: "preparing",
     completed: 0,
-    total: tasks.length,
-    message: tasks.length > 0 ? `Klargjor ${tasks.length} bilder...` : "Klargjor bilder...",
+    total: params.tasks.length,
+    message: params.tasks.length > 0 ? `${params.progressPrefix || "Klargjor"} ${params.tasks.length} bilder...` : "Klargjor bilder...",
   });
 
-  const files: File[] = new Array(tasks.length);
+  const files: File[] = new Array(params.tasks.length);
   let completed = 0;
   let cursor = 0;
 
@@ -395,11 +407,11 @@ async function collectDocumentationImageFiles(params: {
     while (true) {
       const currentIndex = cursor;
       cursor += 1;
-      if (currentIndex >= tasks.length) {
+      if (currentIndex >= params.tasks.length) {
         return;
       }
 
-      const task = tasks[currentIndex];
+      const task = params.tasks[currentIndex];
       const blob = await fetchBlobFromUrl(task.image.imageUrl as string);
       const exportBlob = params.optimizeForShare
         ? await createOptimizedImageBlob(blob, SHARE_IMAGE_MAX_WIDTH, SHARE_IMAGE_MAX_HEIGHT, SHARE_IMAGE_QUALITY)
@@ -417,13 +429,13 @@ async function collectDocumentationImageFiles(params: {
       params.onProgress?.({
         phase: "preparing",
         completed,
-        total: tasks.length,
-        message: `Klargjor bilder... ${completed}/${tasks.length}`,
+        total: params.tasks.length,
+        message: `${params.progressPrefix || "Klargjor bilder..."} ${completed}/${params.tasks.length}`,
       });
     }
   };
 
-  await Promise.all(Array.from({ length: Math.min(IMAGE_FETCH_CONCURRENCY, Math.max(1, tasks.length)) }, () => worker()));
+  await Promise.all(Array.from({ length: Math.min(IMAGE_FETCH_CONCURRENCY, Math.max(1, params.tasks.length)) }, () => worker()));
 
   return files.filter(Boolean);
 }
@@ -478,23 +490,32 @@ export async function exportDocumentationZip(params: {
 export async function saveAllDocumentationImages(params: {
   project: CleanupProject;
   entries: CleanupEvidenceEntry[];
+  startIndex?: number;
+  maxFiles?: number;
   onProgress?: (progress: DocumentationExportProgress) => void;
 }) {
   const traceId = `save-images-${params.project.id}-${Date.now()}`;
-  const totalImages = params.entries.reduce((sum, entry) => sum + entry.images.length, 0);
+  const allTasks = getDocumentationImageTasks(params.entries);
+  const totalImages = allTasks.length;
+  const startIndex = Math.max(0, Math.min(params.startIndex || 0, totalImages));
+  const requestedMaxFiles = Math.max(1, params.maxFiles || MAX_GUIDED_SHARE_FILES);
+  const nextTasks = allTasks.slice(startIndex, startIndex + requestedMaxFiles);
   // #region debug-point A:save-images-start
   reportDebugEvent("A", "documentation-export.ts:saveAllDocumentationImages:start", "[DEBUG] saveAllDocumentationImages started", {
     projectId: params.project.id,
     entryCount: params.entries.length,
     imageCount: totalImages,
+    startIndex,
+    requestedMaxFiles,
   }, traceId);
   // #endregion
   const files = await collectDocumentationImageFiles({
     project: params.project,
-    entries: params.entries,
+    tasks: nextTasks,
     traceId,
     onProgress: params.onProgress,
     optimizeForShare: true,
+    progressPrefix: "Klargjor neste bilder...",
   });
 
   if (files.length === 0) {
@@ -513,16 +534,7 @@ export async function saveAllDocumentationImages(params: {
       fileCount: files.length,
     }, traceId);
     // #endregion
-    const zipFilename = `${slugify(params.project.name || "bilder")}-bilder.zip`;
-    params.onProgress?.({
-      phase: "downloading",
-      completed: files.length,
-      total: files.length,
-      message: "Direkte lagring til Bilder stottes ikke her. Laster ned ZIP automatisk...",
-    });
-    const zipBlob = await buildStoredZip(files.map((file) => ({ name: file.name, blob: file })));
-    downloadBlob(zipBlob, zipFilename);
-    return { mode: "zip", fileCount: files.length, zipFilename } satisfies SaveImagesResult;
+    throw new Error("Denne enheten stotter ikke direkte lagring til Bilder fra nettleseren.");
   }
 
   const shareBatches = resolveShareBatches(files).filter((batch) => batch.length > 0);
@@ -543,88 +555,83 @@ export async function saveAllDocumentationImages(params: {
       fileCount: files.length,
     }, traceId);
     // #endregion
-    throw new Error("Denne mobilen tillot ikke a dele bildene direkte her. Bruk 'ZIP med bilder' i stedet.");
+    throw new Error("Denne mobilen tillot ikke a dele denne bildedelen direkte til Bilder.");
   }
 
-  if (shareBatches.length > 1) {
-    const zipFilename = `${slugify(params.project.name || "bilder")}-bilder.zip`;
-    // #region debug-point B:share-fallback-zip
-    reportDebugEvent("B", "documentation-export.ts:saveAllDocumentationImages:share-fallback-zip", "[DEBUG] Falling back to ZIP because share requires multiple batches", {
-      projectId: params.project.id,
-      fileCount: files.length,
-      batchCount: shareBatches.length,
-    }, traceId);
-    // #endregion
-    params.onProgress?.({
-      phase: "downloading",
-      completed: files.length,
-      total: files.length,
-      message: "Det er for mange bilder for direkte lagring til Bilder. Laster ned ZIP automatisk...",
-    });
-    const zipBlob = await buildStoredZip(files.map((file) => ({ name: file.name, blob: file })));
-    downloadBlob(zipBlob, zipFilename);
-    return { mode: "zip", fileCount: files.length, zipFilename } satisfies SaveImagesResult;
-  }
-
+  const batch = shareBatches[0];
   params.onProgress?.({
     phase: "sharing",
-    completed: files.length,
-    total: files.length,
-    message: "Apner delingsarket for Bilder...",
+    completed: startIndex,
+    total: totalImages,
+    message: `Apner delingsarket for ${batch.length} bilde${batch.length === 1 ? "" : "r"}...`,
   });
 
-  for (let index = 0; index < shareBatches.length; index += 1) {
-    const batch = shareBatches[index];
-    try {
-      // #region debug-point B:share-batch-start
-      reportDebugEvent("B", "documentation-export.ts:saveAllDocumentationImages:share-batch-start", "[DEBUG] Starting share batch", {
-        batchIndex: index,
-        batchCount: shareBatches.length,
-        fileCount: batch.length,
-        totalBytes: batch.reduce((sum, file) => sum + file.size, 0),
-      }, traceId);
-      // #endregion
-      await navigator.share({
-        files: batch,
-        title: shareBatches.length > 1 ? `Dokumentasjonsbilder (${index + 1}/${shareBatches.length})` : "Dokumentasjonsbilder",
-        text:
-          shareBatches.length > 1
-            ? `Velg 'Lagre i Bilder' for del ${index + 1} av ${shareBatches.length}.`
-            : "Velg 'Lagre i Bilder' i delingsarket for a lagre originalene i bildebiblioteket.",
-      });
-      // #region debug-point B:share-batch-finished
-      reportDebugEvent("B", "documentation-export.ts:saveAllDocumentationImages:share-batch-finished", "[DEBUG] Finished share batch", {
-        batchIndex: index,
-        batchCount: shareBatches.length,
-      }, traceId);
-      // #endregion
-    } catch (error) {
-      const message = error instanceof Error ? error.message : String(error);
-      const normalized = message.toLowerCase();
-      // #region debug-point B:share-batch-error
-      reportDebugEvent("B", "documentation-export.ts:saveAllDocumentationImages:share-batch-error", "[DEBUG] Share batch failed", {
-        batchIndex: index,
-        batchCount: shareBatches.length,
-        error: message,
-      }, traceId);
-      // #endregion
-      if (normalized.includes("aborterror") || normalized.includes("cancel")) {
-        return { mode: "share", fileCount: files.length } satisfies SaveImagesResult;
-      }
-      if (normalized.includes("notallowederror") || normalized.includes("not allowed") || normalized.includes("denied")) {
-        throw new Error("Denne mobilen tillot ikke a apne delingsarket her. Prov igjen direkte i Safari, eller bruk 'ZIP med bilder' i stedet.");
-      }
-      throw new Error("Kunne ikke apne delingsarket for bilder. Bruk 'ZIP med bilder' hvis dette fortsetter.");
+  try {
+    // #region debug-point B:share-batch-start
+    reportDebugEvent("B", "documentation-export.ts:saveAllDocumentationImages:share-batch-start", "[DEBUG] Starting share batch", {
+      batchIndex: 0,
+      batchCount: shareBatches.length,
+      fileCount: batch.length,
+      totalBytes: batch.reduce((sum, file) => sum + file.size, 0),
+      startIndex,
+    }, traceId);
+    // #endregion
+    await navigator.share({
+      files: batch,
+      title: "Dokumentasjonsbilder",
+      text: "Velg 'Lagre i Bilder' i delingsarket for denne delen.",
+    });
+    // #region debug-point B:share-batch-finished
+    reportDebugEvent("B", "documentation-export.ts:saveAllDocumentationImages:share-batch-finished", "[DEBUG] Finished share batch", {
+      batchIndex: 0,
+      batchCount: shareBatches.length,
+      sharedCount: batch.length,
+      startIndex,
+    }, traceId);
+    // #endregion
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    const normalized = message.toLowerCase();
+    // #region debug-point B:share-batch-error
+    reportDebugEvent("B", "documentation-export.ts:saveAllDocumentationImages:share-batch-error", "[DEBUG] Share batch failed", {
+      batchIndex: 0,
+      batchCount: shareBatches.length,
+      error: message,
+      startIndex,
+    }, traceId);
+    // #endregion
+    if (normalized.includes("aborterror") || normalized.includes("cancel")) {
+      return {
+        mode: "share",
+        fileCount: files.length,
+        sharedCount: 0,
+        nextIndex: startIndex,
+        remainingCount: totalImages - startIndex,
+        totalCount: totalImages,
+      } satisfies SaveImagesResult;
     }
+    if (normalized.includes("notallowederror") || normalized.includes("not allowed") || normalized.includes("denied")) {
+      throw new Error("Denne mobilen tillot ikke a apne delingsarket her. Prov igjen direkte i Safari.");
+    }
+    throw new Error("Kunne ikke apne delingsarket for bilder pa denne delen.");
   }
 
   // #region debug-point B:save-images-finished
   reportDebugEvent("B", "documentation-export.ts:saveAllDocumentationImages:finished", "[DEBUG] saveAllDocumentationImages finished", {
     projectId: params.project.id,
     batchCount: shareBatches.length,
+    startIndex,
+    sharedCount: batch.length,
   }, traceId);
   // #endregion
-  return { mode: "share", fileCount: files.length } satisfies SaveImagesResult;
+  return {
+    mode: "share",
+    fileCount: files.length,
+    sharedCount: batch.length,
+    nextIndex: startIndex + batch.length,
+    remainingCount: Math.max(0, totalImages - (startIndex + batch.length)),
+    totalCount: totalImages,
+  } satisfies SaveImagesResult;
 }
 
 export async function exportDocumentationDocx(params: {

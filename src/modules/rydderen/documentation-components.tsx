@@ -568,6 +568,7 @@ export function RydderenDocumentationReportView(props: {
   entries: CleanupEvidenceEntry[];
   search: string;
   exporting?: boolean;
+  saveImagesLabel?: string;
   onSearchChange: (value: string) => void;
   onClearSearch: () => void;
   onBack: () => void;
@@ -657,7 +658,7 @@ export function RydderenDocumentationReportView(props: {
           </Button>
           <Button type="button" variant="outline" className="min-h-14 rounded-[18px] text-base font-bold" disabled={props.exporting} onClick={props.onSaveImages}>
             <ImageIcon className="mr-2 h-4 w-4" />
-            Til Bilder
+            {props.saveImagesLabel || "Til Bilder"}
           </Button>
           <Button type="button" variant="outline" className="min-h-14 rounded-[18px] text-base font-bold" disabled={props.exporting} onClick={props.onExportZip}>
             <FileArchive className="mr-2 h-4 w-4" />

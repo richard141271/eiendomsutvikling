@@ -14,7 +14,14 @@ import {
   RydderenDocumentationMenu,
   RydderenDocumentationReportView,
 } from "@/src/modules/rydderen/documentation-components";
-import { exportDocumentationDocx, exportDocumentationZip, saveAllDocumentationImages, type DocumentationExportProgress } from "@/src/modules/rydderen/documentation-export";
+import {
+  MAX_GUIDED_SHARE_FILES,
+  countDocumentationImages,
+  exportDocumentationDocx,
+  exportDocumentationZip,
+  saveAllDocumentationImages,
+  type DocumentationExportProgress,
+} from "@/src/modules/rydderen/documentation-export";
 import {
   RydderenAppShell,
   RydderenCostForm,
@@ -152,6 +159,53 @@ async function compressDocumentationImage(file: File) {
 
 function getProjectConfirmationKey(cleanupProjectId: string) {
   return `rydderen-project-confirmed:${cleanupProjectId}`;
+}
+
+type ImageShareQueueState = {
+  nextIndex: number;
+  totalCount: number;
+  batchSize: number;
+};
+
+function getImageShareQueueKey(cleanupProjectId: string) {
+  return `rydderen-image-share-queue:${cleanupProjectId}`;
+}
+
+function loadImageShareQueue(cleanupProjectId: string): ImageShareQueueState | null {
+  if (typeof window === "undefined") {
+    return null;
+  }
+  const raw = window.sessionStorage.getItem(getImageShareQueueKey(cleanupProjectId));
+  if (!raw) {
+    return null;
+  }
+  try {
+    const parsed = JSON.parse(raw) as Partial<ImageShareQueueState>;
+    if (typeof parsed?.nextIndex !== "number" || typeof parsed?.totalCount !== "number" || typeof parsed?.batchSize !== "number") {
+      return null;
+    }
+    return {
+      nextIndex: Math.max(0, parsed.nextIndex),
+      totalCount: Math.max(0, parsed.totalCount),
+      batchSize: Math.max(1, parsed.batchSize),
+    };
+  } catch {
+    return null;
+  }
+}
+
+function storeImageShareQueue(cleanupProjectId: string, state: ImageShareQueueState) {
+  if (typeof window === "undefined") {
+    return;
+  }
+  window.sessionStorage.setItem(getImageShareQueueKey(cleanupProjectId), JSON.stringify(state));
+}
+
+function clearImageShareQueue(cleanupProjectId: string) {
+  if (typeof window === "undefined") {
+    return;
+  }
+  window.sessionStorage.removeItem(getImageShareQueueKey(cleanupProjectId));
 }
 
 function reportDebugEvent(hypothesisId: "A" | "B" | "C" | "D" | "E", location: string, msg: string, data: Record<string, unknown>) {
@@ -604,6 +658,7 @@ export function RydderenDocumentationPage(props: { cleanupProjectId: string; bas
   const [search, setSearch] = useState("");
   const [exporting, setExporting] = useState(false);
   const [exportStatus, setExportStatus] = useState<DocumentationExportProgress | null>(null);
+  const [imageShareQueue, setImageShareQueue] = useState<ImageShareQueueState | null>(null);
   const cameraInputRef = useRef<HTMLInputElement | null>(null);
   const galleryInputRef = useRef<HTMLInputElement | null>(null);
   const latestImagesRef = useRef<CleanupDocumentationDraftImage[]>([]);
@@ -612,6 +667,11 @@ export function RydderenDocumentationPage(props: { cleanupProjectId: string; bas
   const nextSequence =
     entriesState.entries.filter((entry) => entry.entryType === entryType).reduce((max, entry) => Math.max(max, entry.sequence), 0) + 1;
   const nextEntryNumber = formatCleanupEvidenceNumber(entryType, nextSequence);
+  const totalDocumentationImages = useMemo(() => countDocumentationImages(entriesState.entries), [entriesState.entries]);
+  const nextShareCount = imageShareQueue
+    ? Math.min(imageShareQueue.batchSize, Math.max(0, imageShareQueue.totalCount - imageShareQueue.nextIndex))
+    : Math.min(MAX_GUIDED_SHARE_FILES, totalDocumentationImages);
+  const saveImagesLabel = imageShareQueue && imageShareQueue.nextIndex > 0 ? `Til Bilder (${nextShareCount} neste)` : "Til Bilder";
   const timestampLabel = `${new Date().toLocaleDateString("no-NO")} ${new Date().toLocaleTimeString("no-NO", {
     hour: "2-digit",
     minute: "2-digit",
@@ -628,6 +688,20 @@ export function RydderenDocumentationPage(props: { cleanupProjectId: string; bas
   useEffect(() => {
     latestImagesRef.current = images;
   }, [images]);
+
+  useEffect(() => {
+    const stored = loadImageShareQueue(props.cleanupProjectId);
+    if (!stored) {
+      setImageShareQueue(null);
+      return;
+    }
+    if (totalDocumentationImages === 0 || stored.totalCount !== totalDocumentationImages || stored.nextIndex >= totalDocumentationImages) {
+      clearImageShareQueue(props.cleanupProjectId);
+      setImageShareQueue(null);
+      return;
+    }
+    setImageShareQueue(stored);
+  }, [props.cleanupProjectId, totalDocumentationImages]);
 
   useEffect(() => {
     return () => {
@@ -1002,6 +1076,7 @@ export function RydderenDocumentationPage(props: { cleanupProjectId: string; bas
           map={mapState.map}
           entries={entriesState.entries}
           search={search}
+          saveImagesLabel={saveImagesLabel}
           exporting={exporting}
           onSearchChange={setSearch}
           onClearSearch={() => setSearch("")}
@@ -1055,28 +1130,51 @@ export function RydderenDocumentationPage(props: { cleanupProjectId: string; bas
                 setExportStatus({
                   phase: "preparing",
                   completed: 0,
-                  total: entriesState.entries.reduce((sum, entry) => sum + entry.images.length, 0),
-                  message: "Starter bildeeksport...",
+                  total: nextShareCount,
+                  message:
+                    imageShareQueue && imageShareQueue.nextIndex > 0
+                      ? `Klargjor neste del for Bilder (${imageShareQueue.nextIndex + 1}-${Math.min(imageShareQueue.totalCount, imageShareQueue.nextIndex + nextShareCount)})...`
+                      : "Starter bildeeksport til Bilder...",
                 });
                 const result = await saveAllDocumentationImages({
                   project: activeProject,
                   entries: entriesState.entries,
+                  startIndex: imageShareQueue?.nextIndex || 0,
+                  maxFiles: imageShareQueue?.batchSize || MAX_GUIDED_SHARE_FILES,
                   onProgress: setExportStatus,
                 });
-                if (result.mode === "zip") {
-                  setExportStatus({
-                    phase: "downloading",
-                    completed: result.fileCount,
-                    total: result.fileCount,
-                    message: "Mange bilder ble eksportert som ZIP automatisk for a unnga hengende delingsark pa iPhone.",
-                  });
-                } else {
+                if (result.sharedCount === 0) {
                   setExportStatus({
                     phase: "sharing",
-                    completed: result.fileCount,
-                    total: result.fileCount,
-                    message: "Delingsarket er apnet. Velg 'Lagre i Bilder'.",
+                    completed: result.nextIndex,
+                    total: result.totalCount,
+                    message: "Deling ble avbrutt. Trykk 'Til Bilder' igjen for samme del.",
                   });
+                } else {
+                  if (result.remainingCount > 0) {
+                    const nextQueueState = {
+                      nextIndex: result.nextIndex,
+                      totalCount: result.totalCount,
+                      batchSize: MAX_GUIDED_SHARE_FILES,
+                    } satisfies ImageShareQueueState;
+                    storeImageShareQueue(props.cleanupProjectId, nextQueueState);
+                    setImageShareQueue(nextQueueState);
+                    setExportStatus({
+                      phase: "sharing",
+                      completed: result.nextIndex,
+                      total: result.totalCount,
+                      message: `Denne delen er sendt til delingsarket. Velg 'Lagre i Bilder', og trykk deretter 'Til Bilder (${Math.min(nextQueueState.batchSize, result.remainingCount)} neste)' for a fortsette.`,
+                    });
+                  } else {
+                    clearImageShareQueue(props.cleanupProjectId);
+                    setImageShareQueue(null);
+                    setExportStatus({
+                      phase: "sharing",
+                      completed: result.totalCount,
+                      total: result.totalCount,
+                      message: "Siste del er sendt til delingsarket. Velg 'Lagre i Bilder' for a fullfore.",
+                    });
+                  }
                 }
               } catch (exportError) {
                 // #region debug-point E:on-save-images-error
