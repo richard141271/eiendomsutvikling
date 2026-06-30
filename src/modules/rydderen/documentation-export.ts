@@ -3,6 +3,9 @@
 import type { CleanupEvidenceEntry, CleanupEvidenceEntryImage, CleanupEvidenceMap, CleanupProject } from "@/src/modules/rydderen/types";
 import { formatDate, getCleanupDocumentationTypeConfig, slugify } from "@/src/modules/rydderen/utils";
 
+const DEBUG_SERVER_URL = "http://192.168.0.35:7777/event";
+const DEBUG_SESSION_ID = "documentation-export-stuck";
+
 function downloadBlob(blob: Blob, filename: string) {
   const url = URL.createObjectURL(blob);
   const link = document.createElement("a");
@@ -16,6 +19,47 @@ function downloadBlob(blob: Blob, filename: string) {
 
 const MAX_SHARE_BATCH_FILES = 12;
 const MAX_SHARE_BATCH_BYTES = 36 * 1024 * 1024;
+const IMAGE_FETCH_CONCURRENCY = 6;
+
+export type DocumentationExportProgress = {
+  phase: "preparing" | "sharing" | "downloading";
+  completed: number;
+  total: number;
+  message: string;
+};
+
+export type SaveImagesResult =
+  | {
+      mode: "share";
+      fileCount: number;
+    }
+  | {
+      mode: "zip";
+      fileCount: number;
+      zipFilename: string;
+    };
+
+function reportDebugEvent(
+  hypothesisId: "A" | "B" | "C" | "D" | "E",
+  location: string,
+  msg: string,
+  data: Record<string, unknown>,
+  traceId: string
+) {
+  fetch(DEBUG_SERVER_URL, {
+    method: "POST",
+    body: JSON.stringify({
+      sessionId: DEBUG_SESSION_ID,
+      runId: "pre-fix",
+      hypothesisId,
+      location,
+      msg,
+      data,
+      traceId,
+      ts: Date.now(),
+    }),
+  }).catch(() => {});
+}
 
 async function fetchBlobFromUrl(url: string) {
   const response = await fetch(url, { cache: "no-store" });
@@ -318,7 +362,15 @@ async function createDocxImageParagraph(imageBlob: Blob, imageName: string, rela
   ].join("");
 }
 
-async function fetchEntryImageBlobs(entry: CleanupEvidenceEntry) {
+async function fetchEntryImageBlobs(entry: CleanupEvidenceEntry, traceId: string) {
+  const startedAt = Date.now();
+  // #region debug-point A:fetch-entry-start
+  reportDebugEvent("A", "documentation-export.ts:fetchEntryImageBlobs:start", "[DEBUG] Fetching entry image blobs", {
+    entryId: entry.id,
+    entryNumber: entry.entryNumber,
+    imageCount: entry.images.length,
+  }, traceId);
+  // #endregion
   const result: Array<{ meta: CleanupEvidenceEntryImage; blob: Blob }> = [];
   for (const image of entry.images) {
     if (!image.imageUrl) continue;
@@ -327,13 +379,79 @@ async function fetchEntryImageBlobs(entry: CleanupEvidenceEntry) {
       blob: await fetchBlobFromUrl(image.imageUrl),
     });
   }
+  // #region debug-point A:fetch-entry-finished
+  reportDebugEvent("A", "documentation-export.ts:fetchEntryImageBlobs:finished", "[DEBUG] Finished fetching entry image blobs", {
+    entryId: entry.id,
+    entryNumber: entry.entryNumber,
+    blobCount: result.length,
+    durationMs: Date.now() - startedAt,
+  }, traceId);
+  // #endregion
   return result;
+}
+
+async function collectDocumentationImageFiles(params: {
+  project: CleanupProject;
+  entries: CleanupEvidenceEntry[];
+  traceId: string;
+  onProgress?: (progress: DocumentationExportProgress) => void;
+}) {
+  const tasks = params.entries.flatMap((entry) =>
+    entry.images
+      .filter((image) => Boolean(image.imageUrl))
+      .map((image, index) => ({ entry, image, index }))
+  );
+
+  params.onProgress?.({
+    phase: "preparing",
+    completed: 0,
+    total: tasks.length,
+    message: tasks.length > 0 ? `Klargjor ${tasks.length} bilder...` : "Klargjor bilder...",
+  });
+
+  const files: File[] = new Array(tasks.length);
+  let completed = 0;
+  let cursor = 0;
+
+  const worker = async () => {
+    while (true) {
+      const currentIndex = cursor;
+      cursor += 1;
+      if (currentIndex >= tasks.length) {
+        return;
+      }
+
+      const task = tasks[currentIndex];
+      const blob = await fetchBlobFromUrl(task.image.imageUrl as string);
+      const extension = blob.type === "image/png" ? "png" : "jpg";
+      files[currentIndex] = new File(
+        [blob],
+        task.image.originalName || `${slugify(task.entry.entryNumber)}-${String(task.index + 1).padStart(2, "0")}.${extension}`,
+        {
+          type: blob.type || "image/jpeg",
+        }
+      );
+
+      completed += 1;
+      params.onProgress?.({
+        phase: "preparing",
+        completed,
+        total: tasks.length,
+        message: `Klargjor bilder... ${completed}/${tasks.length}`,
+      });
+    }
+  };
+
+  await Promise.all(Array.from({ length: Math.min(IMAGE_FETCH_CONCURRENCY, Math.max(1, tasks.length)) }, () => worker()));
+
+  return files.filter(Boolean);
 }
 
 export async function exportDocumentationZip(params: {
   project: CleanupProject;
   entries: CleanupEvidenceEntry[];
 }) {
+  const traceId = `export-zip-${params.project.id}-${Date.now()}`;
   const files: Array<{ name: string; blob: Blob }> = [
     {
       name: "rapport.json",
@@ -363,7 +481,7 @@ export async function exportDocumentationZip(params: {
   ];
 
   for (const entry of params.entries) {
-    const blobs = await fetchEntryImageBlobs(entry);
+    const blobs = await fetchEntryImageBlobs(entry, traceId);
     for (let index = 0; index < blobs.length; index += 1) {
       files.push({
         name: `${entry.entryNumber}/${String(index + 1).padStart(2, "0")}.jpg`,
@@ -379,43 +497,113 @@ export async function exportDocumentationZip(params: {
 export async function saveAllDocumentationImages(params: {
   project: CleanupProject;
   entries: CleanupEvidenceEntry[];
+  onProgress?: (progress: DocumentationExportProgress) => void;
 }) {
-  const files: File[] = [];
-  for (const entry of params.entries) {
-    const blobs = await fetchEntryImageBlobs(entry);
-    blobs.forEach(({ meta, blob }, index) => {
-      const extension = blob.type === "image/png" ? "png" : "jpg";
-      files.push(
-        new File([blob], meta.originalName || `${slugify(entry.entryNumber)}-${String(index + 1).padStart(2, "0")}.${extension}`, {
-          type: blob.type || "image/jpeg",
-        })
-      );
-    });
-  }
+  const traceId = `save-images-${params.project.id}-${Date.now()}`;
+  const totalImages = params.entries.reduce((sum, entry) => sum + entry.images.length, 0);
+  // #region debug-point A:save-images-start
+  reportDebugEvent("A", "documentation-export.ts:saveAllDocumentationImages:start", "[DEBUG] saveAllDocumentationImages started", {
+    projectId: params.project.id,
+    entryCount: params.entries.length,
+    imageCount: totalImages,
+  }, traceId);
+  // #endregion
+  const files = await collectDocumentationImageFiles({
+    project: params.project,
+    entries: params.entries,
+    traceId,
+    onProgress: params.onProgress,
+  });
 
   if (files.length === 0) {
+    // #region debug-point A:save-images-empty
+    reportDebugEvent("A", "documentation-export.ts:saveAllDocumentationImages:empty", "[DEBUG] No files found for saveAllDocumentationImages", {
+      projectId: params.project.id,
+    }, traceId);
+    // #endregion
     throw new Error("Ingen bilder funnet i rapporten.");
   }
 
   if (typeof navigator.share !== "function") {
-    throw new Error("Denne enheten stotter ikke 'Lagre i Bilder' her. Bruk 'ZIP med bilder' i stedet.");
+    // #region debug-point B:share-unsupported
+    reportDebugEvent("B", "documentation-export.ts:saveAllDocumentationImages:share-unsupported", "[DEBUG] navigator.share unsupported", {
+      projectId: params.project.id,
+      fileCount: files.length,
+    }, traceId);
+    // #endregion
+    const zipFilename = `${slugify(params.project.name || "bilder")}-bilder.zip`;
+    params.onProgress?.({
+      phase: "downloading",
+      completed: files.length,
+      total: files.length,
+      message: "Direkte lagring til Bilder stottes ikke her. Laster ned ZIP automatisk...",
+    });
+    const zipBlob = await buildStoredZip(files.map((file) => ({ name: file.name, blob: file })));
+    downloadBlob(zipBlob, zipFilename);
+    return { mode: "zip", fileCount: files.length, zipFilename } satisfies SaveImagesResult;
   }
 
   const shareBatches = splitFilesForShare(files)
     .flatMap((batch) => resolveShareBatches(batch))
     .filter((batch) => batch.length > 0);
 
+  // #region debug-point B:share-batches
+  reportDebugEvent("B", "documentation-export.ts:saveAllDocumentationImages:share-batches", "[DEBUG] Prepared share batches", {
+    projectId: params.project.id,
+    fileCount: files.length,
+    batchCount: shareBatches.length,
+    batchSizes: shareBatches.map((batch) => batch.length),
+  }, traceId);
+  // #endregion
+
   if (shareBatches.length === 0) {
+    // #region debug-point B:share-batches-empty
+    reportDebugEvent("B", "documentation-export.ts:saveAllDocumentationImages:share-batches-empty", "[DEBUG] No shareable batches resolved", {
+      projectId: params.project.id,
+      fileCount: files.length,
+    }, traceId);
+    // #endregion
     throw new Error("Denne mobilen tillot ikke a dele bildene direkte her. Bruk 'ZIP med bilder' i stedet.");
   }
 
   if (shareBatches.length > 1) {
-    window.alert(`Det er mange bilder, sa mobilen apner delingsarket i ${shareBatches.length} omganger. Velg 'Lagre i Bilder' for hver omgang.`);
+    const zipFilename = `${slugify(params.project.name || "bilder")}-bilder.zip`;
+    // #region debug-point B:share-fallback-zip
+    reportDebugEvent("B", "documentation-export.ts:saveAllDocumentationImages:share-fallback-zip", "[DEBUG] Falling back to ZIP because share requires multiple batches", {
+      projectId: params.project.id,
+      fileCount: files.length,
+      batchCount: shareBatches.length,
+    }, traceId);
+    // #endregion
+    params.onProgress?.({
+      phase: "downloading",
+      completed: files.length,
+      total: files.length,
+      message: "Det er for mange bilder for direkte lagring til Bilder. Laster ned ZIP automatisk...",
+    });
+    const zipBlob = await buildStoredZip(files.map((file) => ({ name: file.name, blob: file })));
+    downloadBlob(zipBlob, zipFilename);
+    return { mode: "zip", fileCount: files.length, zipFilename } satisfies SaveImagesResult;
   }
+
+  params.onProgress?.({
+    phase: "sharing",
+    completed: files.length,
+    total: files.length,
+    message: "Apner delingsarket for Bilder...",
+  });
 
   for (let index = 0; index < shareBatches.length; index += 1) {
     const batch = shareBatches[index];
     try {
+      // #region debug-point B:share-batch-start
+      reportDebugEvent("B", "documentation-export.ts:saveAllDocumentationImages:share-batch-start", "[DEBUG] Starting share batch", {
+        batchIndex: index,
+        batchCount: shareBatches.length,
+        fileCount: batch.length,
+        totalBytes: batch.reduce((sum, file) => sum + file.size, 0),
+      }, traceId);
+      // #endregion
       await navigator.share({
         files: batch,
         title: shareBatches.length > 1 ? `Dokumentasjonsbilder (${index + 1}/${shareBatches.length})` : "Dokumentasjonsbilder",
@@ -424,11 +612,24 @@ export async function saveAllDocumentationImages(params: {
             ? `Velg 'Lagre i Bilder' for del ${index + 1} av ${shareBatches.length}.`
             : "Velg 'Lagre i Bilder' i delingsarket for a lagre originalene i bildebiblioteket.",
       });
+      // #region debug-point B:share-batch-finished
+      reportDebugEvent("B", "documentation-export.ts:saveAllDocumentationImages:share-batch-finished", "[DEBUG] Finished share batch", {
+        batchIndex: index,
+        batchCount: shareBatches.length,
+      }, traceId);
+      // #endregion
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
       const normalized = message.toLowerCase();
+      // #region debug-point B:share-batch-error
+      reportDebugEvent("B", "documentation-export.ts:saveAllDocumentationImages:share-batch-error", "[DEBUG] Share batch failed", {
+        batchIndex: index,
+        batchCount: shareBatches.length,
+        error: message,
+      }, traceId);
+      // #endregion
       if (normalized.includes("aborterror") || normalized.includes("cancel")) {
-        return;
+        return { mode: "share", fileCount: files.length } satisfies SaveImagesResult;
       }
       if (normalized.includes("notallowederror") || normalized.includes("not allowed") || normalized.includes("denied")) {
         throw new Error("Denne mobilen tillot ikke a apne delingsarket her. Prov igjen direkte i Safari, eller bruk 'ZIP med bilder' i stedet.");
@@ -436,6 +637,14 @@ export async function saveAllDocumentationImages(params: {
       throw new Error("Kunne ikke apne delingsarket for bilder. Bruk 'ZIP med bilder' hvis dette fortsetter.");
     }
   }
+
+  // #region debug-point B:save-images-finished
+  reportDebugEvent("B", "documentation-export.ts:saveAllDocumentationImages:finished", "[DEBUG] saveAllDocumentationImages finished", {
+    projectId: params.project.id,
+    batchCount: shareBatches.length,
+  }, traceId);
+  // #endregion
+  return { mode: "share", fileCount: files.length } satisfies SaveImagesResult;
 }
 
 export async function exportDocumentationDocx(params: {
@@ -443,6 +652,7 @@ export async function exportDocumentationDocx(params: {
   map: CleanupEvidenceMap | null;
   entries: CleanupEvidenceEntry[];
 }) {
+  const traceId = `export-docx-${params.project.id}-${Date.now()}`;
   const reportTitle = "Dokumentasjonsrapport";
   const files: Array<{ name: string; blob: Blob }> = [];
   const relationships = [
@@ -465,7 +675,7 @@ export async function exportDocumentationDocx(params: {
     const docTypeLabel = getCleanupDocumentationTypeConfig(entry.entryType).shortLabel;
     const description = entry.description || "Ingen beskrivelse";
     const comment = entry.comment || "-";
-    const imageBlobs = await fetchEntryImageBlobs(entry);
+    const imageBlobs = await fetchEntryImageBlobs(entry, traceId);
 
     bodyParts.push(createDocxPageBreak());
     bodyParts.push(createDocxParagraph(`${entry.entryNumber} - ${docTypeLabel}`, { style: "Heading1" }));

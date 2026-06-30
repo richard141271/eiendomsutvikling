@@ -14,7 +14,7 @@ import {
   RydderenDocumentationMenu,
   RydderenDocumentationReportView,
 } from "@/src/modules/rydderen/documentation-components";
-import { exportDocumentationDocx, exportDocumentationZip, saveAllDocumentationImages } from "@/src/modules/rydderen/documentation-export";
+import { exportDocumentationDocx, exportDocumentationZip, saveAllDocumentationImages, type DocumentationExportProgress } from "@/src/modules/rydderen/documentation-export";
 import {
   RydderenAppShell,
   RydderenCostForm,
@@ -155,10 +155,18 @@ function getProjectConfirmationKey(cleanupProjectId: string) {
 }
 
 function reportDebugEvent(hypothesisId: "A" | "B" | "C" | "D" | "E", location: string, msg: string, data: Record<string, unknown>) {
-  void hypothesisId;
-  void location;
-  void msg;
-  void data;
+  fetch("http://192.168.0.35:7777/event", {
+    method: "POST",
+    body: JSON.stringify({
+      sessionId: "documentation-export-stuck",
+      runId: "pre-fix",
+      hypothesisId,
+      location,
+      msg,
+      data,
+      ts: Date.now(),
+    }),
+  }).catch(() => {});
 }
 
 function buildOverviewSummary(items: CleanupItem[], costs: CleanupCost[], project: CleanupProject | null) {
@@ -595,6 +603,7 @@ export function RydderenDocumentationPage(props: { cleanupProjectId: string; bas
   const [preparingImages, setPreparingImages] = useState(false);
   const [search, setSearch] = useState("");
   const [exporting, setExporting] = useState(false);
+  const [exportStatus, setExportStatus] = useState<DocumentationExportProgress | null>(null);
   const cameraInputRef = useRef<HTMLInputElement | null>(null);
   const galleryInputRef = useRef<HTMLInputElement | null>(null);
   const latestImagesRef = useRef<CleanupDocumentationDraftImage[]>([]);
@@ -630,6 +639,12 @@ export function RydderenDocumentationPage(props: { cleanupProjectId: string; bas
     if (typeof window === "undefined") {
       return;
     }
+    // #region debug-point C:open-pdf-start
+    reportDebugEvent("C", "src/modules/rydderen/pages/index.tsx:RydderenDocumentationPage:openDocumentationPdf:start", "[DEBUG] openDocumentationPdf started", {
+      cleanupProjectId: props.cleanupProjectId,
+      searchLength: search.trim().length,
+    });
+    // #endregion
     const reportWindow = window.open("", "_blank");
     if (reportWindow) {
       reportWindow.document.write("<html><body style=\"font-family: system-ui, sans-serif; padding: 24px;\">Klargjor dokumentasjonsrapport...</body></html>");
@@ -650,6 +665,15 @@ export function RydderenDocumentationPage(props: { cleanupProjectId: string; bas
         });
 
         const payload = await response.json().catch(() => ({}));
+        // #region debug-point D:open-pdf-response
+        reportDebugEvent("D", "src/modules/rydderen/pages/index.tsx:RydderenDocumentationPage:openDocumentationPdf:response", "[DEBUG] openDocumentationPdf received response", {
+          cleanupProjectId: props.cleanupProjectId,
+          ok: response.ok,
+          status: response.status,
+          hasUrl: typeof payload?.url === "string" && payload.url.length > 0,
+          error: typeof payload?.error === "string" ? payload.error : null,
+        });
+        // #endregion
         if (!response.ok) {
           throw new Error(typeof payload?.error === "string" ? payload.error : "Kunne ikke generere dokumentasjonsrapport");
         }
@@ -674,11 +698,22 @@ export function RydderenDocumentationPage(props: { cleanupProjectId: string; bas
           }, 350);
         }
       } catch (error) {
+        // #region debug-point E:open-pdf-error
+        reportDebugEvent("E", "src/modules/rydderen/pages/index.tsx:RydderenDocumentationPage:openDocumentationPdf:error", "[DEBUG] openDocumentationPdf failed", {
+          cleanupProjectId: props.cleanupProjectId,
+          error: error instanceof Error ? error.message : String(error),
+        });
+        // #endregion
         if (reportWindow && !reportWindow.closed) {
           reportWindow.close();
         }
         window.alert(error instanceof Error ? error.message : String(error));
       } finally {
+        // #region debug-point C:open-pdf-finally
+        reportDebugEvent("C", "src/modules/rydderen/pages/index.tsx:RydderenDocumentationPage:openDocumentationPdf:finally", "[DEBUG] openDocumentationPdf finished", {
+          cleanupProjectId: props.cleanupProjectId,
+        });
+        // #endregion
         setExporting(false);
       }
     })();
@@ -826,6 +861,11 @@ export function RydderenDocumentationPage(props: { cleanupProjectId: string; bas
           <Button type="button" variant="outline" className="ml-2 h-8 rounded-lg px-3" onClick={() => void entriesState.retryPendingUploads()}>
             Prøv igjen
           </Button>
+        </div>
+      ) : null}
+      {exportStatus ? (
+        <div className={`rounded-xl p-3 text-sm ${exportStatus.phase === "downloading" ? "bg-amber-50 text-amber-800" : "bg-blue-50 text-blue-700"}`}>
+          {exportStatus.message}
         </div>
       ) : null}
 
@@ -1005,11 +1045,53 @@ export function RydderenDocumentationPage(props: { cleanupProjectId: string; bas
           onSaveImages={() => {
             void (async () => {
               try {
+                // #region debug-point C:on-save-images-start
+                reportDebugEvent("C", "src/modules/rydderen/pages/index.tsx:RydderenDocumentationPage:onSaveImages:start", "[DEBUG] onSaveImages started", {
+                  cleanupProjectId: props.cleanupProjectId,
+                  exportingBefore: exporting,
+                });
+                // #endregion
                 setExporting(true);
-                await saveAllDocumentationImages({ project: activeProject, entries: entriesState.entries });
+                setExportStatus({
+                  phase: "preparing",
+                  completed: 0,
+                  total: entriesState.entries.reduce((sum, entry) => sum + entry.images.length, 0),
+                  message: "Starter bildeeksport...",
+                });
+                const result = await saveAllDocumentationImages({
+                  project: activeProject,
+                  entries: entriesState.entries,
+                  onProgress: setExportStatus,
+                });
+                if (result.mode === "zip") {
+                  setExportStatus({
+                    phase: "downloading",
+                    completed: result.fileCount,
+                    total: result.fileCount,
+                    message: "Mange bilder ble eksportert som ZIP automatisk for a unnga hengende delingsark pa iPhone.",
+                  });
+                } else {
+                  setExportStatus({
+                    phase: "sharing",
+                    completed: result.fileCount,
+                    total: result.fileCount,
+                    message: "Delingsarket er apnet. Velg 'Lagre i Bilder'.",
+                  });
+                }
               } catch (exportError) {
+                // #region debug-point E:on-save-images-error
+                reportDebugEvent("E", "src/modules/rydderen/pages/index.tsx:RydderenDocumentationPage:onSaveImages:error", "[DEBUG] onSaveImages failed", {
+                  cleanupProjectId: props.cleanupProjectId,
+                  error: exportError instanceof Error ? exportError.message : String(exportError),
+                });
+                // #endregion
                 window.alert(exportError instanceof Error ? exportError.message : String(exportError));
               } finally {
+                // #region debug-point C:on-save-images-finally
+                reportDebugEvent("C", "src/modules/rydderen/pages/index.tsx:RydderenDocumentationPage:onSaveImages:finally", "[DEBUG] onSaveImages finished", {
+                  cleanupProjectId: props.cleanupProjectId,
+                });
+                // #endregion
                 setExporting(false);
               }
             })();
