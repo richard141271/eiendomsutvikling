@@ -157,6 +157,58 @@ async function compressDocumentationImage(file: File) {
   }
 }
 
+function isStandaloneDisplayMode() {
+  if (typeof window === "undefined") {
+    return false;
+  }
+  const iosStandalone = "standalone" in window.navigator && (window.navigator as Navigator & { standalone?: boolean }).standalone === true;
+  return iosStandalone || window.matchMedia("(display-mode: standalone)").matches;
+}
+
+async function trySaveDraftImagesToLibrary(draftImages: CleanupDocumentationDraftImage[]) {
+  if (draftImages.length === 0) {
+    return { status: "skipped" as const, message: null };
+  }
+
+  if (typeof navigator === "undefined" || typeof navigator.share !== "function") {
+    return { status: "skipped" as const, message: "Denne enheten stotter ikke direkte lagring til Bilder fra nettleseren." };
+  }
+
+  if (isStandaloneDisplayMode()) {
+    return { status: "skipped" as const, message: "Apne denne siden direkte i Safari for a sende bildene til bildebiblioteket." };
+  }
+
+  const files = draftImages.map((image) => image.file);
+  if (typeof navigator.canShare === "function") {
+    try {
+      if (!navigator.canShare({ files })) {
+        return { status: "skipped" as const, message: "Denne bildeserien kan ikke sendes til Bilder i ett trykk pa denne enheten." };
+      }
+    } catch {
+      return { status: "skipped" as const, message: "Denne enheten avviste bildebibliotek-delingen for disse filene." };
+    }
+  }
+
+  try {
+    await navigator.share({
+      files,
+      title: "Dokumentasjonsbilder",
+      text: "Velg 'Lagre i Bilder' for disse bildene.",
+    });
+    return { status: "shared" as const, message: null };
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    const normalized = message.toLowerCase();
+    if (normalized.includes("aborterror") || normalized.includes("cancel")) {
+      return { status: "cancelled" as const, message: "Lagring til Bilder ble avbrutt, men funnet lagres fortsatt i appen." };
+    }
+    if (normalized.includes("notallowederror") || normalized.includes("not allowed") || normalized.includes("denied")) {
+      return { status: "failed" as const, message: "Denne mobilen tillot ikke a apne delingsarket her. Prov igjen direkte i Safari." };
+    }
+    return { status: "failed" as const, message: "Kunne ikke sende disse bildene til bildebiblioteket." };
+  }
+}
+
 function getProjectConfirmationKey(cleanupProjectId: string) {
   return `rydderen-project-confirmed:${cleanupProjectId}`;
 }
@@ -1016,7 +1068,17 @@ export function RydderenDocumentationPage(props: { cleanupProjectId: string; bas
                 return;
               }
               try {
+                const draftImagesSnapshot = [...images];
                 setDraftError(null);
+                let libraryResult:
+                  | { status: "shared" | "skipped" | "cancelled" | "failed"; message: string | null }
+                  | null = null;
+
+                if (draftImagesSnapshot.length > 0) {
+                  setGpsStatus("Sender bilder til bildebibliotek hvis tilgjengelig ...");
+                  libraryResult = await trySaveDraftImagesToLibrary(draftImagesSnapshot);
+                }
+
                 setGpsStatus("Henter GPS hvis tilgjengelig ...");
                 const gps = await requestGps();
                 const imageCount = images.length;
@@ -1036,7 +1098,13 @@ export function RydderenDocumentationPage(props: { cleanupProjectId: string; bas
                 });
                 resetDraft(saved.entryType);
                 if (imageCount > 0) {
-                  setGpsStatus(`Funnet er lagret. ${imageCount} bilde${imageCount === 1 ? "" : "r"} lastes opp i bakgrunnen.`);
+                  if (libraryResult?.status === "shared") {
+                    setGpsStatus(`Funnet er lagret. ${imageCount} bilde${imageCount === 1 ? "" : "r"} er sendt til Bilder og lastes opp i bakgrunnen.`);
+                  } else if (libraryResult?.message) {
+                    setGpsStatus(`Funnet er lagret. ${imageCount} bilde${imageCount === 1 ? "" : "r"} lastes opp i bakgrunnen. ${libraryResult.message}`);
+                  } else {
+                    setGpsStatus(`Funnet er lagret. ${imageCount} bilde${imageCount === 1 ? "" : "r"} lastes opp i bakgrunnen.`);
+                  }
                 } else {
                   setGpsStatus(gps ? "GPS lagret." : "GPS ikke tilgjengelig. Funnet er lagret uten GPS.");
                 }

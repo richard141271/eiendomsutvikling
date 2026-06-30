@@ -6,7 +6,7 @@ export default function manifest(): MetadataRoute.Manifest {
     short_name: 'Halden Eiendom',
     description: 'Kvalitetsboliger i Halden - Utleie og forvaltning',
     start_url: '/dashboard',
-    display: 'standalone',
+    display: 'browser',
     background_color: '#ffffff',
     theme_color: '#ffffff',
     icons: [
