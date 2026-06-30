@@ -630,15 +630,58 @@ export function RydderenDocumentationPage(props: { cleanupProjectId: string; bas
     if (typeof window === "undefined") {
       return;
     }
-    setExporting(true);
-    const params = new URLSearchParams();
-    if (search.trim()) {
-      params.set("search", search.trim());
+    const reportWindow = window.open("", "_blank");
+    if (reportWindow) {
+      reportWindow.document.write("<html><body style=\"font-family: system-ui, sans-serif; padding: 24px;\">Klargjor dokumentasjonsrapport...</body></html>");
+      reportWindow.document.close();
     }
-    const suffix = params.toString() ? `?${params.toString()}` : "";
-    const reportUrl = `/api/rydderen/projects/${props.cleanupProjectId}/documentation/report${suffix}`;
-    window.open(reportUrl, "_blank");
-    window.setTimeout(() => setExporting(false), 1200);
+
+    setExporting(true);
+    void (async () => {
+      try {
+        const response = await fetch(`/api/rydderen/projects/${props.cleanupProjectId}/documentation/report`, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            search: search.trim(),
+          }),
+        });
+
+        const payload = await response.json().catch(() => ({}));
+        if (!response.ok) {
+          throw new Error(typeof payload?.error === "string" ? payload.error : "Kunne ikke generere dokumentasjonsrapport");
+        }
+
+        if (typeof payload?.url !== "string" || !payload.url) {
+          throw new Error("Mangler URL til dokumentasjonsrapporten.");
+        }
+
+        if (reportWindow) {
+          reportWindow.location.href = payload.url;
+        } else {
+          window.open(payload.url, "_blank");
+        }
+
+        if (Array.isArray(payload.attachments) && payload.attachments.length > 0) {
+          window.setTimeout(() => {
+            payload.attachments.forEach((attachment: { url?: string }) => {
+              if (attachment?.url) {
+                window.open(attachment.url, "_blank");
+              }
+            });
+          }, 350);
+        }
+      } catch (error) {
+        if (reportWindow && !reportWindow.closed) {
+          reportWindow.close();
+        }
+        window.alert(error instanceof Error ? error.message : String(error));
+      } finally {
+        setExporting(false);
+      }
+    })();
   }, [props.cleanupProjectId, search]);
 
   const resetDraft = (nextType = entryType) => {

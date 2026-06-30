@@ -200,7 +200,7 @@ function mapEntries(entries: CleanupEvidenceEntry[]): DocumentationEntryMetadata
           id: image.id,
           code: `${entry.entryNumber}-${String(index + 1).padStart(2, "0")}`,
           dateLabel: entry.createdDate || entryDate.toLocaleDateString("no-NO"),
-          imageUrl: image.imageUrl || image.thumbnailUrl || "",
+          imageUrl: image.thumbnailUrl || image.imageUrl || "",
           sortOrder: image.sortOrder,
         })),
     };

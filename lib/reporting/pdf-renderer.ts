@@ -1,3 +1,4 @@
+import { readFileSync } from "fs";
 import { readFile } from "fs/promises";
 import { PDFDocument, StandardFonts, rgb } from "pdf-lib";
 import { DocumentationEntryMetadata, ReportDocument } from "./report-types";
@@ -49,12 +50,66 @@ const wordWrap = (text: string, font: any, size: number, maxWidth: number): stri
   return lines;
 };
 
+let debugServerUrl = "http://127.0.0.1:7777/event";
+let debugSessionId = "pdf-report-500";
+
+function loadDebugConfig() {
+  try {
+    const env = readFileSync(".dbg/pdf-report-500.env", "utf8");
+    debugServerUrl = env.match(/DEBUG_SERVER_URL=(.+)/)?.[1] || debugServerUrl;
+    debugSessionId = env.match(/DEBUG_SESSION_ID=(.+)/)?.[1] || debugSessionId;
+  } catch {}
+}
+
+function reportDebugEvent(
+  runId: string,
+  hypothesisId: string,
+  location: string,
+  msg: string,
+  data: Record<string, unknown>,
+  traceId = "renderer-no-trace"
+) {
+  loadDebugConfig();
+  fetch(debugServerUrl, {
+    method: "POST",
+    body: JSON.stringify({
+      sessionId: debugSessionId,
+      runId,
+      hypothesisId,
+      location,
+      msg,
+      data,
+      traceId,
+      ts: Date.now(),
+    }),
+  }).catch(() => {});
+}
+
 async function fetchImageBytes(url: string) {
   const response = await fetch(url, { cache: "no-store" });
   if (!response.ok) {
     throw new Error(`Status ${response.status}`);
   }
   return new Uint8Array(await response.arrayBuffer());
+}
+
+async function optimizeDocumentationImageBytes(bytes: Uint8Array) {
+  if (!sharp) {
+    return bytes;
+  }
+
+  try {
+    const pipeline = sharp(Buffer.from(bytes), { failOn: "none" }).rotate().resize({
+      width: 1200,
+      height: 1200,
+      fit: "inside",
+      withoutEnlargement: true,
+    });
+    const optimized = await pipeline.jpeg({ quality: 70, mozjpeg: true }).toBuffer();
+    return new Uint8Array(optimized);
+  } catch {
+    return bytes;
+  }
 }
 
 async function embedImage(pdf: PDFDocument, bytes: Uint8Array) {
@@ -67,9 +122,26 @@ async function tryLoadLogo(pdf: PDFDocument, logoPath?: string) {
   }
 
   try {
+    // #region debug-point A:logo-load-start
+    reportDebugEvent("pre-fix", "A", "pdf-renderer.ts:tryLoadLogo:start", "[DEBUG] Attempting to load documentation logo", {
+      logoPath,
+    });
+    // #endregion
     const bytes = new Uint8Array(await readFile(logoPath));
+    // #region debug-point A:logo-load-success
+    reportDebugEvent("pre-fix", "A", "pdf-renderer.ts:tryLoadLogo:success", "[DEBUG] Loaded documentation logo bytes", {
+      logoPath,
+      byteLength: bytes.byteLength,
+    });
+    // #endregion
     return embedImage(pdf, bytes);
-  } catch {
+  } catch (error) {
+    // #region debug-point A:logo-load-error
+    reportDebugEvent("pre-fix", "A", "pdf-renderer.ts:tryLoadLogo:error", "[DEBUG] Failed to load documentation logo", {
+      logoPath,
+      error: error instanceof Error ? error.message : "Unknown error",
+    });
+    // #endregion
     return null;
   }
 }
@@ -79,6 +151,16 @@ async function renderDocumentationReportPackage(document: ReportDocument): Promi
   if (!documentation) {
     throw new Error("Mangler dokumentasjonsdata for PDF-rendering");
   }
+
+  const traceId = `renderer-${Date.now()}`;
+  // #region debug-point C:render-start
+  reportDebugEvent("pre-fix", "C", "pdf-renderer.ts:renderDocumentationReportPackage:start", "[DEBUG] Starting documentation report renderer", {
+    title: documentation.title,
+    entryCount: documentation.entries.length,
+    zoneRowCount: documentation.zoneRows.length,
+    totalImages: documentation.totalImages,
+  }, traceId);
+  // #endregion
 
   const pdf = await PDFDocument.create();
   const font = await pdf.embedFont(StandardFonts.Helvetica);
@@ -307,9 +389,16 @@ async function renderDocumentationReportPackage(document: ReportDocument): Promi
     }
     try {
       const bytes = await fetchImageBytes(url);
-      entryImageCache.set(url, bytes);
-      return bytes;
-    } catch {
+      const optimizedBytes = await optimizeDocumentationImageBytes(bytes);
+      entryImageCache.set(url, optimizedBytes);
+      return optimizedBytes;
+    } catch (error) {
+      // #region debug-point B:image-fetch-error
+      reportDebugEvent("pre-fix", "B", "pdf-renderer.ts:loadEntryImage:error", "[DEBUG] Failed to fetch documentation image", {
+        url,
+        error: error instanceof Error ? error.message : "Unknown error",
+      }, traceId);
+      // #endregion
       entryImageCache.set(url, null);
       return null;
     }
@@ -412,6 +501,15 @@ async function renderDocumentationReportPackage(document: ReportDocument): Promi
       }))
     );
 
+    // #region debug-point B:image-batch-loaded
+    reportDebugEvent("pre-fix", "B", "pdf-renderer.ts:renderEntryPage:image-batch", "[DEBUG] Loaded documentation image batch", {
+      entryNumber: entry.entryNumber,
+      requestedImages: imagesForPage.length,
+      resolvedImages: loadedImages.filter((image) => Boolean(image.bytes)).length,
+      imageOffset,
+    }, traceId);
+    // #endregion
+
     loadedImages.forEach(({ bytes }, index) => {
       const row = Math.floor(index / columns);
       const col = index % columns;
@@ -502,6 +600,13 @@ async function renderDocumentationReportPackage(document: ReportDocument): Promi
     const { width, height } = page.getSize();
     drawChrome(pageIndex, { page, width, height });
   });
+
+  // #region debug-point E:render-save
+  reportDebugEvent("pre-fix", "E", "pdf-renderer.ts:renderDocumentationReportPackage:before-save", "[DEBUG] Saving documentation PDF", {
+    pageCount: pdf.getPageCount(),
+    chromePages: pagesNeedingChrome.length,
+  }, traceId);
+  // #endregion
 
   return {
     main: await pdf.save(),

@@ -14,6 +14,9 @@ function downloadBlob(blob: Blob, filename: string) {
   window.setTimeout(() => URL.revokeObjectURL(url), 1000);
 }
 
+const MAX_SHARE_BATCH_FILES = 12;
+const MAX_SHARE_BATCH_BYTES = 36 * 1024 * 1024;
+
 async function fetchBlobFromUrl(url: string) {
   const response = await fetch(url, { cache: "no-store" });
   if (!response.ok) {
@@ -184,6 +187,61 @@ function chunkArray<T>(items: T[], size: number) {
   return chunks;
 }
 
+function splitFilesForShare(files: File[]) {
+  const batches: File[][] = [];
+  let currentBatch: File[] = [];
+  let currentBytes = 0;
+
+  for (const file of files) {
+    const nextCount = currentBatch.length + 1;
+    const nextBytes = currentBytes + file.size;
+    if (currentBatch.length > 0 && (nextCount > MAX_SHARE_BATCH_FILES || nextBytes > MAX_SHARE_BATCH_BYTES)) {
+      batches.push(currentBatch);
+      currentBatch = [];
+      currentBytes = 0;
+    }
+    currentBatch.push(file);
+    currentBytes += file.size;
+  }
+
+  if (currentBatch.length > 0) {
+    batches.push(currentBatch);
+  }
+
+  return batches;
+}
+
+function canShareFiles(files: File[]) {
+  if (typeof navigator === "undefined" || typeof navigator.share !== "function") {
+    return false;
+  }
+  if (typeof navigator.canShare !== "function") {
+    return true;
+  }
+  try {
+    return navigator.canShare({ files });
+  } catch {
+    return false;
+  }
+}
+
+function resolveShareBatches(files: File[]): File[][] {
+  if (files.length === 0) {
+    return [];
+  }
+
+  if (canShareFiles(files)) {
+    return [files];
+  }
+
+  if (files.length === 1) {
+    return [];
+  }
+
+  const middle = Math.ceil(files.length / 2);
+  return [...resolveShareBatches(files.slice(0, middle)), ...resolveShareBatches(files.slice(middle))];
+}
+
 function cmToEmu(value: number) {
   return Math.round(value * 360000);
 }
@@ -339,28 +397,45 @@ export async function saveAllDocumentationImages(params: {
     throw new Error("Ingen bilder funnet i rapporten.");
   }
 
-  if (navigator.canShare && navigator.canShare({ files })) {
+  if (typeof navigator.share !== "function") {
+    throw new Error("Denne enheten stotter ikke 'Lagre i Bilder' her. Bruk 'ZIP med bilder' i stedet.");
+  }
+
+  const shareBatches = splitFilesForShare(files)
+    .flatMap((batch) => resolveShareBatches(batch))
+    .filter((batch) => batch.length > 0);
+
+  if (shareBatches.length === 0) {
+    throw new Error("Denne mobilen tillot ikke a dele bildene direkte her. Bruk 'ZIP med bilder' i stedet.");
+  }
+
+  if (shareBatches.length > 1) {
+    window.alert(`Det er mange bilder, sa mobilen apner delingsarket i ${shareBatches.length} omganger. Velg 'Lagre i Bilder' for hver omgang.`);
+  }
+
+  for (let index = 0; index < shareBatches.length; index += 1) {
+    const batch = shareBatches[index];
     try {
       await navigator.share({
-        files,
-        title: "Dokumentasjonsbilder",
-        text: "Velg 'Lagre i Bilder' i delingsarket for a lagre originalene i bildebiblioteket.",
+        files: batch,
+        title: shareBatches.length > 1 ? `Dokumentasjonsbilder (${index + 1}/${shareBatches.length})` : "Dokumentasjonsbilder",
+        text:
+          shareBatches.length > 1
+            ? `Velg 'Lagre i Bilder' for del ${index + 1} av ${shareBatches.length}.`
+            : "Velg 'Lagre i Bilder' i delingsarket for a lagre originalene i bildebiblioteket.",
       });
-      return;
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
       const normalized = message.toLowerCase();
-      if (normalized.includes("notallowederror") || normalized.includes("not allowed") || normalized.includes("denied")) {
-        throw new Error("Denne mobilen tillot ikke a apne delingsarket her. Prov igjen direkte i Safari, eller bruk 'ZIP med bilder' i stedet.");
-      }
       if (normalized.includes("aborterror") || normalized.includes("cancel")) {
         return;
+      }
+      if (normalized.includes("notallowederror") || normalized.includes("not allowed") || normalized.includes("denied")) {
+        throw new Error("Denne mobilen tillot ikke a apne delingsarket her. Prov igjen direkte i Safari, eller bruk 'ZIP med bilder' i stedet.");
       }
       throw new Error("Kunne ikke apne delingsarket for bilder. Bruk 'ZIP med bilder' hvis dette fortsetter.");
     }
   }
-
-  throw new Error("Denne enheten stotter ikke 'Lagre i Bilder' her. Bruk 'ZIP med bilder' i stedet.");
 }
 
 export async function exportDocumentationDocx(params: {
