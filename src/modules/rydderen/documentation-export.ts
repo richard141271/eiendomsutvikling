@@ -17,9 +17,10 @@ function downloadBlob(blob: Blob, filename: string) {
   window.setTimeout(() => URL.revokeObjectURL(url), 1000);
 }
 
-const MAX_SHARE_BATCH_FILES = 12;
-const MAX_SHARE_BATCH_BYTES = 36 * 1024 * 1024;
 const IMAGE_FETCH_CONCURRENCY = 6;
+const SHARE_IMAGE_MAX_WIDTH = 1600;
+const SHARE_IMAGE_MAX_HEIGHT = 1600;
+const SHARE_IMAGE_QUALITY = 0.8;
 
 export type DocumentationExportProgress = {
   phase: "preparing" | "sharing" | "downloading";
@@ -231,30 +232,6 @@ function chunkArray<T>(items: T[], size: number) {
   return chunks;
 }
 
-function splitFilesForShare(files: File[]) {
-  const batches: File[][] = [];
-  let currentBatch: File[] = [];
-  let currentBytes = 0;
-
-  for (const file of files) {
-    const nextCount = currentBatch.length + 1;
-    const nextBytes = currentBytes + file.size;
-    if (currentBatch.length > 0 && (nextCount > MAX_SHARE_BATCH_FILES || nextBytes > MAX_SHARE_BATCH_BYTES)) {
-      batches.push(currentBatch);
-      currentBatch = [];
-      currentBytes = 0;
-    }
-    currentBatch.push(file);
-    currentBytes += file.size;
-  }
-
-  if (currentBatch.length > 0) {
-    batches.push(currentBatch);
-  }
-
-  return batches;
-}
-
 function canShareFiles(files: File[]) {
   if (typeof navigator === "undefined" || typeof navigator.share !== "function") {
     return false;
@@ -395,6 +372,7 @@ async function collectDocumentationImageFiles(params: {
   entries: CleanupEvidenceEntry[];
   traceId: string;
   onProgress?: (progress: DocumentationExportProgress) => void;
+  optimizeForShare?: boolean;
 }) {
   const tasks = params.entries.flatMap((entry) =>
     entry.images
@@ -423,12 +401,15 @@ async function collectDocumentationImageFiles(params: {
 
       const task = tasks[currentIndex];
       const blob = await fetchBlobFromUrl(task.image.imageUrl as string);
-      const extension = blob.type === "image/png" ? "png" : "jpg";
+      const exportBlob = params.optimizeForShare
+        ? await createOptimizedImageBlob(blob, SHARE_IMAGE_MAX_WIDTH, SHARE_IMAGE_MAX_HEIGHT, SHARE_IMAGE_QUALITY)
+        : blob;
+      const extension = exportBlob.type === "image/png" ? "png" : "jpg";
       files[currentIndex] = new File(
-        [blob],
+        [exportBlob],
         task.image.originalName || `${slugify(task.entry.entryNumber)}-${String(task.index + 1).padStart(2, "0")}.${extension}`,
         {
-          type: blob.type || "image/jpeg",
+          type: exportBlob.type || "image/jpeg",
         }
       );
 
@@ -513,6 +494,7 @@ export async function saveAllDocumentationImages(params: {
     entries: params.entries,
     traceId,
     onProgress: params.onProgress,
+    optimizeForShare: true,
   });
 
   if (files.length === 0) {
@@ -543,9 +525,7 @@ export async function saveAllDocumentationImages(params: {
     return { mode: "zip", fileCount: files.length, zipFilename } satisfies SaveImagesResult;
   }
 
-  const shareBatches = splitFilesForShare(files)
-    .flatMap((batch) => resolveShareBatches(batch))
-    .filter((batch) => batch.length > 0);
+  const shareBatches = resolveShareBatches(files).filter((batch) => batch.length > 0);
 
   // #region debug-point B:share-batches
   reportDebugEvent("B", "documentation-export.ts:saveAllDocumentationImages:share-batches", "[DEBUG] Prepared share batches", {
