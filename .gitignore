@@ -5,3 +5,5 @@ node-v20.11.1-darwin-x64/
 .env
 .DS_Store
 .cache
+.dbg/
+debug-*.md
