@@ -13,8 +13,10 @@ try {
 
 const sanitizeText = (text: string): string => {
   return text
+    .normalize("NFKC")
     .replace(/\r\n/g, "\n")
     .replace(/\r/g, "\n")
+    .replace(/[\uFE0E\uFE0F]/g, "")
     .replace(/\u00A0/g, " ")
     .replace(/[\u2010-\u2015]/g, "-")
     .replace(/[\u2018\u2019]/g, "'")
@@ -180,6 +182,18 @@ async function renderDocumentationReportPackage(document: ReportDocument): Promi
 
   const pagesNeedingChrome: number[] = [];
 
+  const drawTextSafe = (
+    page: any,
+    text: string,
+    options: { x: number; y: number; size: number; font: any; color?: any }
+  ) => {
+    page.drawText(sanitizeText(text || ""), options);
+  };
+
+  const getSafeTextWidth = (fontRef: any, text: string, size: number) => {
+    return fontRef.widthOfTextAtSize(sanitizeText(text || ""), size);
+  };
+
   const newPage = () => {
     const page = pdf.addPage();
     const { width, height } = page.getSize();
@@ -202,16 +216,16 @@ async function renderDocumentationReportPackage(document: ReportDocument): Promi
         height: dims.height * logoScale,
       });
     } else {
-      page.drawText("RYDDER'N", { x: 52, y: height - 70, size: 20, font: bold, color: rgb(1, 1, 1) });
+      drawTextSafe(page, "RYDDER'N", { x: 52, y: height - 70, size: 20, font: bold, color: rgb(1, 1, 1) });
     }
 
-    page.drawText(documentation.title, { x: 52, y: height - 190, size: 28, font: bold, color: colors.ink });
+    drawTextSafe(page, documentation.title, { x: 52, y: height - 190, size: 28, font: bold, color: colors.ink });
     if (documentation.subtitle) {
-      page.drawText(documentation.subtitle, { x: 52, y: height - 216, size: 13, font, color: colors.muted });
+      drawTextSafe(page, documentation.subtitle, { x: 52, y: height - 216, size: 13, font, color: colors.muted });
     }
 
-    page.drawText(documentation.projectName, { x: 52, y: height - 270, size: 24, font: bold, color: colors.ink });
-    page.drawText(documentation.address, { x: 52, y: height - 298, size: 13, font, color: colors.muted });
+    drawTextSafe(page, documentation.projectName, { x: 52, y: height - 270, size: 24, font: bold, color: colors.ink });
+    drawTextSafe(page, documentation.address, { x: 52, y: height - 298, size: 13, font, color: colors.muted });
 
     const infoTop = height - 360;
     const info = [
@@ -244,11 +258,11 @@ async function renderDocumentationReportPackage(document: ReportDocument): Promi
         borderColor: colors.line,
         borderWidth: 1,
       });
-      page.drawText(label, { x: x + 12, y: y - 10, size: 9, font: bold, color: colors.muted });
-      page.drawText(sanitizeText(value), { x: x + 12, y: y - 25, size: 11, font, color: colors.ink });
+      drawTextSafe(page, label, { x: x + 12, y: y - 10, size: 9, font: bold, color: colors.muted });
+      drawTextSafe(page, value, { x: x + 12, y: y - 25, size: 11, font, color: colors.ink });
     }
 
-    page.drawText("Generert av Eiendomsutvikling", {
+    drawTextSafe(page, "Generert av Eiendomsutvikling", {
       x: 52,
       y: 34,
       size: 10,
@@ -265,7 +279,7 @@ async function renderDocumentationReportPackage(document: ReportDocument): Promi
       thickness: 1,
       color: colors.line,
     });
-    page.drawText("RYDDER'N | Dokumentasjonsrapport", {
+    drawTextSafe(page, "RYDDER'N | Dokumentasjonsrapport", {
       x: 48,
       y: height - 24,
       size: 10,
@@ -278,7 +292,7 @@ async function renderDocumentationReportPackage(document: ReportDocument): Promi
       thickness: 1,
       color: colors.line,
     });
-    page.drawText(`Side ${pageIndex + 1} av ${pdf.getPageCount()}`, {
+    drawTextSafe(page, `Side ${pageIndex + 1} av ${pdf.getPageCount()}`, {
       x: 48,
       y: 20,
       size: 10,
@@ -286,8 +300,8 @@ async function renderDocumentationReportPackage(document: ReportDocument): Promi
       color: colors.muted,
     });
     const footerText = `Saksnummer: ${documentation.caseNumber}`;
-    const footerWidth = font.widthOfTextAtSize(footerText, 10);
-    page.drawText(footerText, {
+    const footerWidth = getSafeTextWidth(font, footerText, 10);
+    drawTextSafe(page, footerText, {
       x: width - 48 - footerWidth,
       y: 20,
       size: 10,
@@ -301,9 +315,9 @@ async function renderDocumentationReportPackage(document: ReportDocument): Promi
   {
     const { page, width, height } = summary;
     let y = height - 72;
-    page.drawText("Sammendrag", { x: 48, y, size: 22, font: bold, color: colors.ink });
+    drawTextSafe(page, "Sammendrag", { x: 48, y, size: 22, font: bold, color: colors.ink });
     y -= 28;
-    page.drawText("Rapportsammendrag og nøkkeltall", { x: 48, y, size: 11, font, color: colors.muted });
+    drawTextSafe(page, "Rapportsammendrag og nøkkeltall", { x: 48, y, size: 11, font, color: colors.muted });
     y -= 34;
 
     const cardWidth = (width - 48 * 2 - 16) / 2;
@@ -323,25 +337,25 @@ async function renderDocumentationReportPackage(document: ReportDocument): Promi
         borderColor: colors.line,
         borderWidth: 1,
       });
-      page.drawText(card.value, { x: x + 16, y: boxY - 34, size: 26, font: bold, color: colors.ink });
-      page.drawText(card.label.toUpperCase(), { x: x + 16, y: boxY - 56, size: 10, font: bold, color: colors.muted });
+      drawTextSafe(page, card.value, { x: x + 16, y: boxY - 34, size: 26, font: bold, color: colors.ink });
+      drawTextSafe(page, card.label.toUpperCase(), { x: x + 16, y: boxY - 56, size: 10, font: bold, color: colors.muted });
     });
 
     let tableY = y - 2 * (cardHeight + 14) - 28;
-    page.drawText("Fordeling per kategori", { x: 48, y: tableY, size: 15, font: bold, color: colors.ink });
+    drawTextSafe(page, "Fordeling per kategori", { x: 48, y: tableY, size: 15, font: bold, color: colors.ink });
     tableY -= 22;
     const colX = [48, 280, 410, 490];
     const headers = ["Kategori", "Funn", "Bilder"];
     headers.forEach((header, index) => {
-      page.drawText(header, { x: colX[index], y: tableY, size: 10, font: bold, color: colors.muted });
+      drawTextSafe(page, header, { x: colX[index], y: tableY, size: 10, font: bold, color: colors.muted });
     });
     tableY -= 12;
     page.drawLine({ start: { x: 48, y: tableY }, end: { x: width - 48, y: tableY }, thickness: 1, color: colors.line });
     tableY -= 18;
     documentation.categoryBreakdown.slice(0, 12).forEach((row) => {
-      page.drawText(sanitizeText(row.label), { x: colX[0], y: tableY, size: 11, font, color: colors.ink });
-      page.drawText(String(row.findings), { x: colX[1], y: tableY, size: 11, font, color: colors.ink });
-      page.drawText(String(row.images), { x: colX[2], y: tableY, size: 11, font, color: colors.ink });
+      drawTextSafe(page, row.label, { x: colX[0], y: tableY, size: 11, font, color: colors.ink });
+      drawTextSafe(page, String(row.findings), { x: colX[1], y: tableY, size: 11, font, color: colors.ink });
+      drawTextSafe(page, String(row.images), { x: colX[2], y: tableY, size: 11, font, color: colors.ink });
       tableY -= 18;
     });
   }
@@ -351,9 +365,9 @@ async function renderDocumentationReportPackage(document: ReportDocument): Promi
     pagesNeedingChrome.push(pdf.getPageCount() - 1);
     const { page, width, height } = zonePage;
     let y = height - 72;
-    page.drawText("Soneoversikt", { x: 48, y, size: 22, font: bold, color: colors.ink });
+    drawTextSafe(page, "Soneoversikt", { x: 48, y, size: 22, font: bold, color: colors.ink });
     y -= 24;
-    page.drawText("Dokumenterte soner med antall funn og bilder", { x: 48, y, size: 11, font, color: colors.muted });
+    drawTextSafe(page, "Dokumenterte soner med antall funn og bilder", { x: 48, y, size: 11, font, color: colors.muted });
     y -= 32;
 
     const columnCount = Math.max(...documentation.zoneRows.map((row) => row.length));
@@ -374,10 +388,10 @@ async function renderDocumentationReportPackage(document: ReportDocument): Promi
           borderColor: zone.documented ? colors.blue : colors.line,
           borderWidth: 1,
         });
-        page.drawText(zone.zone, { x: x + 12, y: cellY - 18, size: 16, font: bold, color: colors.ink });
-        page.drawText(zone.documented ? "Dokumentert" : "Ikke dokumentert", { x: x + 12, y: cellY - 36, size: 9, font, color: colors.muted });
-        page.drawText(`Funn: ${zone.findings}`, { x: x + 12, y: cellY - 50, size: 9, font, color: colors.ink });
-        page.drawText(`Bilder: ${zone.images}`, { x: x + 12, y: cellY - 62, size: 9, font, color: colors.ink });
+        drawTextSafe(page, zone.zone, { x: x + 12, y: cellY - 18, size: 16, font: bold, color: colors.ink });
+        drawTextSafe(page, zone.documented ? "Dokumentert" : "Ikke dokumentert", { x: x + 12, y: cellY - 36, size: 9, font, color: colors.muted });
+        drawTextSafe(page, `Funn: ${zone.findings}`, { x: x + 12, y: cellY - 50, size: 9, font, color: colors.ink });
+        drawTextSafe(page, `Bilder: ${zone.images}`, { x: x + 12, y: cellY - 62, size: 9, font, color: colors.ink });
       });
     });
   }
@@ -412,15 +426,15 @@ async function renderDocumentationReportPackage(document: ReportDocument): Promi
     const { page, width, height } = pageObj;
     let y = height - 74;
 
-    page.drawText(entry.entryNumber, { x: 48, y, size: 22, font: bold, color: colors.ink });
+    drawTextSafe(page, entry.entryNumber, { x: 48, y, size: 22, font: bold, color: colors.ink });
     const badgeText = `${entry.typeLabel} | ${entry.category}`;
-    const badgeWidth = bold.widthOfTextAtSize(badgeText, 10) + 18;
+    const badgeWidth = getSafeTextWidth(bold, badgeText, 10) + 18;
     page.drawRectangle({ x: width - 48 - badgeWidth, y: y - 2, width: badgeWidth, height: 18, color: colors.blueSoft });
-    page.drawText(badgeText, { x: width - 48 - badgeWidth + 9, y: y + 4, size: 10, font: bold, color: colors.blue });
+    drawTextSafe(page, badgeText, { x: width - 48 - badgeWidth + 9, y: y + 4, size: 10, font: bold, color: colors.blue });
     y -= 28;
 
     if (continuationLabel) {
-      page.drawText(sanitizeText(continuationLabel), { x: 48, y, size: 10, font: bold, color: colors.muted });
+      drawTextSafe(page, continuationLabel, { x: 48, y, size: 10, font: bold, color: colors.muted });
       y -= 18;
     }
 
@@ -450,8 +464,8 @@ async function renderDocumentationReportPackage(document: ReportDocument): Promi
           borderColor: colors.line,
           borderWidth: 1,
         });
-        page.drawText(label, { x: x + 10, y: boxY - 10, size: 9, font: bold, color: colors.muted });
-        page.drawText(sanitizeText(value), { x: x + 10, y: boxY - 24, size: 11, font, color: colors.ink });
+        drawTextSafe(page, label, { x: x + 10, y: boxY - 10, size: 9, font: bold, color: colors.muted });
+        drawTextSafe(page, value, { x: x + 10, y: boxY - 24, size: 11, font, color: colors.ink });
       });
       y -= 48;
     }
@@ -484,7 +498,7 @@ async function renderDocumentationReportPackage(document: ReportDocument): Promi
           break;
         }
 
-        page.drawText(heading, { x: 48, y, size: 14, font: bold, color: colors.ink });
+        drawTextSafe(page, heading, { x: 48, y, size: 14, font: bold, color: colors.ink });
         y -= 18;
 
         const availableLines = Math.max(1, Math.floor((y - bottomLimit) / lineHeight));
@@ -492,7 +506,7 @@ async function renderDocumentationReportPackage(document: ReportDocument): Promi
 
         linesForPage.forEach((line) => {
           if (line) {
-            page.drawText(line, { x: 48, y, size: 11, font, color: colors.ink });
+            drawTextSafe(page, line, { x: 48, y, size: 11, font, color: colors.ink });
           }
           y -= lineHeight;
         });
@@ -517,12 +531,12 @@ async function renderDocumentationReportPackage(document: ReportDocument): Promi
     const { page, width } = pageObj;
     let y = drawEntryHeader(pageObj, entry, imageOffset > 0 ? "Bilder fortsetter" : undefined);
 
-    page.drawText("Bilder", { x: 48, y, size: 15, font: bold, color: colors.ink });
+    drawTextSafe(page, "Bilder", { x: 48, y, size: 15, font: bold, color: colors.ink });
     y -= 18;
 
     const remainingImages = entry.images.slice(imageOffset);
     if (remainingImages.length === 0) {
-      page.drawText("Ingen bilder registrert.", { x: 48, y: y - 8, size: 11, font, color: colors.muted });
+      drawTextSafe(page, "Ingen bilder registrert.", { x: 48, y: y - 8, size: 11, font, color: colors.muted });
       return entry.images.length;
     }
 
@@ -594,14 +608,14 @@ async function renderDocumentationReportPackage(document: ReportDocument): Promi
             height: drawHeight,
           });
         } catch {
-          page.drawText("Kunne ikke vise bilde", { x: cellX + 8, y: cellTop - 34, size: 9, font, color: colors.muted });
+          drawTextSafe(page, "Kunne ikke vise bilde", { x: cellX + 8, y: cellTop - 34, size: 9, font, color: colors.muted });
         }
       } else {
-        page.drawText("Kunne ikke vise bilde", { x: cellX + 8, y: cellTop - 34, size: 9, font, color: colors.muted });
+        drawTextSafe(page, "Kunne ikke vise bilde", { x: cellX + 8, y: cellTop - 34, size: 9, font, color: colors.muted });
       }
 
-      page.drawText(meta.code, { x: cellX, y: cellTop - imageHeight - 12, size: 9, font: bold, color: colors.ink });
-      page.drawText(meta.dateLabel, { x: cellX, y: cellTop - imageHeight - 23, size: 8, font, color: colors.muted });
+      drawTextSafe(page, meta.code, { x: cellX, y: cellTop - imageHeight - 12, size: 9, font: bold, color: colors.ink });
+      drawTextSafe(page, meta.dateLabel, { x: cellX, y: cellTop - imageHeight - 23, size: 8, font, color: colors.muted });
     }
 
     return imageOffset + imagesForPage.length;
@@ -620,7 +634,7 @@ async function renderDocumentationReportPackage(document: ReportDocument): Promi
   {
     const { page, height } = conclusion;
     let y = height - 72;
-    page.drawText("Konklusjon", { x: 48, y, size: 24, font: bold, color: colors.ink });
+    drawTextSafe(page, "Konklusjon", { x: 48, y, size: 24, font: bold, color: colors.ink });
     y -= 34;
     const lines = [
       "Denne rapporten omfatter:",
@@ -634,7 +648,7 @@ async function renderDocumentationReportPackage(document: ReportDocument): Promi
       `Ansvarlig: ${documentation.responsibleLabel}`,
     ];
     lines.forEach((line) => {
-      page.drawText(sanitizeText(line), { x: 48, y, size: line === "Denne rapporten omfatter:" ? 13 : 12, font: line === "Denne rapporten omfatter:" ? bold : font, color: colors.ink });
+      drawTextSafe(page, line, { x: 48, y, size: line === "Denne rapporten omfatter:" ? 13 : 12, font: line === "Denne rapporten omfatter:" ? bold : font, color: colors.ink });
       y -= line ? 20 : 14;
     });
   }

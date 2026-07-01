@@ -720,8 +720,8 @@ export async function addCleanupEvidenceEntryImage(
         tenantId: actor.tenantId,
         imageHash: input.imageHash,
       });
-      if (duplicate) {
-        throw new Error("Dette bildet er allerede registrert i dokumentasjonen for prosjektet.");
+      if (duplicate?.cleanupEvidenceEntryId === entry.id) {
+        throw new Error("Dette bildet er allerede lagt til i dette funnet.");
       }
     }
 

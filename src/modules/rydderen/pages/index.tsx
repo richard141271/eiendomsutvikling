@@ -1009,14 +1009,13 @@ export function RydderenDocumentationPage(props: { cleanupProjectId: string; bas
       });
       // #endregion
       setPreparingImages(true);
-      const existingHashes = new Set(entriesState.entries.flatMap((entry) => entry.images.map((image) => image.imageHash || "")));
       const draftHashes = new Set(images.map((image) => image.imageHash));
       const nextImages: CleanupDocumentationDraftImage[] = [];
       let duplicateFound = false;
 
       for (const file of files) {
         const imageHash = await hashDocumentationFile(file);
-        if (!imageHash || existingHashes.has(imageHash) || draftHashes.has(imageHash)) {
+        if (!imageHash || draftHashes.has(imageHash)) {
           duplicateFound = true;
           continue;
         }
@@ -1034,7 +1033,7 @@ export function RydderenDocumentationPage(props: { cleanupProjectId: string; bas
         setImages((current) => [...current, ...nextImages]);
         setDraftError(null);
       } else if (duplicateFound) {
-        setDraftError("Dette bildet er allerede registrert i dokumentasjonen for prosjektet.");
+        setDraftError("Dette bildet er allerede lagt til i denne registreringen.");
       }
       // #region debug-point E:documentation-handle-files-finished
       reportDebugEvent("E", "src/modules/rydderen/pages/index.tsx:RydderenDocumentationPage:handleFiles:finished", "[DEBUG] Documentation handleFiles finished", {
