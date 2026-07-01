@@ -838,6 +838,8 @@ model CleanupProject {
   tenantId       String                @db.Uuid @map("tenant_id")
   name           String                @map("name")
   slug           String?               @map("slug")
+  caseNumber     String?               @map("case_number")
+  responsiblePerson String?            @map("responsible_person")
   moduleType     String                @default("rydderen") @map("module_type")
   contextType    String?               @map("context_type")
   contextId      String?               @db.Uuid @map("context_id")

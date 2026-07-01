@@ -53,7 +53,7 @@ function openDocumentationUploadDb(): Promise<IDBDatabase> {
       }
     };
     request.onsuccess = () => resolve(request.result);
-    request.onerror = () => reject(request.error || new Error("Kunne ikke apne lokal lagring"));
+    request.onerror = () => reject(request.error || new Error("Kunne ikke åpne lokal lagring"));
   });
 
   return documentationUploadDbPromise;
@@ -1003,6 +1003,49 @@ export function useCleanupDocumentationEntries(cleanupProjectId: string) {
     };
   }, [processUploadQueue]);
 
+  const enqueueImagesForEntry = useCallback(
+    async (entryId: string, images: Array<{ file: File; imageHash?: string | null }>) => {
+      if (!images.length) {
+        return;
+      }
+
+      await Promise.all(
+        images.map(async (image, index) => {
+          const sortIndex = Date.now() + index;
+          const key = buildPendingDocumentationImageKey({
+            cleanupProjectId,
+            entryId,
+            index: sortIndex,
+            file: image.file,
+            imageHash: image.imageHash ?? null,
+          });
+          await putPendingDocumentationImage({
+            key,
+            cleanupProjectId,
+            entryId,
+            index: sortIndex,
+            file: image.file,
+            imageHash: image.imageHash ?? null,
+            originalName: image.file.name || null,
+            createdAt: Date.now(),
+          });
+          uploadQueueRef.current.push({
+            key,
+            entryId,
+            index: sortIndex,
+            attempt: 0,
+            nextAttemptAt: 0,
+            image,
+          });
+        })
+      );
+
+      setPendingUploads((current) => current + images.length);
+      void processUploadQueue();
+    },
+    [cleanupProjectId, processUploadQueue]
+  );
+
   const createEntry = useCallback(
     async (payload: {
       entryType: string;
@@ -1054,38 +1097,7 @@ export function useCleanupDocumentationEntries(cleanupProjectId: string) {
 
         const imagesToQueue = payload.images || [];
         if (imagesToQueue.length > 0) {
-          await Promise.all(
-            imagesToQueue.map(async (image, index) => {
-              const key = buildPendingDocumentationImageKey({
-                cleanupProjectId,
-                entryId: created.id,
-                index,
-                file: image.file,
-                imageHash: image.imageHash ?? null,
-              });
-              await putPendingDocumentationImage({
-                key,
-                cleanupProjectId,
-                entryId: created.id,
-                index,
-                file: image.file,
-                imageHash: image.imageHash ?? null,
-                originalName: image.file.name || null,
-                createdAt: Date.now(),
-              });
-              uploadQueueRef.current.push({
-                key,
-                entryId: created.id,
-                index,
-                attempt: 0,
-                nextAttemptAt: 0,
-                image,
-              });
-            })
-          );
-
-          setPendingUploads((current) => current + imagesToQueue.length);
-          void processUploadQueue();
+          await enqueueImagesForEntry(created.id, imagesToQueue);
         }
 
         // #region debug-point A:create-entry-finished
@@ -1114,7 +1126,55 @@ export function useCleanupDocumentationEntries(cleanupProjectId: string) {
         setSaving(false);
       }
     },
-    [cleanupProjectId, processUploadQueue, upsertEntry]
+    [cleanupProjectId, enqueueImagesForEntry, upsertEntry]
+  );
+
+  const updateEntry = useCallback(
+    async (
+      entryId: string,
+      payload: {
+        category?: string | null;
+        description?: string | null;
+        comment?: string | null;
+        zone?: string | null;
+        count?: number;
+        risk?: string | null;
+        createdDate?: string | null;
+        createdTime?: string | null;
+        metadata?: Record<string, unknown>;
+      }
+    ) => {
+      try {
+        setSaving(true);
+        setError(null);
+        const updated = await cleanupApiClient.updateDocumentationEntry(cleanupProjectId, entryId, payload);
+        upsertEntry(updated);
+        return updated;
+      } catch (err) {
+        setError(err instanceof Error ? err.message : "Kunne ikke oppdatere dokumentasjonsfunn");
+        throw err;
+      } finally {
+        setSaving(false);
+      }
+    },
+    [cleanupProjectId, upsertEntry]
+  );
+
+  const addImagesToEntry = useCallback(
+    async (entryId: string, images: Array<{ file: File; imageHash?: string | null }>) => {
+      try {
+        setSaving(true);
+        setError(null);
+        setBackgroundError(null);
+        await enqueueImagesForEntry(entryId, images);
+      } catch (err) {
+        setError(err instanceof Error ? err.message : "Kunne ikke legge til bilder");
+        throw err;
+      } finally {
+        setSaving(false);
+      }
+    },
+    [enqueueImagesForEntry]
   );
 
   const retryPendingUploads = useCallback(async () => {
@@ -1152,7 +1212,20 @@ export function useCleanupDocumentationEntries(cleanupProjectId: string) {
     }
   }, [cleanupProjectId, processUploadQueue]);
 
-  return { entries, loading, saving, error, backgroundUploading, pendingUploads, backgroundError, refresh, createEntry, retryPendingUploads };
+  return {
+    entries,
+    loading,
+    saving,
+    error,
+    backgroundUploading,
+    pendingUploads,
+    backgroundError,
+    refresh,
+    createEntry,
+    updateEntry,
+    addImagesToEntry,
+    retryPendingUploads,
+  };
 }
 
 export function useCleanupDocumentationMap(cleanupProjectId: string) {

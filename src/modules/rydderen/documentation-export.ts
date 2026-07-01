@@ -396,7 +396,7 @@ async function collectDocumentationImageFiles(params: {
     phase: "preparing",
     completed: 0,
     total: params.tasks.length,
-    message: params.tasks.length > 0 ? `${params.progressPrefix || "Klargjor"} ${params.tasks.length} bilder...` : "Klargjor bilder...",
+    message: params.tasks.length > 0 ? `${params.progressPrefix || "Klargjør"} ${params.tasks.length} bilder...` : "Klargjør bilder...",
   });
 
   const files: File[] = new Array(params.tasks.length);
@@ -430,7 +430,7 @@ async function collectDocumentationImageFiles(params: {
         phase: "preparing",
         completed,
         total: params.tasks.length,
-        message: `${params.progressPrefix || "Klargjor bilder..."} ${completed}/${params.tasks.length}`,
+        message: `${params.progressPrefix || "Klargjør bilder..."} ${completed}/${params.tasks.length}`,
       });
     }
   };
@@ -515,7 +515,7 @@ export async function saveAllDocumentationImages(params: {
     traceId,
     onProgress: params.onProgress,
     optimizeForShare: true,
-    progressPrefix: "Klargjor neste bilder...",
+    progressPrefix: "Klargjør neste bilder...",
   });
 
   if (files.length === 0) {
@@ -534,7 +534,7 @@ export async function saveAllDocumentationImages(params: {
       fileCount: files.length,
     }, traceId);
     // #endregion
-    throw new Error("Denne enheten stotter ikke direkte lagring til Bilder fra nettleseren.");
+    throw new Error("Denne enheten støtter ikke direkte lagring til Bilder fra nettleseren.");
   }
 
   const shareBatches = resolveShareBatches(files).filter((batch) => batch.length > 0);
@@ -611,9 +611,9 @@ export async function saveAllDocumentationImages(params: {
       } satisfies SaveImagesResult;
     }
     if (normalized.includes("notallowederror") || normalized.includes("not allowed") || normalized.includes("denied")) {
-      throw new Error("Denne mobilen tillot ikke a apne delingsarket her. Prov igjen direkte i Safari.");
+      throw new Error("Denne mobilen tillot ikke å åpne delingsarket her. Prøv igjen direkte i Safari.");
     }
-    throw new Error("Kunne ikke apne delingsarket for bilder pa denne delen.");
+    throw new Error("Kunne ikke åpne delingsarket for bilder på denne delen.");
   }
 
   // #region debug-point B:save-images-finished

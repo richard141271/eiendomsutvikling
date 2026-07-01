@@ -937,6 +937,8 @@ export function RydderenProjectCreateDialog(props: {
 }) {
   const [name, setName] = useState("");
   const [description, setDescription] = useState("");
+  const [caseNumber, setCaseNumber] = useState("");
+  const [responsiblePerson, setResponsiblePerson] = useState("");
   const [contextType, setContextType] = useState<CleanupProjectContextType>(props.initialContextType || "standalone");
   const [contextId, setContextId] = useState(props.initialContextId || "");
   const [localError, setLocalError] = useState<string | null>(null);
@@ -945,6 +947,8 @@ export function RydderenProjectCreateDialog(props: {
     if (props.open) {
       setName("");
       setDescription("");
+      setCaseNumber("");
+      setResponsiblePerson("");
       setContextType(props.initialContextType || "standalone");
       setContextId(props.initialContextId || "");
       setLocalError(null);
@@ -967,6 +971,8 @@ export function RydderenProjectCreateDialog(props: {
         <div className="grid gap-3">
           <Input placeholder="Prosjektnavn" value={name} onChange={(event) => setName(event.target.value)} />
           <Textarea placeholder="Kort beskrivelse" value={description} onChange={(event) => setDescription(event.target.value)} />
+          <Input placeholder="Saksnummer (valgfritt, opprettes automatisk hvis tomt)" value={caseNumber} onChange={(event) => setCaseNumber(event.target.value)} />
+          <Input placeholder="Ansvarlig person" value={responsiblePerson} onChange={(event) => setResponsiblePerson(event.target.value)} />
           <RydderenProjectLinkSelector
             contextType={contextType}
             contextId={contextId}
@@ -990,6 +996,8 @@ export function RydderenProjectCreateDialog(props: {
               void props.onCreate({
                 name,
                 description,
+                caseNumber,
+                responsiblePerson,
                 contextType,
                 contextId: contextType === "standalone" ? null : contextId || null,
               });

@@ -9,7 +9,13 @@ import {
   ReportDocument,
 } from "./report-types";
 import type { CleanupEvidenceEntry, CleanupEvidenceMap, CleanupProject } from "@/src/modules/rydderen/types";
-import { buildCleanupZones, getCleanupDocumentationTypeConfig } from "@/src/modules/rydderen/utils";
+import {
+  buildCleanupZones,
+  getCleanupDocumentationTypeConfig,
+  getVisibleCleanupEvidenceImageCount,
+  getVisibleCleanupEvidenceImages,
+  isCleanupEvidenceEntryHidden,
+} from "@/src/modules/rydderen/utils";
 
 type CleanupDocumentationReportInput = {
   project: CleanupProject;
@@ -113,7 +119,7 @@ function groupByCategory(entries: CleanupEvidenceEntry[]): DocumentationCategory
       const key = normalizeSimpleText(entry.category || "Annet");
       const current = map.get(key) || { label: key, findings: 0, images: 0 };
       current.findings += 1;
-      current.images += entry.images.length;
+      current.images += getVisibleCleanupEvidenceImageCount(entry);
       map.set(key, current);
       return map;
     }, new Map<string, DocumentationCategoryBreakdown>())
@@ -144,7 +150,7 @@ function buildZoneRows(map: CleanupEvidenceMap | null, entries: CleanupEvidenceE
     }
     const current = acc.get(zone) || { findings: 0, images: 0 };
     current.findings += 1;
-    current.images += entry.images.length;
+    current.images += getVisibleCleanupEvidenceImageCount(entry);
     acc.set(zone, current);
     return acc;
   }, new Map<string, { findings: number; images: number }>());
@@ -191,8 +197,8 @@ function mapEntries(entries: CleanupEvidenceEntry[]): DocumentationEntryMetadata
       risk: normalizeSimpleText(entry.risk, "-"),
       description: normalizeParagraph(entry.description, "Ingen beskrivelse registrert."),
       comment: normalizeParagraph(entry.comment, "-"),
-      imageCount: entry.images.length,
-      images: entry.images
+      imageCount: getVisibleCleanupEvidenceImageCount(entry),
+      images: getVisibleCleanupEvidenceImages(entry)
         .slice()
         .sort((left, right) => left.sortOrder - right.sortOrder)
         .filter((image) => Boolean(image.imageUrl))
@@ -209,8 +215,8 @@ function mapEntries(entries: CleanupEvidenceEntry[]): DocumentationEntryMetadata
 
 export function mapCleanupDocumentationToReport(input: CleanupDocumentationReportInput): ReportDocument {
   const now = new Date();
-  const filteredEntries = sortEntries(input.entries.filter((entry) => matchesSearch(entry, input.search || "")));
-  const totalImages = filteredEntries.reduce((sum, entry) => sum + entry.images.length, 0);
+  const filteredEntries = sortEntries(input.entries.filter((entry) => !isCleanupEvidenceEntryHidden(entry) && matchesSearch(entry, input.search || "")));
+  const totalImages = filteredEntries.reduce((sum, entry) => sum + getVisibleCleanupEvidenceImageCount(entry), 0);
   const categoryBreakdown = groupByCategory(filteredEntries);
   const zoneRows = buildZoneRows(input.map, filteredEntries);
   const entries = mapEntries(filteredEntries);
@@ -218,7 +224,7 @@ export function mapCleanupDocumentationToReport(input: CleanupDocumentationRepor
   const summaryCards = buildSummaryCards(filteredEntries.length, totalImages, categoryBreakdown.length, documentedZones.length);
   const address = normalizeSimpleText(input.map?.address || input.project.context?.label || "-", "-");
   const caseName = normalizeSimpleText(input.map?.caseName || input.project.name || "-", "-");
-  const responsibleLabel = normalizeSimpleText("Ikke oppgitt", "Ikke oppgitt");
+  const responsibleLabel = normalizeSimpleText(input.project.responsiblePerson || "Ikke oppgitt", "Ikke oppgitt");
 
   const documentationReport: DocumentationReportMetadata = {
     title: "DOKUMENTASJONSRAPPORT",
@@ -227,7 +233,7 @@ export function mapCleanupDocumentationToReport(input: CleanupDocumentationRepor
     projectName: normalizeSimpleText(input.project.name, input.project.id),
     address,
     caseName,
-    caseNumber: input.project.slug || input.project.id,
+    caseNumber: normalizeSimpleText(input.project.caseNumber || input.project.slug || input.project.id, input.project.id),
     dateLabel: now.toLocaleDateString("no-NO"),
     createdAtLabel: now.toLocaleString("no-NO"),
     responsibleLabel,
@@ -243,7 +249,7 @@ export function mapCleanupDocumentationToReport(input: CleanupDocumentationRepor
 
   const metadata: DocumentMetadata = {
     documentType: "DOKUMENTASJONSRAPPORT",
-    caseNumber: input.project.slug || input.project.id,
+    caseNumber: normalizeSimpleText(input.project.caseNumber || input.project.slug || input.project.id, input.project.id),
     createdAt: now,
     updatedAt: now,
     responsible: responsibleLabel,

@@ -1,13 +1,13 @@
 "use client";
 
-import { Fragment, useMemo, useRef } from "react";
+import { Fragment, useEffect, useMemo, useRef, useState } from "react";
 import { Camera, FileArchive, FileText, Image as ImageIcon, Search, Upload, X } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
-import type { CleanupEvidenceEntry, CleanupEvidenceMap } from "@/src/modules/rydderen/types";
+import type { CleanupEvidenceEntry, CleanupEvidenceMap, CleanupProject } from "@/src/modules/rydderen/types";
 import {
   buildCleanupZones,
   CLEANUP_DOCUMENTATION_CATEGORIES,
@@ -15,7 +15,11 @@ import {
   CLEANUP_DOCUMENTATION_TYPES,
   formatDate,
   formatTime,
+  getHiddenCleanupEvidenceImages,
   getCleanupDocumentationTypeConfig,
+  getVisibleCleanupEvidenceImageCount,
+  getVisibleCleanupEvidenceImages,
+  isCleanupEvidenceEntryHidden,
 } from "@/src/modules/rydderen/utils";
 
 export type CleanupDocumentationDraftImage = {
@@ -159,7 +163,7 @@ export function RydderenDocumentationEntryForm(props: {
       </div>
 
       {props.error ? <div className="rounded-xl bg-red-50 p-3 text-sm text-red-700">{props.error}</div> : null}
-      {props.preparingImages ? <div className="rounded-xl bg-blue-50 p-3 text-sm text-blue-700">Klargjor bilder for raskere opplasting ...</div> : null}
+      {props.preparingImages ? <div className="rounded-xl bg-blue-50 p-3 text-sm text-blue-700">Klargjør bilder for raskere opplasting ...</div> : null}
 
       <div className="grid gap-3 sm:grid-cols-2">
         <Button type="button" className="min-h-16 rounded-[18px] text-base font-bold" onClick={props.onRequestCamera} disabled={props.preparingImages}>
@@ -260,7 +264,7 @@ export function RydderenDocumentationEntryForm(props: {
 
       <div className="grid gap-3 md:grid-cols-3">
         <Button type="button" className="min-h-16 rounded-[18px] text-base font-bold" disabled={props.saving || props.preparingImages} onClick={props.onSave}>
-          {props.preparingImages ? "Klargjor bilder..." : props.saving ? "Lagrer..." : "Lagre"}
+          {props.preparingImages ? "Klargjør bilder..." : props.saving ? "Lagrer..." : "Lagre"}
         </Button>
         <Button type="button" variant="outline" className="min-h-16 rounded-[18px] text-base font-bold" onClick={props.onToggleMore}>
           Mer
@@ -367,14 +371,60 @@ export function RydderenDocumentationMapForm(props: {
   );
 }
 
-function DocumentationEntryScreenCard(props: { entry: CleanupEvidenceEntry }) {
+function DocumentationEntryScreenCard(props: {
+  entry: CleanupEvidenceEntry;
+  saving?: boolean;
+  onSave: (entryId: string, payload: {
+    category: string;
+    zone: string;
+    description: string;
+    comment: string;
+    risk: string;
+    count: number;
+    createdDate: string;
+    createdTime: string;
+  }) => void;
+  onToggleEntryVisibility: (entry: CleanupEvidenceEntry, hidden: boolean) => void;
+  onAddImages: (entryId: string, files: FileList | null) => void;
+  onToggleImageVisibility: (entry: CleanupEvidenceEntry, imageId: string, hidden: boolean) => void;
+}) {
   const type = getCleanupDocumentationTypeConfig(props.entry.entryType);
+  const [editing, setEditing] = useState(false);
+  const [showHiddenImages, setShowHiddenImages] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement | null>(null);
+  const [form, setForm] = useState({
+    category: props.entry.category || "",
+    zone: props.entry.zone || "",
+    description: props.entry.description || "",
+    comment: props.entry.comment || "",
+    risk: props.entry.risk || "Middels",
+    count: props.entry.count || 1,
+    createdDate: props.entry.createdDate || "",
+    createdTime: props.entry.createdTime || "",
+  });
+  const visibleImages = useMemo(() => getVisibleCleanupEvidenceImages(props.entry), [props.entry]);
+  const hiddenImages = useMemo(() => getHiddenCleanupEvidenceImages(props.entry), [props.entry]);
+  const isHidden = isCleanupEvidenceEntryHidden(props.entry);
+
+  useEffect(() => {
+    setForm({
+      category: props.entry.category || "",
+      zone: props.entry.zone || "",
+      description: props.entry.description || "",
+      comment: props.entry.comment || "",
+      risk: props.entry.risk || "Middels",
+      count: props.entry.count || 1,
+      createdDate: props.entry.createdDate || "",
+      createdTime: props.entry.createdTime || "",
+    });
+  }, [props.entry]);
+
   return (
-    <Card className="rounded-[18px] border bg-slate-50">
+    <Card className={`rounded-[18px] border bg-slate-50 ${isHidden ? "opacity-70" : ""}`}>
       <CardContent className="space-y-3 p-4">
         <div className="grid gap-3 md:grid-cols-[220px_minmax(0,1fr)]">
           <DocumentationImageFrame
-            src={props.entry.images[0]?.imageUrl || ""}
+            src={visibleImages[0]?.imageUrl || visibleImages[0]?.thumbnailUrl || ""}
             alt={props.entry.entryNumber}
             className="h-52 rounded-[14px] p-2"
             imageClassName="h-full w-full object-contain"
@@ -384,6 +434,7 @@ function DocumentationEntryScreenCard(props: { entry: CleanupEvidenceEntry }) {
             <div className="flex flex-wrap items-center gap-2">
               <div className="text-lg font-bold">{props.entry.entryNumber}</div>
               <Badge variant="outline">{type.shortLabel}</Badge>
+              {isHidden ? <Badge variant="secondary">Skjult fra rapport</Badge> : null}
             </div>
             <p className="text-sm text-slate-500">
               {props.entry.category || "-"} • Sone {props.entry.zone || "-"}
@@ -393,22 +444,125 @@ function DocumentationEntryScreenCard(props: { entry: CleanupEvidenceEntry }) {
             </p>
             <p className="text-base font-medium">{props.entry.description || "Ingen beskrivelse"}</p>
             <p className="text-sm text-slate-500">
-              {props.entry.imageCount || props.entry.images.length} bilder • Risiko {props.entry.risk || "-"} • Kommentar {props.entry.comment || "-"}
+              {getVisibleCleanupEvidenceImageCount(props.entry)} bilder • Risiko {props.entry.risk || "-"} • Kommentar {props.entry.comment || "-"}
             </p>
+            <div className="flex flex-wrap gap-2 pt-1">
+              <Button type="button" variant="outline" className="h-9 rounded-xl px-3 text-sm" onClick={() => setEditing((current) => !current)}>
+                {editing ? "Avbryt" : "Rediger"}
+              </Button>
+              <Button
+                type="button"
+                variant="outline"
+                className="h-9 rounded-xl px-3 text-sm"
+                onClick={() => props.onToggleEntryVisibility(props.entry, !isHidden)}
+              >
+                {isHidden ? "Ta tilbake i rapport" : "Skjul fra rapport"}
+              </Button>
+            </div>
           </div>
         </div>
-        {props.entry.images.length > 1 ? (
-          <div className="grid grid-cols-3 gap-2 md:grid-cols-6">
-            {props.entry.images.slice(1).map((image) => (
-              <DocumentationImageFrame
-                key={image.id}
-                src={image.thumbnailUrl || image.imageUrl || ""}
-                alt={props.entry.entryNumber}
-                className="h-20 rounded-[12px] p-1.5"
-                imageClassName="h-full w-full object-contain"
-                emptyIconClassName="h-6 w-6"
+
+        {editing ? (
+          <div className="grid gap-3 rounded-[14px] border border-slate-200 bg-white p-4">
+            <div className="grid gap-3 md:grid-cols-2">
+              <Input value={form.category} onChange={(event) => setForm((current) => ({ ...current, category: event.target.value }))} placeholder="Kategori" />
+              <Input value={form.zone} onChange={(event) => setForm((current) => ({ ...current, zone: event.target.value }))} placeholder="Sone" />
+              <Input type="date" value={form.createdDate} onChange={(event) => setForm((current) => ({ ...current, createdDate: event.target.value }))} />
+              <Input type="time" value={form.createdTime} onChange={(event) => setForm((current) => ({ ...current, createdTime: event.target.value }))} />
+              <Input
+                type="number"
+                min={1}
+                value={String(form.count)}
+                onChange={(event) => setForm((current) => ({ ...current, count: Math.max(1, Number(event.target.value) || 1) }))}
+                placeholder="Antall"
               />
+              <Input value={form.risk} onChange={(event) => setForm((current) => ({ ...current, risk: event.target.value }))} placeholder="Risiko" list={`risk-options-${props.entry.id}`} />
+              <datalist id={`risk-options-${props.entry.id}`}>
+                {CLEANUP_DOCUMENTATION_RISK_OPTIONS.map((option) => (
+                  <option key={option} value={option} />
+                ))}
+              </datalist>
+            </div>
+            <Textarea value={form.description} onChange={(event) => setForm((current) => ({ ...current, description: event.target.value }))} rows={3} placeholder="Beskrivelse" />
+            <Textarea value={form.comment} onChange={(event) => setForm((current) => ({ ...current, comment: event.target.value }))} rows={3} placeholder="Kommentar" />
+            <div className="flex flex-wrap gap-2">
+              <input
+                ref={fileInputRef}
+                className="hidden"
+                type="file"
+                accept="image/*"
+                multiple
+                onChange={(event) => {
+                  props.onAddImages(props.entry.id, event.target.files);
+                  event.currentTarget.value = "";
+                }}
+              />
+              <Button type="button" variant="outline" className="h-10 rounded-xl px-4" onClick={() => fileInputRef.current?.click()}>
+                <Upload className="mr-2 h-4 w-4" />
+                Legg til bilder
+              </Button>
+              <Button
+                type="button"
+                className="h-10 rounded-xl px-4"
+                disabled={props.saving}
+                onClick={() => {
+                  props.onSave(props.entry.id, form);
+                  setEditing(false);
+                }}
+              >
+                {props.saving ? "Lagrer..." : "Lagre endringer"}
+              </Button>
+            </div>
+          </div>
+        ) : null}
+
+        {visibleImages.length > 1 ? (
+          <div className="grid grid-cols-3 gap-2 md:grid-cols-6">
+            {visibleImages.slice(1).map((image) => (
+              <div key={image.id} className="space-y-1">
+                <DocumentationImageFrame
+                  src={image.thumbnailUrl || image.imageUrl || ""}
+                  alt={props.entry.entryNumber}
+                  className="h-20 rounded-[12px] p-1.5"
+                  imageClassName="h-full w-full object-contain"
+                  emptyIconClassName="h-6 w-6"
+                />
+                {editing ? (
+                  <Button type="button" variant="ghost" className="h-8 w-full rounded-lg text-xs" onClick={() => props.onToggleImageVisibility(props.entry, image.id, true)}>
+                    Fjern fra rapport
+                  </Button>
+                ) : null}
+              </div>
             ))}
+          </div>
+        ) : null}
+
+        {hiddenImages.length > 0 ? (
+          <div className="space-y-2 rounded-[14px] border border-dashed border-slate-300 bg-white/80 p-3">
+            <div className="flex items-center justify-between gap-3">
+              <p className="text-sm font-medium text-slate-700">Skjulte bilder: {hiddenImages.length}</p>
+              <Button type="button" variant="ghost" className="h-8 rounded-lg px-3 text-sm" onClick={() => setShowHiddenImages((current) => !current)}>
+                {showHiddenImages ? "Skjul listen" : "Vis skjulte"}
+              </Button>
+            </div>
+            {showHiddenImages ? (
+              <div className="grid grid-cols-3 gap-2 md:grid-cols-6">
+                {hiddenImages.map((image) => (
+                  <div key={image.id} className="space-y-1">
+                    <DocumentationImageFrame
+                      src={image.thumbnailUrl || image.imageUrl || ""}
+                      alt={props.entry.entryNumber}
+                      className="h-20 rounded-[12px] p-1.5"
+                      imageClassName="h-full w-full object-contain"
+                      emptyIconClassName="h-6 w-6"
+                    />
+                    <Button type="button" variant="ghost" className="h-8 w-full rounded-lg text-xs" onClick={() => props.onToggleImageVisibility(props.entry, image.id, false)}>
+                      Ta tilbake
+                    </Button>
+                  </div>
+                ))}
+              </div>
+            ) : null}
           </div>
         ) : null}
       </CardContent>
@@ -472,7 +626,8 @@ function DocumentationPrintHeroPage(props: {
   entry: CleanupEvidenceEntry;
 }) {
   const type = getCleanupDocumentationTypeConfig(props.entry.entryType);
-  const heroImage = props.entry.images[0];
+  const visibleImages = getVisibleCleanupEvidenceImages(props.entry);
+  const heroImage = visibleImages[0];
 
   return (
     <DocumentationPrintPage>
@@ -505,7 +660,7 @@ function DocumentationPrintHeroPage(props: {
               <p>Dato: {props.entry.createdDate || formatDate(props.entry.createdAt)}</p>
               <p>Tid: {props.entry.createdTime || formatTime(props.entry.createdAt)}</p>
               <p>Risiko: {props.entry.risk || "-"}</p>
-              <p>Antall bilder: {props.entry.imageCount || props.entry.images.length}</p>
+              <p>Antall bilder: {getVisibleCleanupEvidenceImageCount(props.entry)}</p>
             </div>
 
             <div className="rounded-[1.25mm] bg-white p-1">
@@ -563,11 +718,14 @@ function DocumentationPrintGalleryPage(props: {
 }
 
 export function RydderenDocumentationReportView(props: {
+  project: CleanupProject;
   projectName: string;
   map: CleanupEvidenceMap | null;
   entries: CleanupEvidenceEntry[];
   search: string;
   exporting?: boolean;
+  projectSaving?: boolean;
+  entrySavingId?: string | null;
   saveImagesLabel?: string;
   onSearchChange: (value: string) => void;
   onClearSearch: () => void;
@@ -576,10 +734,47 @@ export function RydderenDocumentationReportView(props: {
   onExportPages: () => void;
   onSaveImages: () => void;
   onExportZip: () => void;
+  onSaveReportMetadata: (payload: {
+    projectName: string;
+    caseNumber: string;
+    responsiblePerson: string;
+    caseName: string;
+    address: string;
+  }) => void;
+  onSaveEntry: (entryId: string, payload: {
+    category: string;
+    zone: string;
+    description: string;
+    comment: string;
+    risk: string;
+    count: number;
+    createdDate: string;
+    createdTime: string;
+  }) => void;
+  onToggleEntryVisibility: (entry: CleanupEvidenceEntry, hidden: boolean) => void;
+  onAddImagesToEntry: (entryId: string, files: FileList | null) => void;
+  onToggleImageVisibility: (entry: CleanupEvidenceEntry, imageId: string, hidden: boolean) => void;
 }) {
-  const filteredEntries = useMemo(() => {
+  const [projectName, setProjectName] = useState(props.project.name);
+  const [caseNumber, setCaseNumber] = useState(props.project.caseNumber || "");
+  const [responsiblePerson, setResponsiblePerson] = useState(props.project.responsiblePerson || "");
+  const [caseName, setCaseName] = useState(props.map?.caseName || "");
+  const [address, setAddress] = useState(props.map?.address || "");
+
+  useEffect(() => {
+    setProjectName(props.project.name);
+    setCaseNumber(props.project.caseNumber || "");
+    setResponsiblePerson(props.project.responsiblePerson || "");
+  }, [props.project.caseNumber, props.project.name, props.project.responsiblePerson]);
+
+  useEffect(() => {
+    setCaseName(props.map?.caseName || "");
+    setAddress(props.map?.address || "");
+  }, [props.map?.address, props.map?.caseName]);
+
+  const matchingEntries = useMemo(() => {
     const search = props.search.trim().toLowerCase();
-    const matchingEntries = !search
+    const nextEntries = !search
       ? props.entries
       : props.entries.filter((entry) =>
       [
@@ -596,8 +791,7 @@ export function RydderenDocumentationReportView(props: {
         .includes(search)
     );
 
-    // Show the earliest numbered observations/findings first in reports.
-    return [...matchingEntries].sort((left, right) => {
+    return [...nextEntries].sort((left, right) => {
       if (left.sequence !== right.sequence) {
         return left.sequence - right.sequence;
       }
@@ -611,8 +805,8 @@ export function RydderenDocumentationReportView(props: {
       return left.entryNumber.localeCompare(right.entryNumber);
     });
   }, [props.entries, props.search]);
-
-  const totalImages = filteredEntries.reduce((sum, entry) => sum + (entry.imageCount || entry.images.length), 0);
+  const filteredEntries = useMemo(() => matchingEntries.filter((entry) => !isCleanupEvidenceEntryHidden(entry)), [matchingEntries]);
+  const totalImages = filteredEntries.reduce((sum, entry) => sum + getVisibleCleanupEvidenceImageCount(entry), 0);
   const categories = Array.from(
     filteredEntries.reduce((map, entry) => {
       const key = entry.category || "Annet";
@@ -640,7 +834,7 @@ export function RydderenDocumentationReportView(props: {
           <div className="mt-4 grid gap-3 md:grid-cols-[1fr_auto]">
           <div className="relative">
             <Search className="absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
-            <Input className="min-h-14 rounded-2xl pl-10" value={props.search} onChange={(event) => props.onSearchChange(event.target.value)} placeholder="Sok pa nummer, kategori, dato, sone eller tekst" />
+            <Input className="min-h-14 rounded-2xl pl-10" value={props.search} onChange={(event) => props.onSearchChange(event.target.value)} placeholder="Søk på nummer, kategori, dato, sone eller tekst" />
           </div>
           <Button variant="ghost" className="min-h-14 rounded-[18px] text-base font-bold" onClick={props.onClearSearch}>
             Nullstill
@@ -671,21 +865,53 @@ export function RydderenDocumentationReportView(props: {
         <CardHeader>
           <CardTitle>Dokumentasjonsrapport</CardTitle>
         </CardHeader>
-        <CardContent className="grid gap-1 text-sm">
+        <CardContent className="grid gap-3 text-sm">
           <p>Forside: Dokumentasjonsrapport</p>
-          <p>Prosjekt: {props.projectName}</p>
-          <p>Adresse: {props.map?.address || "-"}</p>
-          <p>Saksnavn: {props.map?.caseName || "-"}</p>
+          <div className="grid gap-3 md:grid-cols-2">
+            <Input value={projectName} onChange={(event) => setProjectName(event.target.value)} placeholder="Prosjektnavn" />
+            <Input value={caseNumber} onChange={(event) => setCaseNumber(event.target.value)} placeholder="Saksnummer" />
+            <Input value={responsiblePerson} onChange={(event) => setResponsiblePerson(event.target.value)} placeholder="Ansvarlig person" />
+            <Input value={caseName} onChange={(event) => setCaseName(event.target.value)} placeholder="Saksnavn" />
+            <Input value={address} onChange={(event) => setAddress(event.target.value)} placeholder="Adresse" className="md:col-span-2" />
+          </div>
+          <div className="flex flex-wrap gap-2">
+            <Button
+              type="button"
+              className="rounded-xl"
+              disabled={props.projectSaving}
+              onClick={() =>
+                props.onSaveReportMetadata({
+                  projectName,
+                  caseNumber,
+                  responsiblePerson,
+                  caseName,
+                  address,
+                })
+              }
+            >
+              {props.projectSaving ? "Lagrer..." : "Lagre rapportinfo"}
+            </Button>
+          </div>
           <p>Dato: {formatDate(new Date().toISOString())}</p>
-          <p>Antall funn: {filteredEntries.length}</p>
-          <p>Antall bilder: {totalImages}</p>
+          <p>Antall synlige funn: {filteredEntries.length}</p>
+          <p>Antall synlige bilder: {totalImages}</p>
           <p>Kategorier: {categories || "-"}</p>
         </CardContent>
       </Card>
 
         <div className="mt-4 grid gap-4">
-        {filteredEntries.length ? (
-          filteredEntries.map((entry) => <DocumentationEntryScreenCard key={entry.id} entry={entry} />)
+        {matchingEntries.length ? (
+          matchingEntries.map((entry) => (
+            <DocumentationEntryScreenCard
+              key={entry.id}
+              entry={entry}
+              saving={props.entrySavingId === entry.id}
+              onSave={props.onSaveEntry}
+              onToggleEntryVisibility={props.onToggleEntryVisibility}
+              onAddImages={props.onAddImagesToEntry}
+              onToggleImageVisibility={props.onToggleImageVisibility}
+            />
+          ))
         ) : (
           <Card className="rounded-[18px] border bg-slate-50 shadow-none">
             <CardContent className="p-6 text-sm text-slate-500">Ingen funn registrert i valgt prosjekt.</CardContent>
@@ -702,7 +928,7 @@ export function RydderenDocumentationReportView(props: {
           categories={categories}
         />
         {filteredEntries.map((entry) => {
-          const galleryChunks = chunkArray(entry.images.slice(1), 15);
+          const galleryChunks = chunkArray(getVisibleCleanupEvidenceImages(entry).slice(1), 15);
 
           return (
             <Fragment key={`print-${entry.id}`}>

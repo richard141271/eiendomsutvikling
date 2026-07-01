@@ -48,14 +48,19 @@ import {
   useCleanupReport,
   useCleanupValuationQueue,
 } from "@/src/modules/rydderen/hooks";
-import type { CleanupContextOptions, CleanupCost, CleanupItem, CleanupProject, CleanupProjectContextType } from "@/src/modules/rydderen/types";
+import type { CleanupContextOptions, CleanupCost, CleanupEvidenceEntry, CleanupItem, CleanupProject, CleanupProjectContextType } from "@/src/modules/rydderen/types";
 import {
+  buildCleanupEvidenceEntryMetadata,
   CLEANUP_DOCUMENTATION_CATEGORIES,
   CLEANUP_MODULE_BRAND,
   buildCleanupZones,
   formatCleanupEvidenceNumber,
   formatCurrency,
+  getCleanupReportHiddenImageIds,
   getCleanupDocumentationTypeConfig,
+  getVisibleCleanupEvidenceImageCount,
+  getVisibleCleanupEvidenceImages,
+  isCleanupEvidenceEntryHidden,
 } from "@/src/modules/rydderen/utils";
 
 function createLoadingProject(cleanupProjectId: string) {
@@ -65,6 +70,8 @@ function createLoadingProject(cleanupProjectId: string) {
     tenantId: "",
     name: "Laster prosjekt...",
     slug: null,
+    caseNumber: null,
+    responsiblePerson: null,
     moduleType: "rydderen",
     contextType: "standalone" as const,
     contextId: null,
@@ -171,21 +178,21 @@ async function trySaveDraftImagesToLibrary(draftImages: CleanupDocumentationDraf
   }
 
   if (typeof navigator === "undefined" || typeof navigator.share !== "function") {
-    return { status: "skipped" as const, message: "Denne enheten stotter ikke direkte lagring til Bilder fra nettleseren." };
+    return { status: "skipped" as const, message: "Denne enheten støtter ikke direkte lagring til Bilder fra nettleseren." };
   }
 
   if (isStandaloneDisplayMode()) {
-    return { status: "skipped" as const, message: "Apne denne siden direkte i Safari for a sende bildene til bildebiblioteket." };
+    return { status: "skipped" as const, message: "Åpne denne siden direkte i Safari for å sende bildene til bildebiblioteket." };
   }
 
   const files = draftImages.map((image) => image.file);
   if (typeof navigator.canShare === "function") {
     try {
       if (!navigator.canShare({ files })) {
-        return { status: "skipped" as const, message: "Denne bildeserien kan ikke sendes til Bilder i ett trykk pa denne enheten." };
+        return { status: "skipped" as const, message: "Denne bildeserien kan ikke sendes til Bilder i ett trykk på denne enheten." };
       }
     } catch {
-      return { status: "skipped" as const, message: "Denne enheten avviste bildebibliotek-delingen for disse filene." };
+      return { status: "skipped" as const, message: "Denne enheten avviste deling til bildebiblioteket for disse filene." };
     }
   }
 
@@ -203,7 +210,7 @@ async function trySaveDraftImagesToLibrary(draftImages: CleanupDocumentationDraf
       return { status: "cancelled" as const, message: "Lagring til Bilder ble avbrutt, men funnet lagres fortsatt i appen." };
     }
     if (normalized.includes("notallowederror") || normalized.includes("not allowed") || normalized.includes("denied")) {
-      return { status: "failed" as const, message: "Denne mobilen tillot ikke a apne delingsarket her. Prov igjen direkte i Safari." };
+      return { status: "failed" as const, message: "Denne mobilen tillot ikke å åpne delingsarket her. Prøv igjen direkte i Safari." };
     }
     return { status: "failed" as const, message: "Kunne ikke sende disse bildene til bildebiblioteket." };
   }
@@ -687,7 +694,7 @@ export function RydderenDocumentationPage(props: { cleanupProjectId: string; bas
   const pathname = usePathname();
   const searchParams = useSearchParams();
   const requestedView = searchParams.get("view");
-  const { project, loading, error } = useCleanupProject(props.cleanupProjectId);
+  const { project, loading, error, updateProject } = useCleanupProject(props.cleanupProjectId);
   const { projects } = useCleanupProjects();
   const entriesState = useCleanupDocumentationEntries(props.cleanupProjectId);
   const mapState = useCleanupDocumentationMap(props.cleanupProjectId);
@@ -711,6 +718,8 @@ export function RydderenDocumentationPage(props: { cleanupProjectId: string; bas
   const [exporting, setExporting] = useState(false);
   const [exportStatus, setExportStatus] = useState<DocumentationExportProgress | null>(null);
   const [imageShareQueue, setImageShareQueue] = useState<ImageShareQueueState | null>(null);
+  const [projectSaving, setProjectSaving] = useState(false);
+  const [entrySavingId, setEntrySavingId] = useState<string | null>(null);
   const cameraInputRef = useRef<HTMLInputElement | null>(null);
   const galleryInputRef = useRef<HTMLInputElement | null>(null);
   const latestImagesRef = useRef<CleanupDocumentationDraftImage[]>([]);
@@ -724,6 +733,17 @@ export function RydderenDocumentationPage(props: { cleanupProjectId: string; bas
     ? Math.min(imageShareQueue.batchSize, Math.max(0, imageShareQueue.totalCount - imageShareQueue.nextIndex))
     : Math.min(MAX_GUIDED_SHARE_FILES, totalDocumentationImages);
   const saveImagesLabel = imageShareQueue && imageShareQueue.nextIndex > 0 ? `Til Bilder (${nextShareCount} neste)` : "Til Bilder";
+  const reportEntries = useMemo(
+    () =>
+      entriesState.entries
+        .filter((entry) => !isCleanupEvidenceEntryHidden(entry))
+        .map((entry) => ({
+          ...entry,
+          imageCount: getVisibleCleanupEvidenceImageCount(entry),
+          images: getVisibleCleanupEvidenceImages(entry),
+        })),
+    [entriesState.entries]
+  );
   const timestampLabel = `${new Date().toLocaleDateString("no-NO")} ${new Date().toLocaleTimeString("no-NO", {
     hour: "2-digit",
     minute: "2-digit",
@@ -773,7 +793,7 @@ export function RydderenDocumentationPage(props: { cleanupProjectId: string; bas
     // #endregion
     const reportWindow = window.open("", "_blank");
     if (reportWindow) {
-      reportWindow.document.write("<html><body style=\"font-family: system-ui, sans-serif; padding: 24px;\">Klargjor dokumentasjonsrapport...</body></html>");
+      reportWindow.document.write("<html><body style=\"font-family: system-ui, sans-serif; padding: 24px;\">Klargjør dokumentasjonsrapport...</body></html>");
       reportWindow.document.close();
     }
 
@@ -859,6 +879,119 @@ export function RydderenDocumentationPage(props: { cleanupProjectId: string; bas
     setGpsStatus(null);
     setDraftError(null);
   };
+
+  const saveReportMetadata = useCallback(
+    async (payload: { projectName: string; caseNumber: string; responsiblePerson: string; caseName: string; address: string }) => {
+      try {
+        setProjectSaving(true);
+        await Promise.all([
+          updateProject({
+            name: payload.projectName,
+            caseNumber: payload.caseNumber,
+            responsiblePerson: payload.responsiblePerson,
+          }),
+          mapState.saveMap({
+            rows: mapState.map?.rows || 3,
+            columns: mapState.map?.columns || 3,
+            zones: mapState.map?.zones?.length ? mapState.map.zones : buildCleanupZones(mapState.map?.rows || 3, mapState.map?.columns || 3),
+            sketch: mapState.map?.sketch || "",
+            caseName: payload.caseName,
+            address: payload.address,
+          }),
+        ]);
+      } finally {
+        setProjectSaving(false);
+      }
+    },
+    [mapState, updateProject]
+  );
+
+  const saveEntryChanges = useCallback(
+    async (
+      entryId: string,
+      payload: {
+        category: string;
+        zone: string;
+        description: string;
+        comment: string;
+        risk: string;
+        count: number;
+        createdDate: string;
+        createdTime: string;
+      }
+    ) => {
+      try {
+        setEntrySavingId(entryId);
+        await entriesState.updateEntry(entryId, payload);
+      } finally {
+        setEntrySavingId(null);
+      }
+    },
+    [entriesState]
+  );
+
+  const toggleEntryVisibility = useCallback(
+    async (entry: CleanupEvidenceEntry, hidden: boolean) => {
+      try {
+        setEntrySavingId(entry.id);
+        await entriesState.updateEntry(entry.id, {
+          metadata: buildCleanupEvidenceEntryMetadata({
+            currentMetadata: entry.metadata,
+            reportHidden: hidden,
+          }),
+        });
+      } finally {
+        setEntrySavingId(null);
+      }
+    },
+    [entriesState]
+  );
+
+  const addImagesToEntry = useCallback(
+    async (entryId: string, files: FileList | null) => {
+      const nextFiles = Array.from(files || []);
+      if (!nextFiles.length) {
+        return;
+      }
+      try {
+        setEntrySavingId(entryId);
+        const prepared = await Promise.all(
+          nextFiles.map(async (file) => {
+            const compressed = await compressDocumentationImage(file);
+            return {
+              file: compressed,
+              imageHash: await hashDocumentationFile(compressed),
+            };
+          })
+        );
+        await entriesState.addImagesToEntry(entryId, prepared);
+      } finally {
+        setEntrySavingId(null);
+      }
+    },
+    [entriesState]
+  );
+
+  const toggleImageVisibility = useCallback(
+    async (entry: CleanupEvidenceEntry, imageId: string, hidden: boolean) => {
+      try {
+        setEntrySavingId(entry.id);
+        const currentHiddenIds = getCleanupReportHiddenImageIds(entry);
+        const nextHiddenIds = hidden
+          ? Array.from(new Set([...currentHiddenIds, imageId]))
+          : currentHiddenIds.filter((currentId) => currentId !== imageId);
+        await entriesState.updateEntry(entry.id, {
+          metadata: buildCleanupEvidenceEntryMetadata({
+            currentMetadata: entry.metadata,
+            hiddenImageIds: nextHiddenIds,
+          }),
+        });
+      } finally {
+        setEntrySavingId(null);
+      }
+    },
+    [entriesState]
+  );
 
   const handleFiles = async (fileList: FileList | null) => {
     const files = Array.from(fileList || []);
@@ -1061,7 +1194,7 @@ export function RydderenDocumentationPage(props: { cleanupProjectId: string; bas
             void (async () => {
               const hasQuickContent = images.length > 0 || description.trim() || comment.trim();
               if (!hasQuickContent) {
-                setDraftError("Ta bilde eller skriv en kort beskrivelse for a lagre.");
+                setDraftError("Ta bilde eller skriv en kort beskrivelse for å lagre.");
                 return;
               }
               if (!(await ensureConfirmed())) {
@@ -1075,7 +1208,7 @@ export function RydderenDocumentationPage(props: { cleanupProjectId: string; bas
                   | null = null;
 
                 if (draftImagesSnapshot.length > 0) {
-                  setGpsStatus("Sender bilder til bildebibliotek hvis tilgjengelig ...");
+                setGpsStatus("Sender bilder til bildebibliotek hvis tilgjengelig ...");
                   libraryResult = await trySaveDraftImagesToLibrary(draftImagesSnapshot);
                 }
 
@@ -1140,12 +1273,15 @@ export function RydderenDocumentationPage(props: { cleanupProjectId: string; bas
 
       {view === "report" ? (
         <RydderenDocumentationReportView
+          project={activeProject}
           projectName={activeProject.name}
           map={mapState.map}
           entries={entriesState.entries}
           search={search}
           saveImagesLabel={saveImagesLabel}
           exporting={exporting}
+          projectSaving={projectSaving || mapState.saving}
+          entrySavingId={entrySavingId}
           onSearchChange={setSearch}
           onClearSearch={() => setSearch("")}
           onBack={() => {
@@ -1162,7 +1298,7 @@ export function RydderenDocumentationPage(props: { cleanupProjectId: string; bas
                 await exportDocumentationDocx({
                   project: activeProject,
                   map: mapState.map,
-                  entries: entriesState.entries.filter((entry) =>
+                  entries: reportEntries.filter((entry) =>
                     [
                       entry.entryNumber,
                       entry.category,
@@ -1177,7 +1313,7 @@ export function RydderenDocumentationPage(props: { cleanupProjectId: string; bas
                       .includes(search.trim().toLowerCase())
                   ),
                 });
-                window.alert("Pages-dokumentet er lastet ned. Aapne filen i Filer eller Pages for a vise rapporten.");
+                window.alert("Pages-dokumentet er lastet ned. Åpne filen i Filer eller Pages for å vise rapporten.");
               } catch (exportError) {
                 window.alert(`Pages-eksport feilet: ${exportError instanceof Error ? exportError.message : String(exportError)}`);
               } finally {
@@ -1185,6 +1321,11 @@ export function RydderenDocumentationPage(props: { cleanupProjectId: string; bas
               }
             })();
           }}
+          onSaveReportMetadata={saveReportMetadata}
+          onSaveEntry={saveEntryChanges}
+          onToggleEntryVisibility={toggleEntryVisibility}
+          onAddImagesToEntry={addImagesToEntry}
+          onToggleImageVisibility={toggleImageVisibility}
           onSaveImages={() => {
             void (async () => {
               try {
@@ -1201,7 +1342,7 @@ export function RydderenDocumentationPage(props: { cleanupProjectId: string; bas
                   total: nextShareCount,
                   message:
                     imageShareQueue && imageShareQueue.nextIndex > 0
-                      ? `Klargjor neste del for Bilder (${imageShareQueue.nextIndex + 1}-${Math.min(imageShareQueue.totalCount, imageShareQueue.nextIndex + nextShareCount)})...`
+                      ? `Klargjør neste del for Bilder (${imageShareQueue.nextIndex + 1}-${Math.min(imageShareQueue.totalCount, imageShareQueue.nextIndex + nextShareCount)})...`
                       : "Starter bildeeksport til Bilder...",
                 });
                 const result = await saveAllDocumentationImages({
@@ -1231,7 +1372,7 @@ export function RydderenDocumentationPage(props: { cleanupProjectId: string; bas
                       phase: "sharing",
                       completed: result.nextIndex,
                       total: result.totalCount,
-                      message: `Denne delen er sendt til delingsarket. Velg 'Lagre i Bilder', og trykk deretter 'Til Bilder (${Math.min(nextQueueState.batchSize, result.remainingCount)} neste)' for a fortsette.`,
+                      message: `Denne delen er sendt til delingsarket. Velg 'Lagre i Bilder', og trykk deretter 'Til Bilder (${Math.min(nextQueueState.batchSize, result.remainingCount)} neste)' for å fortsette.`,
                     });
                   } else {
                     clearImageShareQueue(props.cleanupProjectId);
@@ -1240,7 +1381,7 @@ export function RydderenDocumentationPage(props: { cleanupProjectId: string; bas
                       phase: "sharing",
                       completed: result.totalCount,
                       total: result.totalCount,
-                      message: "Siste del er sendt til delingsarket. Velg 'Lagre i Bilder' for a fullfore.",
+                      message: "Siste del er sendt til delingsarket. Velg 'Lagre i Bilder' for å fullføre.",
                     });
                   }
                 }

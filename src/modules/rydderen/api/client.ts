@@ -4,6 +4,7 @@ import type {
   CleanupEvidenceEntry,
   CleanupEvidenceMap,
   CleanupEvidenceMapUpsertInput,
+  CleanupEvidenceEntryUpdateInput,
   CleanupImportResult,
   CleanupItem,
   CleanupItemUpdateInput,
@@ -103,6 +104,12 @@ export const cleanupApiClient = {
     return request<CleanupEvidenceEntry>(`/api/rydderen/projects/${cleanupProjectId}/documentation/entries`, {
       method: "POST",
       body: formData,
+    });
+  },
+  updateDocumentationEntry(cleanupProjectId: string, entryId: string, body: CleanupEvidenceEntryUpdateInput) {
+    return request<CleanupEvidenceEntry>(`/api/rydderen/projects/${cleanupProjectId}/documentation/entries/${entryId}`, {
+      method: "PATCH",
+      body: JSON.stringify(body),
     });
   },
   uploadDocumentationEntryImage(cleanupProjectId: string, entryId: string, formData: FormData) {

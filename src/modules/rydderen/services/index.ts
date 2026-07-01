@@ -43,6 +43,7 @@ import type {
   CleanupEvidenceEntry,
   CleanupEvidenceEntryCreateInput,
   CleanupEvidenceEntryImage,
+  CleanupEvidenceEntryUpdateInput,
   CleanupEvidenceMap,
   CleanupEvidenceMapUpsertInput,
   CleanupImportResult,
@@ -55,12 +56,17 @@ import type {
   CleanupReportSummary,
   LegacyCleanupImportPayload,
 } from "@/src/modules/rydderen/types";
-import { calculateCleanupSummary, slugify, toNumber } from "@/src/modules/rydderen/utils";
+import { calculateCleanupSummary, createCleanupProjectCaseNumber, slugify, toNumber } from "@/src/modules/rydderen/utils";
 
 type CleanupActor = {
   authUserId: string;
   tenantId: string;
 };
+
+function normalizeOptionalText(value: string | null | undefined) {
+  const trimmed = String(value || "").trim();
+  return trimmed ? trimmed : null;
+}
 
 function isMissingDocumentationTableError(error: unknown) {
   if (!(error instanceof Error)) {
@@ -101,6 +107,8 @@ function serializeProject(project: any, contextLabel: string | null, coverImageU
     tenantId: project.tenantId,
     name: project.name,
     slug: project.slug,
+    caseNumber: project.caseNumber ?? null,
+    responsiblePerson: project.responsiblePerson ?? null,
     moduleType: project.moduleType,
     contextType: project.contextType,
     contextId: project.contextId,
@@ -337,6 +345,8 @@ export async function createCleanupProject(input: CleanupProjectCreateInput) {
     tenantId: actor.tenantId,
     name: input.name,
     slug,
+    caseNumber: normalizeOptionalText(input.caseNumber),
+    responsiblePerson: normalizeOptionalText(input.responsiblePerson),
     moduleType: input.moduleType || "rydderen",
     contextType,
     contextId,
@@ -345,6 +355,13 @@ export async function createCleanupProject(input: CleanupProjectCreateInput) {
     createdBy: actor.authUserId,
     updatedBy: actor.authUserId,
   });
+
+  if (!created.caseNumber) {
+    await updateCleanupProjectRecord(created.id, actor.tenantId, {
+      caseNumber: createCleanupProjectCaseNumber(created.id, created.createdAt),
+      updatedBy: actor.authUserId,
+    });
+  }
 
   if (contextType !== "standalone" && contextId) {
     await createCleanupProjectLinkRecord({
@@ -365,6 +382,8 @@ export async function updateCleanupProject(cleanupProjectId: string, input: Clea
 
   if (input.name !== undefined) data.name = input.name;
   if (input.description !== undefined) data.description = input.description;
+  if (input.caseNumber !== undefined) data.caseNumber = normalizeOptionalText(input.caseNumber);
+  if (input.responsiblePerson !== undefined) data.responsiblePerson = normalizeOptionalText(input.responsiblePerson);
   if (input.status !== undefined) data.status = input.status;
   if (input.coverImagePath !== undefined) data.coverImagePath = input.coverImagePath;
   if (input.slug !== undefined) {
@@ -374,6 +393,45 @@ export async function updateCleanupProject(cleanupProjectId: string, input: Clea
 
   await updateCleanupProjectRecord(cleanupProjectId, actor.tenantId, data);
   return getCleanupProject(cleanupProjectId);
+}
+
+export async function updateCleanupEvidenceEntry(cleanupProjectId: string, entryId: string, input: CleanupEvidenceEntryUpdateInput) {
+  try {
+    const actor = await requireCleanupActor();
+    await getCleanupProject(cleanupProjectId);
+    const entry = await getCleanupEvidenceEntryByIdForTenant(cleanupProjectId, entryId, actor.tenantId);
+    if (!entry) {
+      throw new Error("Dokumentasjonsfunnet finnes ikke.");
+    }
+
+    const data: Record<string, unknown> = {
+      updatedBy: actor.authUserId,
+    };
+
+    if (input.category !== undefined) data.category = normalizeOptionalText(input.category);
+    if (input.description !== undefined) data.description = normalizeOptionalText(input.description);
+    if (input.comment !== undefined) data.comment = normalizeOptionalText(input.comment);
+    if (input.zone !== undefined) data.zone = normalizeOptionalText(input.zone);
+    if (input.count !== undefined) data.count = Math.max(1, Number(input.count) || 1);
+    if (input.risk !== undefined) data.risk = normalizeOptionalText(input.risk);
+    if (input.createdDate !== undefined) data.createdDate = normalizeOptionalText(input.createdDate);
+    if (input.createdTime !== undefined) data.createdTime = normalizeOptionalText(input.createdTime);
+    if (input.metadata !== undefined) {
+      data.metadata = {
+        ...(entry.metadata || {}),
+        ...(input.metadata || {}),
+      };
+    }
+
+    await updateCleanupEvidenceEntryRecord(entryId, actor.tenantId, data);
+    const record = await getCleanupEvidenceEntryByIdForTenant(cleanupProjectId, entryId, actor.tenantId);
+    return serializeEvidenceEntry(record);
+  } catch (error) {
+    if (isMissingDocumentationTableError(error)) {
+      throw createDocumentationUnavailableError();
+    }
+    throw error;
+  }
 }
 
 export async function deleteCleanupProject(cleanupProjectId: string) {

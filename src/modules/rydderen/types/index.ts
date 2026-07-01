@@ -30,6 +30,8 @@ export interface CleanupProject {
   tenantId: string;
   name: string;
   slug: string | null;
+  caseNumber: string | null;
+  responsiblePerson: string | null;
   moduleType: CleanupModuleType | string;
   contextType: CleanupProjectContextType | null;
   contextId: string | null;
@@ -114,6 +116,8 @@ export interface CleanupProjectCreateInput {
   name: string;
   slug?: string;
   description?: string;
+  caseNumber?: string | null;
+  responsiblePerson?: string | null;
   moduleType?: CleanupModuleType | string;
   contextType?: CleanupProjectContextType;
   contextId?: string | null;
@@ -123,6 +127,8 @@ export interface CleanupProjectUpdateInput {
   name?: string;
   slug?: string;
   description?: string | null;
+  caseNumber?: string | null;
+  responsiblePerson?: string | null;
   status?: CleanupProjectStatus | string;
   coverImagePath?: string | null;
 }
@@ -254,6 +260,18 @@ export interface CleanupEvidenceEntryCreateInput {
     imageHash?: string | null;
     originalName?: string | null;
   }>;
+  metadata?: Record<string, unknown>;
+}
+
+export interface CleanupEvidenceEntryUpdateInput {
+  category?: string | null;
+  description?: string | null;
+  comment?: string | null;
+  zone?: string | null;
+  count?: number;
+  risk?: string | null;
+  createdDate?: string | null;
+  createdTime?: string | null;
   metadata?: Record<string, unknown>;
 }
 

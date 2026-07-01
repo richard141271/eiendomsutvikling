@@ -54,11 +54,64 @@ export const CLEANUP_DOCUMENTATION_TYPES = [
   { id: "finding", label: "Nytt funn", prefix: "FUNN", shortLabel: "Funn" },
   { id: "observation", label: "Ny observasjon", prefix: "OBS", shortLabel: "Observasjon" },
   { id: "damage", label: "Ny skade", prefix: "SKADE", shortLabel: "Skade" },
-  { id: "measurement", label: "Ny måling", prefix: "MAL", shortLabel: "Maling" },
-  { id: "sample", label: "Ny prove", prefix: "SP", shortLabel: "Prove" },
+  { id: "measurement", label: "Ny måling", prefix: "MAL", shortLabel: "Måling" },
+  { id: "sample", label: "Ny prøve", prefix: "SP", shortLabel: "Prøve" },
 ] as const;
 
-export const CLEANUP_DOCUMENTATION_RISK_OPTIONS = ["Lav", "Middels", "Hoy", "Kritisk"] as const;
+export const CLEANUP_DOCUMENTATION_RISK_OPTIONS = ["Lav", "Middels", "Høy", "Kritisk"] as const;
+
+type CleanupEvidenceLike = {
+  metadata?: Record<string, unknown>;
+  images: Array<{ id: string }>;
+};
+
+const REPORT_HIDDEN_METADATA_KEY = "reportHidden";
+const REPORT_HIDDEN_IMAGE_IDS_METADATA_KEY = "reportHiddenImageIds";
+
+export function getCleanupReportHiddenImageIds(entry: CleanupEvidenceLike) {
+  const raw = entry.metadata?.[REPORT_HIDDEN_IMAGE_IDS_METADATA_KEY];
+  if (!Array.isArray(raw)) {
+    return [];
+  }
+  return raw.map((value) => String(value)).filter(Boolean);
+}
+
+export function isCleanupEvidenceEntryHidden(entry: CleanupEvidenceLike) {
+  return entry.metadata?.[REPORT_HIDDEN_METADATA_KEY] === true;
+}
+
+export function getVisibleCleanupEvidenceImages<T extends { id: string }>(entry: { metadata?: Record<string, unknown>; images: T[] }) {
+  const hiddenIds = new Set(getCleanupReportHiddenImageIds(entry));
+  return entry.images.filter((image) => !hiddenIds.has(image.id));
+}
+
+export function getHiddenCleanupEvidenceImages<T extends { id: string }>(entry: { metadata?: Record<string, unknown>; images: T[] }) {
+  const hiddenIds = new Set(getCleanupReportHiddenImageIds(entry));
+  return entry.images.filter((image) => hiddenIds.has(image.id));
+}
+
+export function getVisibleCleanupEvidenceImageCount(entry: CleanupEvidenceLike) {
+  return getVisibleCleanupEvidenceImages(entry).length;
+}
+
+export function buildCleanupEvidenceEntryMetadata(input: {
+  currentMetadata?: Record<string, unknown>;
+  reportHidden?: boolean;
+  hiddenImageIds?: string[];
+}) {
+  const nextMetadata = { ...(input.currentMetadata || {}) };
+  if (input.reportHidden !== undefined) {
+    nextMetadata[REPORT_HIDDEN_METADATA_KEY] = input.reportHidden;
+  }
+  if (input.hiddenImageIds !== undefined) {
+    nextMetadata[REPORT_HIDDEN_IMAGE_IDS_METADATA_KEY] = Array.from(new Set(input.hiddenImageIds.map((value) => String(value)).filter(Boolean)));
+  }
+  return nextMetadata;
+}
+
+export function createCleanupProjectCaseNumber(projectId: string, createdAt = new Date()) {
+  return `RYD-${createdAt.getFullYear()}-${projectId.slice(0, 8).toUpperCase()}`;
+}
 
 export function slugify(value: string) {
   return value
