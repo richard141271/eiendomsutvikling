@@ -75,6 +75,10 @@ async function fetchBlobFromUrl(url: string) {
   return response.blob();
 }
 
+function getDocumentationImageUrl(image: CleanupEvidenceEntryImage) {
+  return image.imageUrl || image.thumbnailUrl || null;
+}
+
 function createCrc32Table() {
   const table = new Uint32Array(256);
   for (let i = 0; i < 256; i += 1) {
@@ -355,10 +359,11 @@ async function fetchEntryImageBlobs(entry: CleanupEvidenceEntry, traceId: string
   // #endregion
   const result: Array<{ meta: CleanupEvidenceEntryImage; blob: Blob }> = [];
   for (const image of entry.images) {
-    if (!image.imageUrl) continue;
+    const imageUrl = getDocumentationImageUrl(image);
+    if (!imageUrl) continue;
     result.push({
       meta: image,
-      blob: await fetchBlobFromUrl(image.imageUrl),
+      blob: await fetchBlobFromUrl(imageUrl),
     });
   }
   // #region debug-point A:fetch-entry-finished
@@ -375,7 +380,7 @@ async function fetchEntryImageBlobs(entry: CleanupEvidenceEntry, traceId: string
 function getDocumentationImageTasks(entries: CleanupEvidenceEntry[]): DocumentationImageTask[] {
   return entries.flatMap((entry) =>
     entry.images
-      .filter((image) => Boolean(image.imageUrl))
+      .filter((image) => Boolean(getDocumentationImageUrl(image)))
       .map((image, index) => ({ entry, image, index }))
   );
 }
@@ -412,7 +417,18 @@ async function collectDocumentationImageFiles(params: {
       }
 
       const task = params.tasks[currentIndex];
-      const blob = await fetchBlobFromUrl(task.image.imageUrl as string);
+      const imageUrl = getDocumentationImageUrl(task.image);
+      if (!imageUrl) {
+        completed += 1;
+        params.onProgress?.({
+          phase: "preparing",
+          completed,
+          total: params.tasks.length,
+          message: `${params.progressPrefix || "Klargjør bilder..."} ${completed}/${params.tasks.length}`,
+        });
+        continue;
+      }
+      const blob = await fetchBlobFromUrl(imageUrl);
       const exportBlob = params.optimizeForShare
         ? await createOptimizedImageBlob(blob, SHARE_IMAGE_MAX_WIDTH, SHARE_IMAGE_MAX_HEIGHT, SHARE_IMAGE_QUALITY)
         : blob;

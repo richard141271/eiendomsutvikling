@@ -96,6 +96,10 @@ function buildPendingDocumentationImageKey(input: { cleanupProjectId: string; en
   return `${input.cleanupProjectId}:${input.entryId}:${input.index}:${hashPart || `${input.file.name}:${input.file.size}:${input.file.lastModified}`}`;
 }
 
+function isValidDocumentationSortOrder(value: number) {
+  return Number.isInteger(value) && value >= 0 && value <= 2147483647;
+}
+
 function reportDebugEvent(hypothesisId: "A" | "B" | "C" | "D" | "E", location: string, msg: string, data: Record<string, unknown>) {
   // #region debug-point C:rydderen-report
   if (typeof window === "undefined") {
@@ -1009,9 +1013,18 @@ export function useCleanupDocumentationEntries(cleanupProjectId: string) {
         return;
       }
 
+      const currentEntry = entries.find((entry) => entry.id === entryId) ?? null;
+      const highestSavedSortOrder = currentEntry
+        ? currentEntry.images.reduce((max, image) => (isValidDocumentationSortOrder(image.sortOrder) ? Math.max(max, image.sortOrder) : max), -1)
+        : -1;
+      const highestQueuedSortOrder = uploadQueueRef.current
+        .filter((item) => item.entryId === entryId)
+        .reduce((max, item) => (isValidDocumentationSortOrder(item.index) ? Math.max(max, item.index) : max), -1);
+      const nextSortOrderStart = Math.max(highestSavedSortOrder, highestQueuedSortOrder) + 1;
+
       await Promise.all(
         images.map(async (image, index) => {
-          const sortIndex = Date.now() + index;
+          const sortIndex = nextSortOrderStart + index;
           const key = buildPendingDocumentationImageKey({
             cleanupProjectId,
             entryId,
@@ -1043,7 +1056,7 @@ export function useCleanupDocumentationEntries(cleanupProjectId: string) {
       setPendingUploads((current) => current + images.length);
       void processUploadQueue();
     },
-    [cleanupProjectId, processUploadQueue]
+    [cleanupProjectId, entries, processUploadQueue]
   );
 
   const createEntry = useCallback(

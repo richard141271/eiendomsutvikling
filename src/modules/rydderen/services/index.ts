@@ -68,6 +68,14 @@ function normalizeOptionalText(value: string | null | undefined) {
   return trimmed ? trimmed : null;
 }
 
+function normalizeDocumentationImageSortOrder(value: number | null | undefined, fallback: number) {
+  if (typeof value === "number" && Number.isInteger(value) && value >= 0 && value <= 2147483647) {
+    return value;
+  }
+
+  return Math.max(0, Math.min(2147483647, fallback));
+}
+
 function isMissingDocumentationTableError(error: unknown) {
   if (!(error instanceof Error)) {
     return false;
@@ -724,7 +732,7 @@ export async function addCleanupEvidenceEntryImage(
       thumbnailPath: null,
       imageHash: input.imageHash ?? null,
       originalName: input.originalName ?? input.file.name ?? null,
-      sortOrder: input.sortOrder ?? entry.images.length,
+      sortOrder: normalizeDocumentationImageSortOrder(input.sortOrder, entry.images.length),
     });
 
     const arrayBuffer = await input.file.arrayBuffer();

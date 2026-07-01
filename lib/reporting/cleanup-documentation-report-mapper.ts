@@ -201,7 +201,7 @@ function mapEntries(entries: CleanupEvidenceEntry[]): DocumentationEntryMetadata
       images: getVisibleCleanupEvidenceImages(entry)
         .slice()
         .sort((left, right) => left.sortOrder - right.sortOrder)
-        .filter((image) => Boolean(image.imageUrl))
+        .filter((image) => Boolean(image.imageUrl || image.thumbnailUrl))
         .map((image, index) => ({
           id: image.id,
           code: `${entry.entryNumber}-${String(index + 1).padStart(2, "0")}`,

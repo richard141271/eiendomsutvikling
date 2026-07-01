@@ -404,9 +404,11 @@ async function renderDocumentationReportPackage(document: ReportDocument): Promi
     }
   };
 
-  const renderEntryPage = async (entry: DocumentationEntryMetadata, imageOffset: number) => {
-    const pageObj = newPage();
-    pagesNeedingChrome.push(pdf.getPageCount() - 1);
+  const drawEntryHeader = (
+    pageObj: { page: any; width: number; height: number },
+    entry: DocumentationEntryMetadata,
+    continuationLabel?: string
+  ) => {
     const { page, width, height } = pageObj;
     let y = height - 74;
 
@@ -416,6 +418,11 @@ async function renderDocumentationReportPackage(document: ReportDocument): Promi
     page.drawRectangle({ x: width - 48 - badgeWidth, y: y - 2, width: badgeWidth, height: 18, color: colors.blueSoft });
     page.drawText(badgeText, { x: width - 48 - badgeWidth + 9, y: y + 4, size: 10, font: bold, color: colors.blue });
     y -= 28;
+
+    if (continuationLabel) {
+      page.drawText(sanitizeText(continuationLabel), { x: 48, y, size: 10, font: bold, color: colors.muted });
+      y -= 18;
+    }
 
     const infoRows = [
       ["Kategori", entry.category],
@@ -449,30 +456,66 @@ async function renderDocumentationReportPackage(document: ReportDocument): Promi
       y -= 48;
     }
 
-    const drawTextPanel = (title: string, text: string, panelHeight: number) => {
-      page.drawRectangle({
-        x: 48,
-        y: y - panelHeight,
-        width: width - 96,
-        height: panelHeight,
-        color: rgb(1, 1, 1),
-        borderColor: colors.line,
-        borderWidth: 1,
-      });
-      page.drawText(title, { x: 60, y: y - 18, size: 11, font: bold, color: colors.ink });
-      const lines = wordWrap(text, font, 11, width - 120);
-      let textY = y - 34;
-      lines.slice(0, Math.max(1, Math.floor((panelHeight - 28) / 14))).forEach((line) => {
-        page.drawText(line, { x: 60, y: textY, size: 11, font, color: colors.ink });
-        textY -= 14;
-      });
-      y -= panelHeight + 14;
-    };
+    return y;
+  };
 
-    const descriptionHeight = Math.max(60, Math.min(110, wordWrap(entry.description, font, 11, width - 120).length * 14 + 30));
-    drawTextPanel("Beskrivelse", entry.description, descriptionHeight);
-    const commentHeight = Math.max(52, Math.min(90, wordWrap(entry.comment, font, 11, width - 120).length * 14 + 30));
-    drawTextPanel("Kommentar", entry.comment, commentHeight);
+  const renderEntryTextPages = (entry: DocumentationEntryMetadata) => {
+    const sections = [
+      { title: "Beskrivelse", lines: wordWrap(entry.description, font, 11, cover.width - 96) },
+      { title: "Kommentar", lines: wordWrap(entry.comment, font, 11, cover.width - 96) },
+    ];
+    let sectionIndex = 0;
+    let lineIndex = 0;
+    let firstPage = true;
+
+    while (sectionIndex < sections.length) {
+      const pageObj = newPage();
+      pagesNeedingChrome.push(pdf.getPageCount() - 1);
+      const { page } = pageObj;
+      let y = drawEntryHeader(pageObj, entry, firstPage ? undefined : "Tekst fortsetter");
+      const bottomLimit = 66;
+      const lineHeight = 14;
+
+      while (sectionIndex < sections.length) {
+        const section = sections[sectionIndex];
+        const heading = lineIndex > 0 ? `${section.title} (fortsetter)` : section.title;
+
+        if (y - 22 < bottomLimit) {
+          break;
+        }
+
+        page.drawText(heading, { x: 48, y, size: 14, font: bold, color: colors.ink });
+        y -= 18;
+
+        const availableLines = Math.max(1, Math.floor((y - bottomLimit) / lineHeight));
+        const linesForPage = section.lines.slice(lineIndex, lineIndex + availableLines);
+
+        linesForPage.forEach((line) => {
+          if (line) {
+            page.drawText(line, { x: 48, y, size: 11, font, color: colors.ink });
+          }
+          y -= lineHeight;
+        });
+
+        lineIndex += linesForPage.length;
+        if (lineIndex < section.lines.length) {
+          break;
+        }
+
+        sectionIndex += 1;
+        lineIndex = 0;
+        y -= 10;
+      }
+
+      firstPage = false;
+    }
+  };
+
+  const renderEntryImagePage = async (entry: DocumentationEntryMetadata, imageOffset: number) => {
+    const pageObj = newPage();
+    pagesNeedingChrome.push(pdf.getPageCount() - 1);
+    const { page, width } = pageObj;
+    let y = drawEntryHeader(pageObj, entry, imageOffset > 0 ? "Bilder fortsetter" : undefined);
 
     page.drawText("Bilder", { x: 48, y, size: 15, font: bold, color: colors.ink });
     y -= 18;
@@ -502,7 +545,7 @@ async function renderDocumentationReportPackage(document: ReportDocument): Promi
     );
 
     // #region debug-point B:image-batch-loaded
-    reportDebugEvent("pre-fix", "B", "pdf-renderer.ts:renderEntryPage:image-batch", "[DEBUG] Loaded documentation image batch", {
+    reportDebugEvent("pre-fix", "B", "pdf-renderer.ts:renderEntryImagePage:image-batch", "[DEBUG] Loaded documentation image batch", {
       entryNumber: entry.entryNumber,
       requestedImages: imagesForPage.length,
       resolvedImages: loadedImages.filter((image) => Boolean(image.bytes)).length,
@@ -565,9 +608,10 @@ async function renderDocumentationReportPackage(document: ReportDocument): Promi
   };
 
   for (const entry of documentation.entries) {
+    renderEntryTextPages(entry);
     let offset = 0;
     do {
-      offset = await renderEntryPage(entry, offset);
+      offset = await renderEntryImagePage(entry, offset);
     } while (offset < entry.images.length);
   }
 
