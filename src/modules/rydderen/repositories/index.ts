@@ -10,12 +10,19 @@ const CLEANUP_SIGNED_URL_TTL_SECONDS = 3600;
 const CLEANUP_SIGNED_URL_CACHE_MS = 45 * 60 * 1000;
 const cleanupSignedUrlCache = new Map<string, { url: string; expiresAt: number }>();
 
+function withOptionalTenantScope(where: Record<string, unknown>, tenantId?: string | null) {
+  if (tenantId) {
+    where.tenantId = tenantId;
+  }
+  return where;
+}
+
 export async function listCleanupProjectsByTenant(params: {
-  tenantId: string;
+  tenantId?: string | null;
   contextType?: string | null;
   contextId?: string | null;
 }) {
-  const where: Record<string, unknown> = { tenantId: params.tenantId };
+  const where: Record<string, unknown> = withOptionalTenantScope({}, params.tenantId);
   if (params.contextType) where.contextType = params.contextType;
   if (params.contextId) where.contextId = params.contextId;
 
@@ -30,9 +37,9 @@ export async function listCleanupProjectsByTenant(params: {
   });
 }
 
-export async function getCleanupProjectByIdForTenant(cleanupProjectId: string, tenantId: string) {
+export async function getCleanupProjectByIdForTenant(cleanupProjectId: string, tenantId?: string | null) {
   return (prisma as any).cleanupProject.findFirst({
-    where: { id: cleanupProjectId, tenantId },
+    where: withOptionalTenantScope({ id: cleanupProjectId }, tenantId),
     include: {
       items: { orderBy: { itemNumber: "asc" } },
       costs: { orderBy: { incurredAt: "desc" } },
@@ -45,16 +52,16 @@ export async function createCleanupProjectRecord(data: Record<string, unknown>) 
   return (prisma as any).cleanupProject.create({ data });
 }
 
-export async function updateCleanupProjectRecord(cleanupProjectId: string, tenantId: string, data: Record<string, unknown>) {
+export async function updateCleanupProjectRecord(cleanupProjectId: string, tenantId: string | null | undefined, data: Record<string, unknown>) {
   return (prisma as any).cleanupProject.updateMany({
-    where: { id: cleanupProjectId, tenantId },
+    where: withOptionalTenantScope({ id: cleanupProjectId }, tenantId),
     data,
   });
 }
 
-export async function deleteCleanupProjectRecord(cleanupProjectId: string, tenantId: string) {
+export async function deleteCleanupProjectRecord(cleanupProjectId: string, tenantId: string | null | undefined) {
   return (prisma as any).cleanupProject.deleteMany({
-    where: { id: cleanupProjectId, tenantId },
+    where: withOptionalTenantScope({ id: cleanupProjectId }, tenantId),
   });
 }
 
@@ -69,9 +76,9 @@ export async function createCleanupProjectLinkRecord(data: Record<string, unknow
   return (prisma as any).cleanupProjectLink.create({ data });
 }
 
-export async function listCleanupEvidenceEntriesForTenant(cleanupProjectId: string, tenantId: string) {
+export async function listCleanupEvidenceEntriesForTenant(cleanupProjectId: string, tenantId?: string | null) {
   return (prisma as any).cleanupEvidenceEntry.findMany({
-    where: { cleanupProjectId, tenantId },
+    where: withOptionalTenantScope({ cleanupProjectId }, tenantId),
     include: {
       images: {
         orderBy: { sortOrder: "asc" },
@@ -81,9 +88,9 @@ export async function listCleanupEvidenceEntriesForTenant(cleanupProjectId: stri
   });
 }
 
-export async function getCleanupEvidenceEntryByIdForTenant(cleanupProjectId: string, entryId: string, tenantId: string) {
+export async function getCleanupEvidenceEntryByIdForTenant(cleanupProjectId: string, entryId: string, tenantId?: string | null) {
   return (prisma as any).cleanupEvidenceEntry.findFirst({
-    where: { id: entryId, cleanupProjectId, tenantId },
+    where: withOptionalTenantScope({ id: entryId, cleanupProjectId }, tenantId),
     include: {
       images: {
         orderBy: { sortOrder: "asc" },
@@ -104,9 +111,9 @@ export async function createCleanupEvidenceEntryRecord(data: Record<string, unkn
   return (prisma as any).cleanupEvidenceEntry.create({ data });
 }
 
-export async function updateCleanupEvidenceEntryRecord(entryId: string, tenantId: string, data: Record<string, unknown>) {
+export async function updateCleanupEvidenceEntryRecord(entryId: string, tenantId: string | null | undefined, data: Record<string, unknown>) {
   return (prisma as any).cleanupEvidenceEntry.updateMany({
-    where: { id: entryId, tenantId },
+    where: withOptionalTenantScope({ id: entryId }, tenantId),
     data,
   });
 }
@@ -115,15 +122,15 @@ export async function createCleanupEvidenceEntryImageRecord(data: Record<string,
   return (prisma as any).cleanupEvidenceEntryImage.create({ data });
 }
 
-export async function countCleanupEvidenceEntryImages(entryId: string, tenantId: string) {
+export async function countCleanupEvidenceEntryImages(entryId: string, tenantId?: string | null) {
   return (prisma as any).cleanupEvidenceEntryImage.count({
-    where: { cleanupEvidenceEntryId: entryId, tenantId },
+    where: withOptionalTenantScope({ cleanupEvidenceEntryId: entryId }, tenantId),
   });
 }
 
-export async function updateCleanupEvidenceEntryImageRecord(imageId: string, tenantId: string, data: Record<string, unknown>) {
+export async function updateCleanupEvidenceEntryImageRecord(imageId: string, tenantId: string | null | undefined, data: Record<string, unknown>) {
   return (prisma as any).cleanupEvidenceEntryImage.updateMany({
-    where: { id: imageId, tenantId },
+    where: withOptionalTenantScope({ id: imageId }, tenantId),
     data,
   });
 }
@@ -148,9 +155,9 @@ export async function findCleanupEvidenceImageByHashForTenant(params: {
   });
 }
 
-export async function getCleanupEvidenceMapByProjectIdForTenant(cleanupProjectId: string, tenantId: string) {
+export async function getCleanupEvidenceMapByProjectIdForTenant(cleanupProjectId: string, tenantId?: string | null) {
   return (prisma as any).cleanupEvidenceMap.findFirst({
-    where: { cleanupProjectId, tenantId },
+    where: withOptionalTenantScope({ cleanupProjectId }, tenantId),
   });
 }
 
@@ -170,14 +177,16 @@ export async function upsertCleanupEvidenceMapRecord(params: {
 }
 
 export async function listCleanupItemsForTenant(params: {
-  tenantId: string;
+  tenantId?: string | null;
   cleanupProjectId: string;
   action?: string | null;
 }) {
-  const where: Record<string, unknown> = {
-    tenantId: params.tenantId,
-    cleanupProjectId: params.cleanupProjectId,
-  };
+  const where: Record<string, unknown> = withOptionalTenantScope(
+    {
+      cleanupProjectId: params.cleanupProjectId,
+    },
+    params.tenantId
+  );
   if (params.action) where.action = params.action;
 
   return (prisma as any).cleanupItem.findMany({
@@ -191,9 +200,9 @@ export async function listCleanupItemsForTenant(params: {
   });
 }
 
-export async function getCleanupItemByIdForTenant(cleanupProjectId: string, itemId: string, tenantId: string) {
+export async function getCleanupItemByIdForTenant(cleanupProjectId: string, itemId: string, tenantId?: string | null) {
   return (prisma as any).cleanupItem.findFirst({
-    where: { id: itemId, cleanupProjectId, tenantId },
+    where: withOptionalTenantScope({ id: itemId, cleanupProjectId }, tenantId),
     include: {
       cleanupProject: {
         select: { id: true, name: true },
@@ -232,18 +241,18 @@ export async function createCleanupItemRecord(data: Record<string, unknown>) {
   return (prisma as any).cleanupItem.create({ data });
 }
 
-export async function updateCleanupItemRecord(cleanupProjectId: string, itemId: string, tenantId: string, data: Record<string, unknown>) {
+export async function updateCleanupItemRecord(cleanupProjectId: string, itemId: string, tenantId: string | null | undefined, data: Record<string, unknown>) {
   await (prisma as any).cleanupItem.updateMany({
-    where: { id: itemId, cleanupProjectId, tenantId },
+    where: withOptionalTenantScope({ id: itemId, cleanupProjectId }, tenantId),
     data,
   });
 
   return getCleanupItemByIdForTenant(cleanupProjectId, itemId, tenantId);
 }
 
-export async function listCleanupCostsForTenant(cleanupProjectId: string, tenantId: string) {
+export async function listCleanupCostsForTenant(cleanupProjectId: string, tenantId?: string | null) {
   return (prisma as any).cleanupProjectCost.findMany({
-    where: { cleanupProjectId, tenantId },
+    where: withOptionalTenantScope({ cleanupProjectId }, tenantId),
     orderBy: [{ incurredAt: "desc" }, { createdAt: "desc" }],
   });
 }

@@ -1,6 +1,7 @@
 import "server-only";
 
 import { createClient } from "@/lib/supabase-server";
+import { prisma } from "@/lib/prisma";
 import {
   createCleanupCostRecord,
   createCleanupEvidenceEntryImageRecord,
@@ -61,7 +62,10 @@ import { calculateCleanupSummary, createCleanupProjectCaseNumber, slugify, toNum
 type CleanupActor = {
   authUserId: string;
   tenantId: string;
+  canAccessAll: boolean;
 };
+
+const PRIVILEGED_CLEANUP_ROLES = new Set(["OWNER", "ADMIN", "MANAGER"]);
 
 function normalizeOptionalText(value: string | null | undefined) {
   const trimmed = String(value || "").trim();
@@ -102,10 +106,39 @@ async function requireCleanupActor(): Promise<CleanupActor> {
     throw new Error("Unauthorized");
   }
 
+  let dbUser = await prisma.user.findUnique({
+    where: { authId: user.id },
+    select: { id: true, role: true, authId: true, email: true },
+  });
+
+  if (!dbUser && user.email) {
+    const existingByEmail = await prisma.user.findUnique({
+      where: { email: user.email },
+      select: { id: true, role: true, authId: true, email: true },
+    });
+
+    if (existingByEmail) {
+      dbUser = await prisma.user.update({
+        where: { id: existingByEmail.id },
+        data: existingByEmail.authId ? {} : { authId: user.id },
+        select: { id: true, role: true, authId: true, email: true },
+      });
+    }
+  }
+
   return {
     authUserId: user.id,
     tenantId: user.id,
+    canAccessAll: PRIVILEGED_CLEANUP_ROLES.has(dbUser?.role || ""),
   };
+}
+
+function getCleanupTenantScope(actor: CleanupActor) {
+  return actor.canAccessAll ? null : actor.tenantId;
+}
+
+async function getCleanupProjectRecordForActor(actor: CleanupActor, cleanupProjectId: string) {
+  return getCleanupProjectByIdForTenant(cleanupProjectId, getCleanupTenantScope(actor));
 }
 
 function serializeProject(project: any, contextLabel: string | null, coverImageUrl: string | null): CleanupProject {
@@ -284,7 +317,7 @@ async function resolveUniqueSlug(tenantId: string, preferred: string) {
 export async function listCleanupProjects(filters?: { contextType?: string | null; contextId?: string | null }) {
   const actor = await requireCleanupActor();
   const records = await listCleanupProjectsByTenant({
-    tenantId: actor.tenantId,
+    tenantId: getCleanupTenantScope(actor),
     contextType: filters?.contextType,
     contextId: filters?.contextId,
   });
@@ -300,7 +333,7 @@ export async function listCleanupProjects(filters?: { contextType?: string | nul
 
 export async function getCleanupProject(cleanupProjectId: string) {
   const actor = await requireCleanupActor();
-  const project = await getCleanupProjectByIdForTenant(cleanupProjectId, actor.tenantId);
+  const project = await getCleanupProjectRecordForActor(actor, cleanupProjectId);
   if (!project) {
     throw new Error("Cleanup project not found");
   }
@@ -384,6 +417,10 @@ export async function createCleanupProject(input: CleanupProjectCreateInput) {
 
 export async function updateCleanupProject(cleanupProjectId: string, input: CleanupProjectUpdateInput) {
   const actor = await requireCleanupActor();
+  const project = await getCleanupProjectRecordForActor(actor, cleanupProjectId);
+  if (!project) {
+    throw new Error("Cleanup project not found");
+  }
   const data: Record<string, unknown> = {
     updatedBy: actor.authUserId,
   };
@@ -396,18 +433,21 @@ export async function updateCleanupProject(cleanupProjectId: string, input: Clea
   if (input.coverImagePath !== undefined) data.coverImagePath = input.coverImagePath;
   if (input.slug !== undefined) {
     const baseSlug = slugify(input.slug || "");
-    data.slug = baseSlug ? await resolveUniqueSlug(actor.tenantId, baseSlug) : null;
+    data.slug = baseSlug ? await resolveUniqueSlug(project.tenantId, baseSlug) : null;
   }
 
-  await updateCleanupProjectRecord(cleanupProjectId, actor.tenantId, data);
+  await updateCleanupProjectRecord(cleanupProjectId, project.tenantId, data);
   return getCleanupProject(cleanupProjectId);
 }
 
 export async function updateCleanupEvidenceEntry(cleanupProjectId: string, entryId: string, input: CleanupEvidenceEntryUpdateInput) {
   try {
     const actor = await requireCleanupActor();
-    await getCleanupProject(cleanupProjectId);
-    const entry = await getCleanupEvidenceEntryByIdForTenant(cleanupProjectId, entryId, actor.tenantId);
+    const project = await getCleanupProjectRecordForActor(actor, cleanupProjectId);
+    if (!project) {
+      throw new Error("Cleanup project not found");
+    }
+    const entry = await getCleanupEvidenceEntryByIdForTenant(cleanupProjectId, entryId, project.tenantId);
     if (!entry) {
       throw new Error("Dokumentasjonsfunnet finnes ikke.");
     }
@@ -431,8 +471,8 @@ export async function updateCleanupEvidenceEntry(cleanupProjectId: string, entry
       };
     }
 
-    await updateCleanupEvidenceEntryRecord(entryId, actor.tenantId, data);
-    const record = await getCleanupEvidenceEntryByIdForTenant(cleanupProjectId, entryId, actor.tenantId);
+    await updateCleanupEvidenceEntryRecord(entryId, project.tenantId, data);
+    const record = await getCleanupEvidenceEntryByIdForTenant(cleanupProjectId, entryId, project.tenantId);
     return serializeEvidenceEntry(record);
   } catch (error) {
     if (isMissingDocumentationTableError(error)) {
@@ -444,20 +484,23 @@ export async function updateCleanupEvidenceEntry(cleanupProjectId: string, entry
 
 export async function deleteCleanupProject(cleanupProjectId: string) {
   const actor = await requireCleanupActor();
-  const project = await getCleanupProjectByIdForTenant(cleanupProjectId, actor.tenantId);
+  const project = await getCleanupProjectRecordForActor(actor, cleanupProjectId);
   if (!project) {
     throw new Error("Cleanup project not found");
   }
 
-  await deleteCleanupProjectRecord(cleanupProjectId, actor.tenantId);
+  await deleteCleanupProjectRecord(cleanupProjectId, project.tenantId);
   return { success: true };
 }
 
 export async function listCleanupItems(cleanupProjectId: string, filters?: { action?: string | null }) {
   const actor = await requireCleanupActor();
-  await getCleanupProject(cleanupProjectId);
+  const project = await getCleanupProjectRecordForActor(actor, cleanupProjectId);
+  if (!project) {
+    throw new Error("Cleanup project not found");
+  }
   const items = await listCleanupItemsForTenant({
-    tenantId: actor.tenantId,
+    tenantId: project.tenantId,
     cleanupProjectId,
     action: filters?.action,
   });
@@ -466,11 +509,14 @@ export async function listCleanupItems(cleanupProjectId: string, filters?: { act
 
 export async function createCleanupItem(cleanupProjectId: string, input: CleanupItemCreateInput) {
   const actor = await requireCleanupActor();
-  await getCleanupProject(cleanupProjectId);
+  const project = await getCleanupProjectRecordForActor(actor, cleanupProjectId);
+  if (!project) {
+    throw new Error("Cleanup project not found");
+  }
   if (input.imageHash) {
     const duplicate = await findCleanupItemByImageHashForTenant({
       cleanupProjectId,
-      tenantId: actor.tenantId,
+      tenantId: project.tenantId,
       imageHash: input.imageHash,
     });
 
@@ -483,7 +529,7 @@ export async function createCleanupItem(cleanupProjectId: string, input: Cleanup
   let item;
   try {
     item = await createCleanupItemRecord({
-      tenantId: actor.tenantId,
+      tenantId: project.tenantId,
       cleanupProjectId,
       itemNumber,
       imageHash: input.imageHash ?? null,
@@ -508,7 +554,7 @@ export async function createCleanupItem(cleanupProjectId: string, input: Cleanup
     throw error;
   }
 
-  const record = await getCleanupItemByIdForTenant(cleanupProjectId, item.id, actor.tenantId);
+  const record = await getCleanupItemByIdForTenant(cleanupProjectId, item.id, project.tenantId);
   return serializeItem(record);
 }
 
@@ -525,12 +571,15 @@ export async function createCapturedCleanupItem(
   }
 ) {
   const actor = await requireCleanupActor();
-  await getCleanupProject(cleanupProjectId);
+  const project = await getCleanupProjectRecordForActor(actor, cleanupProjectId);
+  if (!project) {
+    throw new Error("Cleanup project not found");
+  }
 
   if (input.imageHash) {
     const duplicate = await findCleanupItemByImageHashForTenant({
       cleanupProjectId,
-      tenantId: actor.tenantId,
+      tenantId: project.tenantId,
       imageHash: input.imageHash,
     });
 
@@ -542,7 +591,7 @@ export async function createCapturedCleanupItem(
   let item;
   try {
     item = await createCleanupItemRecord({
-      tenantId: actor.tenantId,
+      tenantId: project.tenantId,
       cleanupProjectId,
       itemNumber: await getNextCleanupItemNumber(cleanupProjectId),
       imageHash: input.imageHash ?? null,
@@ -570,7 +619,7 @@ export async function createCapturedCleanupItem(
     contentType: input.file.type || "image/jpeg",
   });
 
-  const record = await updateCleanupItemRecord(cleanupProjectId, item.id, actor.tenantId, {
+  const record = await updateCleanupItemRecord(cleanupProjectId, item.id, project.tenantId, {
     imagePath: originalPath,
     imageThumbnailPath: thumbPath,
     updatedBy: actor.authUserId,
@@ -581,7 +630,10 @@ export async function createCapturedCleanupItem(
 
 export async function updateCleanupItem(cleanupProjectId: string, itemId: string, input: CleanupItemUpdateInput) {
   const actor = await requireCleanupActor();
-  await getCleanupProject(cleanupProjectId);
+  const project = await getCleanupProjectRecordForActor(actor, cleanupProjectId);
+  if (!project) {
+    throw new Error("Cleanup project not found");
+  }
 
   const data: Record<string, unknown> = {
     updatedBy: actor.authUserId,
@@ -599,7 +651,7 @@ export async function updateCleanupItem(cleanupProjectId: string, itemId: string
   if (input.metadata !== undefined) data.metadata = input.metadata;
   if (input.valuedAt !== undefined) data.valuedAt = input.valuedAt ? new Date(input.valuedAt) : null;
 
-  const record = await updateCleanupItemRecord(cleanupProjectId, itemId, actor.tenantId, data);
+  const record = await updateCleanupItemRecord(cleanupProjectId, itemId, project.tenantId, data);
   if (!record) {
     throw new Error("Cleanup item not found");
   }
@@ -609,17 +661,23 @@ export async function updateCleanupItem(cleanupProjectId: string, itemId: string
 
 export async function listCleanupCosts(cleanupProjectId: string) {
   const actor = await requireCleanupActor();
-  await getCleanupProject(cleanupProjectId);
-  const costs = await listCleanupCostsForTenant(cleanupProjectId, actor.tenantId);
+  const project = await getCleanupProjectRecordForActor(actor, cleanupProjectId);
+  if (!project) {
+    throw new Error("Cleanup project not found");
+  }
+  const costs = await listCleanupCostsForTenant(cleanupProjectId, project.tenantId);
   return costs.map(serializeCost);
 }
 
 export async function createCleanupCost(cleanupProjectId: string, input: CleanupCostCreateInput) {
   const actor = await requireCleanupActor();
-  await getCleanupProject(cleanupProjectId);
+  const project = await getCleanupProjectRecordForActor(actor, cleanupProjectId);
+  if (!project) {
+    throw new Error("Cleanup project not found");
+  }
 
   const cost = await createCleanupCostRecord({
-    tenantId: actor.tenantId,
+    tenantId: project.tenantId,
     cleanupProjectId,
     costType: input.costType,
     amount: input.amount,
@@ -651,8 +709,11 @@ export async function getCleanupReport(cleanupProjectId: string): Promise<Cleanu
 export async function listCleanupEvidenceEntries(cleanupProjectId: string) {
   try {
     const actor = await requireCleanupActor();
-    await getCleanupProject(cleanupProjectId);
-    const entries = await listCleanupEvidenceEntriesForTenant(cleanupProjectId, actor.tenantId);
+    const project = await getCleanupProjectRecordForActor(actor, cleanupProjectId);
+    if (!project) {
+      throw new Error("Cleanup project not found");
+    }
+    const entries = await listCleanupEvidenceEntriesForTenant(cleanupProjectId, project.tenantId);
     return Promise.all(entries.map(serializeEvidenceEntry));
   } catch (error) {
     if (isMissingDocumentationTableError(error)) {
@@ -665,12 +726,15 @@ export async function listCleanupEvidenceEntries(cleanupProjectId: string) {
 export async function createCleanupEvidenceEntry(cleanupProjectId: string, input: CleanupEvidenceEntryCreateInput) {
   try {
     const actor = await requireCleanupActor();
-    await getCleanupProject(cleanupProjectId);
+    const project = await getCleanupProjectRecordForActor(actor, cleanupProjectId);
+    if (!project) {
+      throw new Error("Cleanup project not found");
+    }
 
     const sequence = await getNextCleanupEvidenceSequence(cleanupProjectId, input.entryType);
     const createdAt = new Date();
     const entry = await createCleanupEvidenceEntryRecord({
-      tenantId: actor.tenantId,
+      tenantId: project.tenantId,
       cleanupProjectId,
       entryType: input.entryType,
       sequence,
@@ -690,7 +754,7 @@ export async function createCleanupEvidenceEntry(cleanupProjectId: string, input
       metadata: input.metadata || {},
     });
 
-    const record = await getCleanupEvidenceEntryByIdForTenant(cleanupProjectId, entry.id, actor.tenantId);
+    const record = await getCleanupEvidenceEntryByIdForTenant(cleanupProjectId, entry.id, project.tenantId);
     return serializeEvidenceEntry(record);
   } catch (error) {
     if (isMissingDocumentationTableError(error)) {
@@ -707,9 +771,12 @@ export async function addCleanupEvidenceEntryImage(
 ) {
   try {
     const actor = await requireCleanupActor();
-    await getCleanupProject(cleanupProjectId);
+    const project = await getCleanupProjectRecordForActor(actor, cleanupProjectId);
+    if (!project) {
+      throw new Error("Cleanup project not found");
+    }
 
-    const entry = await getCleanupEvidenceEntryByIdForTenant(cleanupProjectId, entryId, actor.tenantId);
+    const entry = await getCleanupEvidenceEntryByIdForTenant(cleanupProjectId, entryId, project.tenantId);
     if (!entry) {
       throw new Error("Dokumentasjonsfunnet finnes ikke.");
     }
@@ -717,7 +784,7 @@ export async function addCleanupEvidenceEntryImage(
     if (input.imageHash) {
       const duplicate = await findCleanupEvidenceImageByHashForTenant({
         cleanupProjectId,
-        tenantId: actor.tenantId,
+        tenantId: project.tenantId,
         imageHash: input.imageHash,
       });
       if (duplicate?.cleanupEvidenceEntryId === entry.id) {
@@ -726,7 +793,7 @@ export async function addCleanupEvidenceEntryImage(
     }
 
     const imageRecord = await createCleanupEvidenceEntryImageRecord({
-      tenantId: actor.tenantId,
+      tenantId: project.tenantId,
       cleanupEvidenceEntryId: entry.id,
       storagePath: "",
       thumbnailPath: null,
@@ -744,18 +811,18 @@ export async function addCleanupEvidenceEntryImage(
       contentType: input.file.type || "image/jpeg",
     });
 
-    await updateCleanupEvidenceEntryImageRecord(imageRecord.id, actor.tenantId, {
+    await updateCleanupEvidenceEntryImageRecord(imageRecord.id, project.tenantId, {
       storagePath: originalPath,
       thumbnailPath: thumbPath,
     });
 
-    const imageCount = await countCleanupEvidenceEntryImages(entry.id, actor.tenantId);
-    await updateCleanupEvidenceEntryRecord(entry.id, actor.tenantId, {
+    const imageCount = await countCleanupEvidenceEntryImages(entry.id, project.tenantId);
+    await updateCleanupEvidenceEntryRecord(entry.id, project.tenantId, {
       imageCount,
       updatedBy: actor.authUserId,
     });
 
-    const record = await getCleanupEvidenceEntryByIdForTenant(cleanupProjectId, entry.id, actor.tenantId);
+    const record = await getCleanupEvidenceEntryByIdForTenant(cleanupProjectId, entry.id, project.tenantId);
     return serializeEvidenceEntry(record);
   } catch (error) {
     if (isMissingDocumentationTableError(error)) {
@@ -768,8 +835,11 @@ export async function addCleanupEvidenceEntryImage(
 export async function getCleanupEvidenceMap(cleanupProjectId: string) {
   try {
     const actor = await requireCleanupActor();
-    await getCleanupProject(cleanupProjectId);
-    const map = await getCleanupEvidenceMapByProjectIdForTenant(cleanupProjectId, actor.tenantId);
+    const project = await getCleanupProjectRecordForActor(actor, cleanupProjectId);
+    if (!project) {
+      throw new Error("Cleanup project not found");
+    }
+    const map = await getCleanupEvidenceMapByProjectIdForTenant(cleanupProjectId, project.tenantId);
     if (!map) {
       return null;
     }
@@ -785,12 +855,15 @@ export async function getCleanupEvidenceMap(cleanupProjectId: string) {
 export async function upsertCleanupEvidenceMap(cleanupProjectId: string, input: CleanupEvidenceMapUpsertInput) {
   try {
     const actor = await requireCleanupActor();
-    await getCleanupProject(cleanupProjectId);
+    const project = await getCleanupProjectRecordForActor(actor, cleanupProjectId);
+    if (!project) {
+      throw new Error("Cleanup project not found");
+    }
     const record = await upsertCleanupEvidenceMapRecord({
       cleanupProjectId,
-      tenantId: actor.tenantId,
+      tenantId: project.tenantId,
       create: {
-        tenantId: actor.tenantId,
+        tenantId: project.tenantId,
         cleanupProjectId,
         rows: input.rows,
         columns: input.columns,
@@ -802,7 +875,7 @@ export async function upsertCleanupEvidenceMap(cleanupProjectId: string, input: 
         updatedBy: actor.authUserId,
       },
       update: {
-        tenantId: actor.tenantId,
+        tenantId: project.tenantId,
         rows: input.rows,
         columns: input.columns,
         zones: input.zones,
@@ -859,7 +932,7 @@ export async function importLegacyCleanupPayload(payload: LegacyCleanupImportPay
           dataUrl: item.imageDataUrl,
         });
 
-        await updateCleanupItemRecord(project.id, created.id, actor.tenantId, {
+        await updateCleanupItemRecord(project.id, created.id, project.tenantId, {
           imagePath: paths.originalPath,
           imageThumbnailPath: paths.thumbPath,
           updatedBy: actor.authUserId,
